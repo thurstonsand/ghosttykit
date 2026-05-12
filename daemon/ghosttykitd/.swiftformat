@@ -1,0 +1,17 @@
+--swiftversion 6.0
+--indent 4
+--semicolons never
+--commas inline
+--trimwhitespace always
+--insertlines enabled
+--linebreaks lf
+--maxwidth 120
+--wraparguments before-first
+--wrapparameters before-first
+--wrapcollections before-first
+--closingparen balanced
+--stripunusedargs closure-only
+--self remove
+--ifdef no-indent
+--disable redundantFileprivate
+--disable wrapMultilineStatementBraces

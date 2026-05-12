@@ -1,0 +1,21 @@
+set shell := ["bash", "-euo", "pipefail", "-c"]
+
+_default:
+    just --list
+
+fmt:
+    gofmt -w *.go
+
+lint:
+    golangci-lint run ./...
+
+test:
+    go test ./...
+
+typecheck: test
+
+check: fmt lint test
+
+update-deps:
+    go get -u -t ./...
+    go mod tidy

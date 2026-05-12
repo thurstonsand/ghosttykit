@@ -1,0 +1,32 @@
+set shell := ["bash", "-euo", "pipefail", "-c"]
+
+binary := "ghosttykitd"
+install_dir := env_var_or_default("HOME", ".") + "/.local/bin"
+codesign_identity := env_var_or_default("GHOSTTYKIT_CODESIGN_IDENTITY", "-")
+codesign_identifier := "dev.ghosttykit.ghosttykitd"
+
+_default:
+    just --list
+
+fmt:
+    swiftformat Sources
+
+lint:
+    swiftlint lint --strict Sources
+
+typecheck:
+    swiftc -typecheck -framework Network -framework AppKit Sources/*.swift
+
+check: fmt lint typecheck build
+
+build:
+    swiftc -O -framework Network -framework AppKit -o {{binary}} Sources/*.swift
+    just sign {{binary}}
+
+install:
+    mkdir -p {{install_dir}}
+    swiftc -O -framework Network -framework AppKit -o {{install_dir}}/{{binary}} Sources/*.swift
+    just sign {{install_dir}}/{{binary}}
+
+sign path:
+    codesign --force --sign '{{codesign_identity}}' --identifier '{{codesign_identifier}}' {{path}}

@@ -1,0 +1,21 @@
+set shell := ["bash", "-euo", "pipefail", "-c"]
+
+_default:
+    just --list
+
+fmt:
+    npm run fmt
+
+lint:
+    npm run lint
+
+typecheck:
+    npm run typecheck
+
+check:
+    npm run check
+
+build: typecheck
+
+install-deps:
+    npm install

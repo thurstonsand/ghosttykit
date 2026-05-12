@@ -1,0 +1,21 @@
+version: "2"
+
+linters:
+  enable:
+    - contextcheck
+    - copyloopvar
+    - errchkjson
+    - errorlint
+    - errname
+    - gocritic
+    - modernize
+    - nilerr
+    - nilnesserr
+    - nilnil
+    - nolintlint
+    - perfsprint
+    - prealloc
+    - revive
+    - unconvert
+    - usestdlibvars
+    - wastedassign

@@ -1,0 +1,23 @@
+.DS_Store
+/dist/
+/build/
+/.cache/
+*.sock
+
+# Go
+/cli/gty/gty
+/sdk/go/*.test
+
+# Swift
+/daemon/ghosttykitd/ghosttykitd
+/daemon/ghosttykitd/.build/
+
+# Node/Pi
+node_modules/
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+
+# Editor
+.idea/
+.vscode/
