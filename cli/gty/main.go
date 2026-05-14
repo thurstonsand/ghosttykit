@@ -2,18 +2,60 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
-	ghosttykit "github.com/thurstonsand/ghosttykit/sdk/go"
+	"github.com/spf13/cobra"
 )
 
 func main() {
-	if len(os.Args) > 1 && os.Args[1] == "version" {
-		fmt.Printf("gty %s protocol=%d\n", ghosttykit.Version, ghosttykit.ProtocolVersion)
-		return
+	if err := newRootCmd().Execute(); err != nil {
+		fmt.Fprintln(os.Stderr, "gty:", err)
+		os.Exit(exitCode(err))
 	}
+}
 
-	fmt.Fprintln(os.Stderr, "gty: command implementation has not been extracted yet")
-	os.Exit(2)
+func newRootCmd() *cobra.Command {
+	opts := &options{}
+	root := &cobra.Command{
+		Use:           "gty",
+		SilenceUsage:  true,
+		SilenceErrors: true,
+	}
+	root.PersistentFlags().StringVar(&opts.tty, "tty", "", "terminal TTY path override")
+
+	root.AddCommand(
+		versionCmd(),
+		pingCmd(),
+		terminalIDCmd(opts),
+		tabTerminalCountCmd(),
+		keyTableCmd(opts),
+		focusCmd(opts),
+		splitCmd(opts),
+		resizeCmd(opts),
+		zoomCmd(opts),
+		pasteCmd(opts),
+		clearCacheCmd(opts),
+		titleCmd(),
+	)
+	configureUsageErrors(root)
+	return root
+}
+
+const (
+	exitRuntime = 1
+	exitUsage   = 2
+)
+
+type cliError interface {
+	error
+	ExitCode() int
+}
+
+func exitCode(err error) int {
+	if cliErr, ok := errors.AsType[cliError](err); ok {
+		return cliErr.ExitCode()
+	}
+	return exitRuntime
 }

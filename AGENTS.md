@@ -11,10 +11,16 @@ Use @CONTEXT.md for terminology and architecture vocabulary.
 ## Working Rules
 
 - Preserve the established component boundaries. Moving code across them requires a concrete reason.
-- Do not keep legacy compatibility unless explicitly ordered -- prefer breaking changes.
+- Do not keep legacy compatibility unless explicitly ordered -- prefer breaking changes. For now, GhosttyKit owns both sides of every internal interface; make hard breaks instead of compatibility shims unless this file is updated to say otherwise.
 - Prefer direct, boring implementations over abstraction.
 - When updating documentation/comments, keep it current, as if the code was always written that way. Don't include historical context unless the document is specifically historical.
 - Do not add comments that restate code. Use comments only for non-obvious decisions.
+
+## Go Style
+
+- Prefer top-down file organization: exported entry points and primary behavior first, with helper functions and private supporting types after their first use where practical.
+- Keep exported types near the top of the file when they define the package API.
+- Format Go with `golangci-lint fmt`; component configs run `goimports` with the GhosttyKit local prefix and `gofumpt`.
 
 ## Repository Layout
 

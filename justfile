@@ -4,7 +4,7 @@ _default:
     just --list
 
 # Format all components.
-fmt: fmt-go fmt-swift fmt-pi fmt-nvim
+fmt: fmt-go fmt-swift fmt-pi fmt-nvim fmt-docs
 
 fmt-go:
     just -f sdk/go/justfile fmt
@@ -19,8 +19,11 @@ fmt-pi:
 fmt-nvim:
     just -f nvim/justfile fmt
 
+fmt-docs:
+    if markdownlint-cli2-fix --version >/dev/null 2>&1; then markdownlint-cli2-fix; else echo 'docs: skipping fmt; install markdownlint-cli2'; fi
+
 # Lint all components.
-lint: lint-go lint-swift lint-pi lint-nvim
+lint: lint-go lint-swift lint-pi lint-nvim lint-docs
 
 lint-go:
     just -f sdk/go/justfile lint
@@ -34,6 +37,9 @@ lint-pi:
 
 lint-nvim:
     just -f nvim/justfile lint
+
+lint-docs:
+    if markdownlint-cli2 --version >/dev/null 2>&1; then markdownlint-cli2; else echo 'docs: skipping lint; install markdownlint-cli2'; fi
 
 # Typecheck all components.
 typecheck: typecheck-go typecheck-swift typecheck-pi typecheck-nvim

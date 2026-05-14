@@ -4,7 +4,7 @@ _default:
     just --list
 
 fmt:
-    gofmt -w *.go
+    golangci-lint fmt
 
 lint:
     golangci-lint run ./...

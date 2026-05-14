@@ -1,5 +1,14 @@
 version: "2"
 
+formatters:
+  enable:
+    - goimports
+    - gofumpt
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/thurstonsand/ghosttykit
+
 linters:
   enable:
     - contextcheck

@@ -19,6 +19,7 @@ That scope is large enough to justify a standalone project. The extraction must 
 - Create a standalone GhosttyKit monorepo for Ghostty-adjacent terminal capabilities.
 - Replace `ghostty-nav` naming with `gty` and `ghosttykitd`; no compatibility with the old name is required.
 - Keep navigation, layout, key-table, paste, Neovim, SSH bridge, and Pi paste capabilities in the same project.
+- Capture the required Ghostty key-table config for `Ctrl-h/j/k/l` navigation and Neovim pass-through.
 - Provide a Homebrew-first macOS installation path that installs both `gty` and `ghosttykitd`.
 - Support Linux remote hosts through a remote `gty` that the regular SSH connection flow can bootstrap and upgrade where practical.
 - Use SSH Unix-socket reverse forwarding for remote control of the originating local Ghostty surface.
@@ -271,7 +272,7 @@ gty key-table deactivate
 gty focus left
 gty split left
 gty resize right --percent 15
-gty zoom toggle
+gty zoom
 gty paste
 gty title "..."
 gty ssh host
@@ -293,7 +294,30 @@ The initial Neovim plugin should be a standalone port of the current dotfile int
 
 A native Lua socket client can come later as an optimization. It should not block extraction or v1 packaging.
 
-### 14. Package Pi paste as a real Pi package
+### 14. Ship the Ghostty key-table config as part of the integration
+
+The `Ctrl-h/j/k/l` behavior is not only a Neovim plugin concern. Ghostty owns those keys in the default key table and switches a terminal surface into an `nvim` key table while Neovim is active. That config is a required integration artifact for the standalone extraction.
+
+Source config:
+
+```ghostty
+# ctrl-hjkl navigates Ghostty splits unless this surface is in the nvim key table
+keybind = ctrl+h=goto_split:left
+keybind = ctrl+j=goto_split:down
+keybind = ctrl+k=goto_split:up
+keybind = ctrl+l=goto_split:right
+keybind = nvim/
+keybind = nvim/ctrl+h=text:\x08
+keybind = nvim/ctrl+j=text:\x0a
+keybind = nvim/ctrl+k=text:\x0b
+keybind = nvim/ctrl+l=text:\x0c
+```
+
+Standalone docs should include this as a copyable Ghostty config fragment. Installation should not silently overwrite a user's Ghostty config; it should document the fragment and, if automation is later added, install it only by explicit user action.
+
+The important invariant is that `gty key-table activate nvim` and `gty key-table deactivate` target a key table named `nvim`. Renaming the table would require coordinated changes in the Ghostty config, Neovim plugin, and daemon command behavior.
+
+### 15. Package Pi paste as a real Pi package
 
 The Pi Alt-v paste flow belongs in the monorepo under `pi/pi-paste`. It should be packaged like a Pi extension npm package, not copied from local dotfiles.
 
@@ -363,6 +387,7 @@ Deferred. The current CLI-backed model works and is easier to port. Lua direct s
 - `ansiblonomicon:ansible/roles/ghostty_nav/files/ghostty-navd`: source for `daemon/ghosttykitd`.
 - `ansiblonomicon:chezmoi/dot_config/nvim/lua/lib/ghostty-nav.lua`: source for the standalone Neovim plugin.
 - `ansiblonomicon:chezmoi/dot_config/nvim/lua/plugins/ghostty-navigator.lua`: source for plugin registration and key mappings.
+- `ansiblonomicon:chezmoi/dot_config/ghostty/config.tmpl`: source for the Ghostty `Ctrl-h/j/k/l` default bindings and `nvim` key table.
 - `ansiblonomicon:chezmoi/private_dot_pi/agent/extensions/pi-paste-file`: source material for `pi/pi-paste`, but packaging should follow Pi package conventions rather than local extension conventions.
 - `ansiblonomicon:docs/designs/11-ghostty-nav-daemon.md`: historical daemon/client design to supersede during extraction.
 - `ansiblonomicon:docs/designs/12-ghostty-ssh-nvim-bridge.md`: historical SSH bridge design; its remote identity assumptions should not be revived except as context.
@@ -384,19 +409,19 @@ Deferred. The current CLI-backed model works and is easier to port. Lua direct s
     - Repository builds no artifacts yet but lint/tool commands exist or clearly no-op.
     - Documentation names match GhosttyKit / `gty` / `ghosttykitd` consistently.
 
-- [ ] Phase 2: Extract and rename the Go CLI and Go SDK
+- [x] Phase 2: Extract and rename the Go CLI and Go SDK
   - Goal: Move the current Go `ghostty-nav` client into `cli/gty` and split reusable client/protocol code into `sdk/go`.
   - Files: `ansible/roles/ghostty_nav/files/ghostty-nav/**` -> `cli/gty/**`, `sdk/go/**`.
   - Work:
     - Rename module/package paths from `ghostty-nav` to GhosttyKit paths.
     - Rename binary from `ghostty-nav` to `gty`.
     - Move daemon socket selection, request framing, TTY discovery, OSC title, paste materialization, and Unix socket client code into reusable Go SDK packages where useful.
-    - Rename commands: `move` -> `focus`, `activate/deactivate` -> `key-table activate/deactivate`, `toggle-zoom` -> `zoom toggle`.
+    - Rename commands: `move` -> `focus`, `activate/deactivate` -> `key-table activate/deactivate`, `toggle-zoom` -> `zoom`.
     - Add protocol version fields to all requests and structured error handling.
-    - Preserve local command behavior against the existing daemon protocol until the daemon is migrated in a later phase.
+    - Define the hard-break GhosttyKit protocol used by the CLI and Go SDK; the Swift daemon must adopt this protocol in Phase 3.
   - Validation:
     - `go test ./...` passes in `sdk/go` and `cli/gty`.
-    - `gty ping`, `gty paste --json`, and layout commands work locally against a compatible daemon during migration.
+    - `gty ping`, `gty paste --json`, and layout commands work locally after `ghosttykitd` adopts the GhosttyKit protocol.
 
 - [ ] Phase 3: Extract and rename the Swift daemon
   - Goal: Move the Swift daemon into `daemon/ghosttykitd` and rename service/socket/log paths.
@@ -475,7 +500,21 @@ Deferred. The current CLI-backed model works and is easier to port. Lua direct s
     - Remote Neovim over `gty ssh` routes edge navigation to the originating local Ghostty pane.
     - Bridge failures do not block editor navigation.
 
-- [ ] Phase 8: Package Pi paste extension
+- [ ] Phase 8: Document Ghostty key-table config
+  - Goal: Make the Ghostty-side `Ctrl-h/j/k/l` bindings a first-class part of the Neovim navigation integration.
+  - Files: `chezmoi/dot_config/ghostty/config.tmpl` -> `docs/install.md` or `docs/ghostty.md`.
+  - Work:
+    - Add a copyable Ghostty config fragment for default `Ctrl-h/j/k/l` split navigation.
+    - Add the `nvim` key table that passes `Ctrl-h/j/k/l` through as raw control bytes while Neovim is active.
+    - Document that the table name must remain `nvim` unless the Neovim plugin and daemon commands are changed together.
+    - Do not include unrelated personal Ghostty keybinds in the public GhosttyKit fragment.
+    - Avoid silently modifying user Ghostty config; make any automated install explicit.
+  - Validation:
+    - Shell `Ctrl-h/j/k/l` moves between Ghostty splits.
+    - Neovim `Ctrl-h/j/k/l` moves inside Neovim or falls through to `gty focus` at edges.
+    - The documented fragment contains only GhosttyKit-relevant keybinds.
+
+- [ ] Phase 9: Package Pi paste extension
   - Goal: Move Alt-v paste behavior into a real Pi extension package.
   - Files: `chezmoi/private_dot_pi/agent/extensions/pi-paste-file/**` -> `pi/pi-paste/**`.
   - Work:
@@ -490,13 +529,14 @@ Deferred. The current CLI-backed model works and is easier to port. Lua direct s
     - Remote Pi session over `gty ssh` can paste through the forwarded bridge.
     - Missing bridge or missing `gty` produces a clear user-visible error.
 
-- [ ] Phase 9: Migrate this repository to consume GhosttyKit
+- [ ] Phase 10: Migrate this repository to consume GhosttyKit
   - Goal: Replace embedded role/dotfile sources with installation/consumption of the standalone project.
   - Files: `ansible/roles/ghostty_nav/**`, macOS playbooks/tags, chezmoi Ghostty/Nvim/Pi references, docs/designs cross-references.
   - Work:
     - Remove or deprecate embedded `ghostty_nav` source after standalone package is validated.
     - Update Ansible to install GhosttyKit from Homebrew or local checkout during development.
     - Update Ghostty config and helper scripts to call `gty` and new command names.
+    - Preserve the Ghostty `nvim` key table and `Ctrl-h/j/k/l` default split bindings in the migrated config.
     - Update Neovim plugin config to use the standalone plugin.
     - Update Pi extension install/config to use the standalone package.
     - Mark older design docs superseded where appropriate.
@@ -505,7 +545,7 @@ Deferred. The current CLI-backed model works and is easier to port. Lua direct s
     - Existing `ghostty-ide`, `ideo`, Neovim navigation, SSH bridge, and Pi paste workflows still work.
     - `uv run poe lint` passes.
 
-- [ ] Phase 10: Public release readiness
+- [ ] Phase 11: Public release readiness
   - Goal: Make the extracted project reviewable and installable by other users.
   - Files: `README.md`, `docs/**`, release workflow files, package metadata.
   - Work:
