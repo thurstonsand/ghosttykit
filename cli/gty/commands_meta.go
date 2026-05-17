@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -14,11 +15,11 @@ func pingCmd() *cobra.Command {
 		Use:  "ping",
 		Args: cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
-			resp, err := client.New().Dispatch(protocol.PingRequest{Envelope: protocol.NewEnvelope("ping")})
+			reply, err := client.New().Do(protocol.PingRequest{FrameEnvelope: protocol.NewFrameEnvelope("ping")})
 			if err != nil {
 				return err
 			}
-			printResponseValue(resp)
+			printReplyValue(reply)
 			return nil
 		},
 	}
@@ -29,12 +30,28 @@ func terminalIDCmd(opts *options) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:  "terminal-id",
 		Args: cobra.NoArgs,
-		RunE: func(_ *cobra.Command, _ []string) error {
-			resp, err := client.New().Dispatch(protocol.TerminalIDRequest{Envelope: protocol.NewEnvelope("terminal-id"), TTY: optionalTTY(opts), Refresh: refresh})
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			if refresh && cmd.Root().PersistentFlags().Changed("tty") {
+				return usageError{err: errors.New("--refresh cannot be combined with explicit --tty")}
+			}
+			request := protocol.TerminalIDRequest{FrameEnvelope: protocol.NewFrameEnvelope("terminal-id"), Refresh: refresh, Focused: true}
+			if refresh {
+				target, err := requestTerminalTarget(opts)
+				if err != nil {
+					return err
+				}
+				request.TTY = target.tty
+				request.Focused = target.focused
+			} else {
+				target := optionalTerminalTarget(opts)
+				request.TTY = target.tty
+				request.Focused = target.focused
+			}
+			reply, err := client.New().Do(request)
 			if err != nil {
 				return err
 			}
-			printResponseValue(resp)
+			printReplyValue(reply)
 			return nil
 		},
 	}
@@ -49,7 +66,7 @@ func clearCacheCmd(opts *options) *cobra.Command {
 		Use:  "clear-cache",
 		Args: cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
-			request := protocol.ClearCacheRequest{Envelope: protocol.NewEnvelope("clear-cache"), Ack: wait}
+			request := protocol.ClearCacheRequest{FrameEnvelope: protocol.NewFrameEnvelope("clear-cache"), Ack: wait}
 			if !all {
 				value, err := requestTTY(opts)
 				if err != nil {
@@ -57,7 +74,7 @@ func clearCacheCmd(opts *options) *cobra.Command {
 				}
 				request.TTY = value
 			}
-			_, err := client.New().Dispatch(request)
+			_, err := client.New().Do(request)
 			return err
 		},
 	}
@@ -66,8 +83,8 @@ func clearCacheCmd(opts *options) *cobra.Command {
 	return cmd
 }
 
-func printResponseValue(resp *protocol.Response) {
-	if resp != nil && resp.Value != "" {
-		fmt.Println(resp.Value)
+func printReplyValue(reply *protocol.FrameReply) {
+	if reply != nil && reply.Value != "" {
+		fmt.Println(reply.Value)
 	}
 }

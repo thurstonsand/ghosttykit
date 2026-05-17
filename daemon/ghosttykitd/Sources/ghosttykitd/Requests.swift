@@ -1,0 +1,626 @@
+import Foundation
+import OSLog
+
+enum ProtocolVersion {
+    static let current = 1
+}
+
+@propertyWrapper
+struct DefaultFalse: Decodable {
+    var wrappedValue = false
+
+    init() {}
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        wrappedValue = try container.decode(Bool.self)
+    }
+}
+
+extension KeyedDecodingContainer {
+    func decode(_ type: DefaultFalse.Type, forKey key: Key) throws -> DefaultFalse {
+        try decodeIfPresent(type, forKey: key) ?? DefaultFalse()
+    }
+}
+
+enum ProtocolCode {
+    static let ok = "ok"
+    static let protocolVersionMismatch = "protocol_version_mismatch"
+    static let unknownCommand = "unknown_command"
+    static let invalidRequest = "invalid_request"
+    static let terminalNotFound = "terminal_not_found"
+    static let ghosttyUnavailable = "ghostty_unavailable"
+    static let pasteEmpty = "paste_empty"
+    static let pasteUnsupported = "paste_unsupported"
+    static let streamFailed = "stream_failed"
+    static let internalError = "internal_error"
+}
+
+protocol CommandRequest: Decodable {
+    var version: Int { get }
+    var command: String { get }
+    var tty: String? { get }
+    func reply(using context: CommandContext) throws -> FrameReplyBody
+    func errorReply(for error: Error) -> FrameReplyBody
+}
+
+protocol AckCommandRequest: CommandRequest {
+    var ack: Bool { get }
+}
+
+protocol TerminalCommandRequest: CommandRequest {
+    var rawTTY: String { get }
+    var focused: Bool { get }
+}
+
+extension TerminalCommandRequest {
+    var tty: String? {
+        normalizeTTY(rawTTY)
+    }
+
+    func terminal(using context: CommandContext) throws -> TerminalContext {
+        try context.terminal(for: normalizeTTY(rawTTY), focused: focused)
+    }
+}
+
+enum CommandResult {
+    case noReply
+    case reply(FrameReplyBody)
+}
+
+extension CommandRequest {
+    func dispatch(using context: CommandContext) -> CommandResult {
+        .reply(commandReply(using: context))
+    }
+
+    func commandReply(using context: CommandContext) -> FrameReplyBody {
+        do {
+            return try reply(using: context)
+        } catch {
+            context.cache.clear(tty: tty)
+            context.logger.ghosttykit("\(logSummary) failed error=\(error.localizedDescription)")
+            return errorReply(for: error)
+        }
+    }
+
+    func errorReply(for error: Error) -> FrameReplyBody {
+        .json(responseForError(error))
+    }
+
+    var logSummary: String {
+        var parts = ["command=\(command)"]
+        if let tty { parts.append("tty=\(tty)") }
+        return parts.joined(separator: " ")
+    }
+}
+
+struct CommandContext {
+    let cache: TerminalIDCache
+    let ghostty: GhosttyControlling
+    let logger: Logger
+
+    func terminal(for tty: String, focused: Bool) throws -> TerminalContext {
+        if let terminal = cache.terminal(for: tty) {
+            return terminal
+        }
+        guard focused else {
+            throw GhosttyKitError.terminalNotFound(tty)
+        }
+        let terminal = try ghostty.focusedTerminalContext()
+        cache.store(terminal: terminal, for: tty)
+        return terminal
+    }
+}
+
+struct FrameEnvelope: Decodable {
+    let version: Int
+    let command: String
+}
+
+struct ResizeAmount: Decodable {
+    let pixels: Int?
+    let percent: Double?
+}
+
+struct PingRequest: CommandRequest {
+    let version: Int
+    let command: String
+
+    var tty: String? {
+        nil
+    }
+
+    func reply(using _: CommandContext) throws -> FrameReplyBody {
+        .json(FrameReply.ok("pong"))
+    }
+}
+
+struct TerminalIDRequest: CommandRequest {
+    let version: Int
+    let command: String
+    let rawTTY: String?
+    @DefaultFalse var focused: Bool
+    @DefaultFalse var refresh: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case version
+        case command
+        case rawTTY = "tty"
+        case focused
+        case refresh
+    }
+
+    var tty: String? {
+        rawTTY.map(normalizeTTY)
+    }
+
+    func reply(using context: CommandContext) throws -> FrameReplyBody {
+        let terminal = try terminal(using: context)
+        return .json(FrameReply.ok(terminal.terminalID))
+    }
+
+    private func terminal(using context: CommandContext) throws -> TerminalContext {
+        switch (refresh, tty, focused) {
+        case (true, .some, false):
+            throw RequestValidationError.invalidRequest(
+                "cannot refresh terminal-id if it is not the focused window"
+            )
+        case (true, let tty?, true):
+            let terminal = try context.ghostty.focusedTerminalContext()
+            context.cache.store(terminal: terminal, for: tty)
+            return terminal
+        case (true, nil, _):
+            return try context.ghostty.focusedTerminalContext()
+        case (false, let tty?, let focused):
+            return try context.terminal(for: tty, focused: focused)
+        case (false, nil, _):
+            return try context.ghostty.focusedTerminalContext()
+        }
+    }
+}
+
+struct TabTerminalCountRequest: CommandRequest {
+    let version: Int
+    let command: String
+    let rawTTY: String?
+    @DefaultFalse var focused: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case version
+        case command
+        case rawTTY = "tty"
+        case focused
+    }
+
+    var tty: String? {
+        rawTTY.map(normalizeTTY)
+    }
+
+    func reply(using context: CommandContext) throws -> FrameReplyBody {
+        let terminal = try tty.map { try context.terminal(for: $0, focused: focused) }
+        let count = try context.ghostty.tabTerminalCount(terminal: terminal)
+        return .json(FrameReply.ok(String(count)))
+    }
+}
+
+struct ClearCacheRequest: AckCommandRequest {
+    let version: Int
+    let command: String
+    let rawTTY: String?
+    @DefaultFalse var ack: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case version
+        case command
+        case rawTTY = "tty"
+        case ack
+    }
+
+    var tty: String? {
+        rawTTY.map(normalizeTTY)
+    }
+
+    var logSummary: String {
+        if tty == nil { return "command=\(command) scope=all" }
+        return "command=\(command) tty=\(tty ?? "")"
+    }
+
+    func reply(using context: CommandContext) throws -> FrameReplyBody {
+        context.cache.clear(tty: tty)
+        return .json(FrameReply.ok())
+    }
+}
+
+struct KeyTableActivateRequest: TerminalCommandRequest, AckCommandRequest {
+    let version: Int
+    let command: String
+    let rawTTY: String
+    @DefaultFalse var focused: Bool
+    let table: String
+    @DefaultFalse var ack: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case version
+        case command
+        case rawTTY = "tty"
+        case focused
+        case table
+        case ack
+    }
+
+    var logSummary: String {
+        "command=\(command) tty=\(tty ?? "") table=\(table)"
+    }
+
+    func reply(using context: CommandContext) throws -> FrameReplyBody {
+        try context.ghostty.activateKeyTable(table, terminal: terminal(using: context))
+        return .json(FrameReply.ok())
+    }
+}
+
+struct KeyTableDeactivateRequest: TerminalCommandRequest, AckCommandRequest {
+    let version: Int
+    let command: String
+    let rawTTY: String
+    @DefaultFalse var focused: Bool
+    @DefaultFalse var ack: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case version
+        case command
+        case rawTTY = "tty"
+        case focused
+        case ack
+    }
+
+    func reply(using context: CommandContext) throws -> FrameReplyBody {
+        try context.ghostty.deactivateKeyTable(terminal: terminal(using: context))
+        return .json(FrameReply.ok())
+    }
+}
+
+struct FocusRequest: TerminalCommandRequest, AckCommandRequest {
+    let version: Int
+    let command: String
+    let rawTTY: String
+    @DefaultFalse var focused: Bool
+    let direction: Direction
+    @DefaultFalse var ack: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case version
+        case command
+        case rawTTY = "tty"
+        case focused
+        case direction
+        case ack
+    }
+
+    var logSummary: String {
+        "command=\(command) tty=\(tty ?? "") direction=\(direction)"
+    }
+
+    func reply(using context: CommandContext) throws -> FrameReplyBody {
+        try context.ghostty.focusSplit(direction: direction, terminal: terminal(using: context))
+        return .json(FrameReply.ok())
+    }
+}
+
+struct SplitRequest: TerminalCommandRequest, AckCommandRequest {
+    let version: Int
+    let command: String
+    let rawTTY: String
+    @DefaultFalse var focused: Bool
+    let direction: Direction
+    let cwd: String?
+    let commandText: String?
+    let focus: FocusTarget?
+    @DefaultFalse var ack: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case version
+        case command
+        case rawTTY = "tty"
+        case focused
+        case direction
+        case cwd
+        case commandText
+        case focus
+        case ack
+    }
+
+    var logSummary: String {
+        "command=\(command) tty=\(tty ?? "") direction=\(direction)"
+    }
+
+    func reply(using context: CommandContext) throws -> FrameReplyBody {
+        try context.ghostty.split(
+            direction: direction,
+            cwd: cwd,
+            command: commandText,
+            focus: focus ?? .new,
+            terminal: terminal(using: context)
+        )
+        return .json(FrameReply.ok())
+    }
+}
+
+struct ResizeCommandRequest: TerminalCommandRequest, AckCommandRequest {
+    let version: Int
+    let command: String
+    let rawTTY: String
+    @DefaultFalse var focused: Bool
+    let direction: Direction
+    let amount: ResizeAmount
+    @DefaultFalse var ack: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case version
+        case command
+        case rawTTY = "tty"
+        case focused
+        case direction
+        case amount
+        case ack
+    }
+
+    var logSummary: String {
+        "command=\(command) tty=\(tty ?? "") direction=\(direction)"
+    }
+
+    func reply(using context: CommandContext) throws -> FrameReplyBody {
+        try context.ghostty.resize(
+            direction: direction, amount: amount, terminal: terminal(using: context)
+        )
+        return .json(FrameReply.ok())
+    }
+}
+
+struct ZoomRequest: TerminalCommandRequest, AckCommandRequest {
+    let version: Int
+    let command: String
+    let rawTTY: String
+    @DefaultFalse var focused: Bool
+    @DefaultFalse var ack: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case version
+        case command
+        case rawTTY = "tty"
+        case focused
+        case ack
+    }
+
+    func reply(using context: CommandContext) throws -> FrameReplyBody {
+        try context.ghostty.toggleSplitZoom(terminal: terminal(using: context))
+        return .json(FrameReply.ok())
+    }
+}
+
+struct PasteRequest: CommandRequest {
+    let version: Int
+    let command: String
+    let rawTTY: String?
+
+    enum CodingKeys: String, CodingKey {
+        case version
+        case command
+        case rawTTY = "tty"
+    }
+
+    var tty: String? {
+        rawTTY.map(normalizeTTY)
+    }
+
+    func reply(using _: CommandContext) throws -> FrameReplyBody {
+        try .stream(readPasteboardContent())
+    }
+
+    func errorReply(for error: Error) -> FrameReplyBody {
+        if let pasteboardError = error as? PasteboardError {
+            return .stream(
+                FrameStreamReply(
+                    header: PasteFrameReply.failure(
+                        code: pasteboardError.protocolCode, error.localizedDescription
+                    ),
+                    streams: []
+                )
+            )
+        }
+        let response = responseForError(error)
+        return .stream(
+            FrameStreamReply(
+                header: PasteFrameReply.failure(
+                    code: response.code, response.error ?? "request failed"
+                ),
+                streams: []
+            )
+        )
+    }
+}
+
+enum FrameReplyBody {
+    case json(any Encodable)
+    case stream(FrameStreamReply)
+}
+
+struct FrameReply: Encodable {
+    let version: Int
+    let code: String
+    let value: String?
+    let error: String?
+
+    static func ok(_ value: String? = nil) -> FrameReply {
+        FrameReply(
+            version: ProtocolVersion.current, code: ProtocolCode.ok, value: value, error: nil
+        )
+    }
+
+    static func failure(code: String, _ error: String) -> FrameReply {
+        FrameReply(version: ProtocolVersion.current, code: code, value: nil, error: error)
+    }
+}
+
+struct PasteFrameReply: Encodable {
+    let version: Int
+    let code: String
+    let error: String?
+    let kind: String?
+    let files: [PasteFrameFile]?
+    let bytes: Int?
+
+    static func text(byteCount: Int) -> PasteFrameReply {
+        PasteFrameReply(
+            version: ProtocolVersion.current,
+            code: ProtocolCode.ok,
+            error: nil,
+            kind: "text",
+            files: nil,
+            bytes: byteCount
+        )
+    }
+
+    static func files(_ files: [PasteFrameFile]) -> PasteFrameReply {
+        PasteFrameReply(
+            version: ProtocolVersion.current,
+            code: ProtocolCode.ok,
+            error: nil,
+            kind: "files",
+            files: files,
+            bytes: files.reduce(0) { $0 + $1.bytes }
+        )
+    }
+
+    static func failure(code: String, _ error: String) -> PasteFrameReply {
+        PasteFrameReply(
+            version: ProtocolVersion.current,
+            code: code,
+            error: error,
+            kind: nil,
+            files: nil,
+            bytes: nil
+        )
+    }
+}
+
+struct PasteFrameFile: Encodable {
+    let fileName: String?
+    let mediaType: String?
+    let bytes: Int
+    let source: String?
+}
+
+enum FrameStream {
+    case data(Data)
+    case file(URL)
+}
+
+struct FrameStreamReply {
+    let header: any Encodable
+    let streams: [FrameStream]
+}
+
+func encodeJSONLine(_ value: any Encodable) throws -> Data {
+    var data = try JSONEncoder().encode(value)
+    data.append(0x0A)
+    return data
+}
+
+func decodeCommand(from data: Data) throws -> any CommandRequest {
+    let trimmed = linePayload(from: data)
+    let envelope = try JSONDecoder().decode(FrameEnvelope.self, from: trimmed)
+    guard envelope.version == ProtocolVersion.current else {
+        throw RequestDecodeError.protocolVersionMismatch(envelope.version)
+    }
+    guard let decode = commandDecoders[envelope.command] else {
+        throw RequestDecodeError.unknownCommand(envelope.command)
+    }
+    return try decode(trimmed)
+}
+
+func responseForError(_ error: Error) -> FrameReply {
+    let message = error.localizedDescription
+    switch error {
+    case let requestError as RequestDecodeError:
+        return .failure(code: requestError.protocolCode, message)
+    case let decodingError as DecodingError:
+        return .failure(code: ProtocolCode.invalidRequest, decodingErrorMessage(decodingError))
+    case let validationError as RequestValidationError:
+        return .failure(code: validationError.protocolCode, message)
+    case let ghosttyError as GhosttyKitError:
+        return .failure(code: ghosttyError.protocolCode, message)
+    case let pasteboardError as PasteboardError:
+        return .failure(code: pasteboardError.protocolCode, message)
+    default:
+        return .failure(code: ProtocolCode.ghosttyUnavailable, message)
+    }
+}
+
+private func decodingErrorMessage(_ error: DecodingError) -> String {
+    switch error {
+    case let .keyNotFound(key, _):
+        return "missing required field: \(key.stringValue)"
+    case let .typeMismatch(type, _):
+        return "invalid field type: expected \(type)"
+    case let .valueNotFound(type, _):
+        return "missing required value: \(type)"
+    case let .dataCorrupted(context):
+        return context.debugDescription
+    @unknown default:
+        return "invalid request"
+    }
+}
+
+private enum RequestValidationError: Error, LocalizedError {
+    case invalidRequest(String)
+
+    var errorDescription: String? {
+        switch self {
+        case let .invalidRequest(message): message
+        }
+    }
+
+    var protocolCode: String {
+        ProtocolCode.invalidRequest
+    }
+}
+
+private enum RequestDecodeError: Error, LocalizedError {
+    case protocolVersionMismatch(Int)
+    case unknownCommand(String)
+
+    var errorDescription: String? {
+        switch self {
+        case let .protocolVersionMismatch(version): "unsupported protocol version: \(version)"
+        case let .unknownCommand(command): "unknown command: \(command)"
+        }
+    }
+
+    var protocolCode: String {
+        switch self {
+        case .protocolVersionMismatch: ProtocolCode.protocolVersionMismatch
+        case .unknownCommand: ProtocolCode.unknownCommand
+        }
+    }
+}
+
+private let commandDecoders: [String: (Data) throws -> any CommandRequest] = [
+    "ping": { try JSONDecoder().decode(PingRequest.self, from: $0) },
+    "terminal-id": { try JSONDecoder().decode(TerminalIDRequest.self, from: $0) },
+    "tab-terminal-count": { try JSONDecoder().decode(TabTerminalCountRequest.self, from: $0) },
+    "clear-cache": { try JSONDecoder().decode(ClearCacheRequest.self, from: $0) },
+    "key-table-activate": { try JSONDecoder().decode(KeyTableActivateRequest.self, from: $0) },
+    "key-table-deactivate": { try JSONDecoder().decode(KeyTableDeactivateRequest.self, from: $0) },
+    "focus": { try JSONDecoder().decode(FocusRequest.self, from: $0) },
+    "split": { try JSONDecoder().decode(SplitRequest.self, from: $0) },
+    "resize": { try JSONDecoder().decode(ResizeCommandRequest.self, from: $0) },
+    "zoom": { try JSONDecoder().decode(ZoomRequest.self, from: $0) },
+    "paste": { try JSONDecoder().decode(PasteRequest.self, from: $0) }
+]
+
+private func linePayload(from data: Data) -> Data {
+    if let newline = data.firstIndex(of: 0x0A) {
+        return Data(data[..<newline])
+    }
+    return data
+}

@@ -24,6 +24,8 @@ Every request embeds this envelope:
 
 Commands that are normally fire-and-forget may set `ack` to `true` when the caller wants a definite success/failure acknowledgement.
 
+Terminal-targeted requests may include `focused: true` when the caller TTY is known to be the currently focused Ghostty terminal and the daemon may bind a cache miss to the focused terminal. When `tty` is present and `focused` is false or omitted, the daemon only uses an existing cache entry and returns `terminal_not_found` on a miss.
+
 ## Response envelope
 
 Replies use:
@@ -50,19 +52,21 @@ See [protocol/codes.md](protocol/codes.md) for defined codes.
 
 ## Local command requests
 
-| CLI                              | Request command        | Response behavior           | Extra fields                                                      |
-| -------------------------------- | ---------------------- | --------------------------- | ----------------------------------------------------------------- |
-| `gty ping`                       | `ping`                 | always responds             | none                                                              |
-| `gty terminal-id`                | `terminal-id`          | always responds             | `tty` optional, optional `refresh`                                |
-| `gty tab-terminal-count`         | `tab-terminal-count`   | always responds             | none                                                              |
-| `gty key-table activate <table>` | `key-table-activate`   | responds when `ack` is true | `tty`, `table`, optional `ack`                                    |
-| `gty key-table deactivate`       | `key-table-deactivate` | responds when `ack` is true | `tty`, optional `ack`                                             |
-| `gty focus <direction>`          | `focus`                | responds when `ack` is true | `tty`, `direction`, optional `ack`                                |
-| `gty split <direction>`          | `split`                | responds when `ack` is true | `tty`, `direction`, optional `cwd`, `commandText`, `focus`, `ack` |
-| `gty resize <direction>`         | `resize`               | responds when `ack` is true | `tty`, `direction`, `amount`, optional `ack`                      |
-| `gty zoom`                       | `zoom`                 | responds when `ack` is true | `tty`, optional `ack`                                             |
-| `gty paste`                      | `paste`                | always responds             | `tty` optional                                                    |
-| `gty clear-cache`                | `clear-cache`          | responds when `ack` is true | `tty` optional, optional `ack`                                    |
+| CLI                              | Request command        | Response behavior           | Extra fields                                                                 |
+| -------------------------------- | ---------------------- | --------------------------- | ---------------------------------------------------------------------------- |
+| `gty ping`                       | `ping`                 | always responds             | none                                                                         |
+| `gty terminal-id`                | `terminal-id`          | always responds             | `tty` optional, optional `focused`, optional `refresh`                       |
+| `gty tab-terminal-count`         | `tab-terminal-count`   | always responds             | `tty` optional, optional `focused`                                           |
+| `gty key-table activate <table>` | `key-table-activate`   | responds when `ack` is true | `tty`, `table`, optional `focused`, optional `ack`                           |
+| `gty key-table deactivate`       | `key-table-deactivate` | responds when `ack` is true | `tty`, optional `focused`, optional `ack`                                    |
+| `gty focus <direction>`          | `focus`                | responds when `ack` is true | `tty`, `direction`, optional `focused`, optional `ack`                       |
+| `gty split <direction>`          | `split`                | responds when `ack` is true | `tty`, `direction`, optional `focused`, `cwd`, `commandText`, `focus`, `ack` |
+| `gty resize <direction>`         | `resize`               | responds when `ack` is true | `tty`, `direction`, `amount`, optional `focused`, optional `ack`             |
+| `gty zoom`                       | `zoom`                 | responds when `ack` is true | `tty`, optional `focused`, optional `ack`                                    |
+| `gty paste`                      | `paste`                | always responds             | `tty` optional                                                               |
+| `gty clear-cache`                | `clear-cache`          | responds when `ack` is true | `tty` optional, optional `ack`                                               |
+
+For `terminal-id`, `refresh: true` forces a refresh of the cached mapping. `refresh: true` when not in the focused window is invalid.
 
 `amount` is exactly one of:
 

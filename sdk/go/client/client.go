@@ -14,10 +14,7 @@ import (
 	"github.com/thurstonsand/ghosttykit/sdk/go/protocol"
 )
 
-var (
-	errResponseRequired   = errors.New("request requires a response")
-	errNoResponseExpected = errors.New("request does not expect a response")
-)
+var errStreamReply = errors.New("request requires stream handling")
 
 // Client opens one connection per request to a GhosttyKit endpoint.
 type Client struct {
@@ -35,7 +32,7 @@ func ForSocket(socketPath string) Client {
 }
 
 // Stream sends request, decodes the first JSON header line, and returns the body stream.
-func Stream[T protocol.StreamHeader](client Client, request protocol.Request) (T, io.ReadCloser, error) {
+func Stream[T protocol.FrameHeader](client Client, request protocol.Request) (T, io.ReadCloser, error) {
 	var header T
 	body, err := client.stream(request)
 	if err != nil {
@@ -57,18 +54,24 @@ func Stream[T protocol.StreamHeader](client Client, request protocol.Request) (T
 	return header, body, nil
 }
 
-// Dispatch sends request using the response behavior defined by the protocol.
-func (c Client) Dispatch(request protocol.Request) (*protocol.Response, error) {
-	if expectsResponse(request) {
-		return c.call(request)
+// Do sends request and returns a reply when the protocol expects one.
+func (c Client) Do(request protocol.Request) (*protocol.FrameReply, error) {
+	if err := validateRequest(request); err != nil {
+		return nil, err
 	}
-	return nil, c.notify(request)
+	switch protocol.ReplyModeOf(request) {
+	case protocol.ReplyModeFrame:
+		return c.doWithReply(request)
+	case protocol.ReplyModeNone:
+		return nil, c.doNoReply(request)
+	case protocol.ReplyModeStream:
+		return nil, errStreamReply
+	default:
+		return nil, fmt.Errorf("unsupported reply mode %d", protocol.ReplyModeOf(request))
+	}
 }
 
-func (c Client) call(request protocol.Request) (*protocol.Response, error) {
-	if !expectsResponse(request) {
-		return nil, errNoResponseExpected
-	}
+func (c Client) doWithReply(request protocol.Request) (*protocol.FrameReply, error) {
 	conn, err := c.Dial()
 	if err != nil {
 		return nil, err
@@ -78,13 +81,10 @@ func (c Client) call(request protocol.Request) (*protocol.Response, error) {
 	if err := conn.send(request); err != nil {
 		return nil, err
 	}
-	return conn.waitForResponse()
+	return conn.waitForReply()
 }
 
-func (c Client) notify(request protocol.Request) error {
-	if expectsResponse(request) {
-		return errResponseRequired
-	}
+func (c Client) doNoReply(request protocol.Request) error {
 	conn, err := c.Dial()
 	if err != nil {
 		return err
@@ -97,37 +97,25 @@ func (c Client) notify(request protocol.Request) error {
 	return conn.waitForEOF()
 }
 
-func expectsResponse(request protocol.Request) bool {
-	switch req := request.(type) {
-	case protocol.KeyTableActivateRequest:
-		return req.Ack
-	case protocol.KeyTableDeactivateRequest:
-		return req.Ack
-	case protocol.FocusRequest:
-		return req.Ack
-	case protocol.SplitRequest:
-		return req.Ack
-	case protocol.ResizeRequest:
-		return req.Ack
-	case protocol.ZoomRequest:
-		return req.Ack
-	case protocol.ClearCacheRequest:
-		return req.Ack
-	default:
-		return true
+func validateRequest(request protocol.Request) error {
+	if validatable, ok := request.(protocol.ValidatableRequest); ok {
+		return validatable.Validate()
 	}
+	return nil
 }
 
 func (c Client) stream(request protocol.Request) (*Conn, error) {
+	if protocol.ReplyModeOf(request) != protocol.ReplyModeStream {
+		return nil, errStreamReply
+	}
+	if err := validateRequest(request); err != nil {
+		return nil, err
+	}
 	conn, err := c.Dial()
 	if err != nil {
 		return nil, err
 	}
 	if err := conn.send(request); err != nil {
-		_ = conn.Close()
-		return nil, err
-	}
-	if err := conn.closeWrite(); err != nil {
 		_ = conn.Close()
 		return nil, err
 	}
@@ -175,38 +163,24 @@ func (c *Conn) send(request protocol.Request) error {
 	return nil
 }
 
-func (c *Conn) closeWrite() error {
-	if err := c.conn.CloseWrite(); err != nil {
-		return fmt.Errorf("close write: %w", err)
+func (c *Conn) waitForReply() (*protocol.FrameReply, error) {
+	var reply protocol.FrameReply
+	if err := json.NewDecoder(c.reader).Decode(&reply); err != nil {
+		return nil, fmt.Errorf("read reply: %w", err)
 	}
-	return nil
-}
-
-func (c *Conn) waitForResponse() (*protocol.Response, error) {
-	if err := c.closeWrite(); err != nil {
-		return nil, err
+	if err := reply.Err(); err != nil {
+		return &reply, err
 	}
-
-	var response protocol.Response
-	if err := json.NewDecoder(c.reader).Decode(&response); err != nil {
-		return nil, fmt.Errorf("read response: %w", err)
-	}
-	if err := response.Err(); err != nil {
-		return &response, err
-	}
-	return &response, nil
+	return &reply, nil
 }
 
 func (c *Conn) waitForEOF() error {
-	if err := c.closeWrite(); err != nil {
-		return err
-	}
 	if _, err := c.reader.ReadByte(); errors.Is(err, io.EOF) {
 		return nil
 	} else if err != nil {
 		return fmt.Errorf("wait for daemon completion: %w", err)
 	}
-	return errors.New("daemon sent unexpected data for no-response request")
+	return errors.New("daemon sent unexpected data for no-reply request")
 }
 
 func socketPath() string {

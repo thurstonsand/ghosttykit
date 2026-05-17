@@ -20,7 +20,8 @@ fmt-nvim:
     just -f nvim/justfile fmt
 
 fmt-docs:
-    if markdownlint-cli2-fix --version >/dev/null 2>&1; then markdownlint-cli2-fix; else echo 'docs: skipping fmt; install markdownlint-cli2'; fi
+    if command -v prettier >/dev/null 2>&1; then prettier --write "**/*.md"; else echo 'docs: skipping prettier; install prettier'; fi
+    if command -v markdownlint-cli2-fix >/dev/null 2>&1; then markdownlint-cli2-fix; else echo 'docs: skipping markdownlint fix; install markdownlint-cli2'; fi
 
 # Lint all components.
 lint: lint-go lint-swift lint-pi lint-nvim lint-docs
@@ -39,7 +40,7 @@ lint-nvim:
     just -f nvim/justfile lint
 
 lint-docs:
-    if markdownlint-cli2 --version >/dev/null 2>&1; then markdownlint-cli2; else echo 'docs: skipping lint; install markdownlint-cli2'; fi
+    if command -v markdownlint-cli2 >/dev/null 2>&1; then markdownlint-cli2; else echo 'docs: skipping lint; install markdownlint-cli2'; fi
 
 # Typecheck all components.
 typecheck: typecheck-go typecheck-swift typecheck-pi typecheck-nvim

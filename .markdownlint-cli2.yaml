@@ -5,3 +5,5 @@ globs:
 ignores:
   - "**/node_modules/**"
   - "**/.git/**"
+  - "**/.build/**"
+  - "**/.clawpatch/**"

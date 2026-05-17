@@ -9,3 +9,5 @@ The primary macOS install path will be Homebrew. The formula should install:
 - a `brew services` user service for `ghosttykitd`
 
 Remote hosts should receive `gty` through the normal `gty ssh` bootstrap/upgrade flow where practical.
+
+See [daemon.md](daemon.md) for daemon socket selection and dry-run behavior.

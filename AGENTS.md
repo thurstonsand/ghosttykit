@@ -20,7 +20,7 @@ Use @CONTEXT.md for terminology and architecture vocabulary.
 
 - Prefer top-down file organization: exported entry points and primary behavior first, with helper functions and private supporting types after their first use where practical.
 - Keep exported types near the top of the file when they define the package API.
-- Format Go with `golangci-lint fmt`; component configs run `goimports` with the GhosttyKit local prefix and `gofumpt`.
+- Do not run `gofmt` directly. Format Go through the component `just fmt` recipe so the configured `goimports` and `gofumpt` behavior is used.
 
 ## Repository Layout
 

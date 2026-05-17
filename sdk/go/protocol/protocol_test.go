@@ -5,8 +5,8 @@ import (
 	"testing"
 )
 
-func TestNewEnvelopeSetsProtocolVersion(t *testing.T) {
-	envelope := NewEnvelope("ping")
+func TestNewFrameEnvelopeSetsProtocolVersion(t *testing.T) {
+	envelope := NewFrameEnvelope("ping")
 	if envelope.Version != 1 {
 		t.Fatalf("Version = %d, want 1", envelope.Version)
 	}
@@ -15,9 +15,9 @@ func TestNewEnvelopeSetsProtocolVersion(t *testing.T) {
 	}
 }
 
-func TestResponseErrReturnsTypedError(t *testing.T) {
-	response := Response{Code: CodeProtocolVersionMismatch, Error: "version mismatch"}
-	err := response.Err()
+func TestFrameReplyErrReturnsTypedError(t *testing.T) {
+	reply := FrameReply{Code: CodeProtocolVersionMismatch, Error: "version mismatch"}
+	err := reply.Err()
 	if got, want := err.Error(), "protocol_version_mismatch: version mismatch"; got != want {
 		t.Fatalf("Err().Error() = %q, want %q", got, want)
 	}

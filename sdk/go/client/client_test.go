@@ -38,7 +38,7 @@ func TestStreamPreservesPayloadBufferedWithHeader(t *testing.T) {
 		_, _ = conn.Write([]byte(`{"version":1,"code":"ok","kind":"text","bytes":11}` + "\nhello world"))
 	}()
 
-	header, body, err := Stream[protocol.PasteHeader](ForSocket(socketPath), protocol.PasteRequest{Envelope: protocol.NewEnvelope("paste")})
+	header, body, err := Stream[protocol.PasteFrameHeader](ForSocket(socketPath), protocol.PasteRequest{FrameEnvelope: protocol.NewFrameEnvelope("paste")})
 	if err != nil {
 		t.Fatalf("Stream() error = %v", err)
 	}

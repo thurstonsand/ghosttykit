@@ -29,7 +29,7 @@ func newRootCmd() *cobra.Command {
 		versionCmd(),
 		pingCmd(),
 		terminalIDCmd(opts),
-		tabTerminalCountCmd(),
+		tabTerminalCountCmd(opts),
 		keyTableCmd(opts),
 		focusCmd(opts),
 		splitCmd(opts),

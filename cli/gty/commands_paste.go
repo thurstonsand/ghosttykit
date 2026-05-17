@@ -31,15 +31,15 @@ func runPaste(out io.Writer, opts *options, outputDir string, jsonOutput bool) e
 	if strings.TrimSpace(outputDir) == "" {
 		return usageError{err: errors.New("--output-dir is required")}
 	}
-	request := protocol.PasteRequest{Envelope: protocol.NewEnvelope("paste"), TTY: optionalTTY(opts)}
+	request := protocol.PasteRequest{FrameEnvelope: protocol.NewFrameEnvelope("paste"), TTY: optionalTTY(opts)}
 	gtyClient := client.New()
 	if !jsonOutput {
 		return paste.Write(out, gtyClient, request, outputDir)
 	}
 
-	response, err := paste.Receive(gtyClient, request, outputDir)
+	result, err := paste.Receive(gtyClient, request, outputDir)
 	if err != nil {
 		return err
 	}
-	return paste.PrintJSON(out, response)
+	return paste.PrintJSON(out, result)
 }

@@ -9,23 +9,28 @@ _default:
     just --list
 
 fmt:
-    swiftformat Sources
+    swiftformat Sources Package.swift
 
 lint:
     swiftlint lint --strict Sources
 
+resolve:
+    swift package resolve
+
 typecheck:
-    swiftc -typecheck -framework Network -framework AppKit Sources/*.swift
+    swift build
 
 check: fmt lint typecheck build
 
 build:
-    swiftc -O -framework Network -framework AppKit -o {{binary}} Sources/*.swift
+    swift build -c release
+    cp .build/release/{{binary}} {{binary}}
     just sign {{binary}}
 
 install:
     mkdir -p {{install_dir}}
-    swiftc -O -framework Network -framework AppKit -o {{install_dir}}/{{binary}} Sources/*.swift
+    swift build -c release
+    cp .build/release/{{binary}} {{install_dir}}/{{binary}}
     just sign {{install_dir}}/{{binary}}
 
 sign path:

@@ -31,8 +31,8 @@ func (e NoContentError) Error() string { return e.Err.Error() }
 func (NoContentError) ExitCode() int { return noContentExitCode }
 
 // Receive sends request and materializes streamed files into outputDir.
-func Receive(gtyClient client.Client, request protocol.PasteRequest, outputDir string) (protocol.PasteResponse, error) {
-	header, body, err := client.Stream[protocol.PasteHeader](gtyClient, request)
+func Receive(gtyClient client.Client, request protocol.PasteRequest, outputDir string) (protocol.PasteResult, error) {
+	header, body, err := client.Stream[protocol.PasteFrameHeader](gtyClient, request)
 	if err != nil {
 		return nil, noContentError(err)
 	}
@@ -43,7 +43,7 @@ func Receive(gtyClient client.Client, request protocol.PasteRequest, outputDir s
 
 // Write sends request and writes text content directly to out.
 func Write(out io.Writer, gtyClient client.Client, request protocol.PasteRequest, outputDir string) error {
-	header, body, err := client.Stream[protocol.PasteHeader](gtyClient, request)
+	header, body, err := client.Stream[protocol.PasteFrameHeader](gtyClient, request)
 	if err != nil {
 		return noContentError(err)
 	}
@@ -57,33 +57,33 @@ func Write(out io.Writer, gtyClient client.Client, request protocol.PasteRequest
 		if err != nil {
 			return err
 		}
-		_, err = fmt.Fprintln(out, Text(protocol.PasteFilesResponse{Files: files, Bytes: sumFileBytes(files)}))
+		_, err = fmt.Fprintln(out, Text(protocol.PasteFilesResult{Files: files, Bytes: sumFileBytes(files)}))
 		return err
 	case "":
 		return NoContentError{Err: errors.New("clipboard has no supported content")}
 	default:
-		return fmt.Errorf("unsupported paste response kind: %s", header.Kind)
+		return fmt.Errorf("unsupported paste result kind: %s", header.Kind)
 	}
 }
 
-func receive(body io.Reader, header protocol.PasteHeader, outputDir string) (protocol.PasteResponse, error) {
+func receive(body io.Reader, header protocol.PasteFrameHeader, outputDir string) (protocol.PasteResult, error) {
 	switch header.Kind {
 	case protocol.PasteKindText:
 		var builder strings.Builder
 		if err := copyText(&builder, body, header.Bytes); err != nil {
 			return nil, err
 		}
-		return protocol.PasteTextResponse{Text: builder.String()}, nil
+		return protocol.PasteTextResult{Text: builder.String()}, nil
 	case protocol.PasteKindFiles:
 		files, err := receiveFiles(body, header.Files, outputDir)
 		if err != nil {
 			return nil, err
 		}
-		return protocol.PasteFilesResponse{Files: files, Bytes: sumFileBytes(files)}, nil
+		return protocol.PasteFilesResult{Files: files, Bytes: sumFileBytes(files)}, nil
 	case "":
 		return nil, NoContentError{Err: errors.New("clipboard has no supported content")}
 	default:
-		return nil, fmt.Errorf("unsupported paste response kind: %s", header.Kind)
+		return nil, fmt.Errorf("unsupported paste result kind: %s", header.Kind)
 	}
 }
 
@@ -190,12 +190,12 @@ func randomSuffix() string {
 	return hex.EncodeToString(bytes)
 }
 
-// Text returns the shell-friendly text representation of a paste response.
-func Text(response protocol.PasteResponse) string {
-	switch typed := response.(type) {
-	case protocol.PasteTextResponse:
+// Text returns the shell-friendly text representation of a paste result.
+func Text(result protocol.PasteResult) string {
+	switch typed := result.(type) {
+	case protocol.PasteTextResult:
 		return typed.Text
-	case protocol.PasteFilesResponse:
+	case protocol.PasteFilesResult:
 		paths := make([]string, 0, len(typed.Files))
 		for _, file := range typed.Files {
 			paths = append(paths, file.Path)
@@ -206,24 +206,24 @@ func Text(response protocol.PasteResponse) string {
 	}
 }
 
-// PrintJSON writes a structured paste response as one JSON line.
-func PrintJSON(out io.Writer, response protocol.PasteResponse) error {
-	encoded, err := json.Marshal(toHeader(response))
+// PrintJSON writes a structured paste result as one JSON line.
+func PrintJSON(out io.Writer, result protocol.PasteResult) error {
+	encoded, err := json.Marshal(toHeader(result))
 	if err != nil {
-		return fmt.Errorf("encode paste response: %w", err)
+		return fmt.Errorf("encode paste result: %w", err)
 	}
 	_, err = fmt.Fprintln(out, string(encoded))
 	return err
 }
 
-func toHeader(response protocol.PasteResponse) protocol.PasteHeader {
-	switch typed := response.(type) {
-	case protocol.PasteTextResponse:
-		return protocol.PasteHeader{Response: protocol.Response{Version: ghosttykit.ProtocolVersion, Code: protocol.CodeOK}, Kind: protocol.PasteKindText, Bytes: int64(len(typed.Text))}
-	case protocol.PasteFilesResponse:
-		return protocol.PasteHeader{Response: protocol.Response{Version: ghosttykit.ProtocolVersion, Code: protocol.CodeOK}, Kind: protocol.PasteKindFiles, Files: typed.Files, Bytes: typed.Bytes}
+func toHeader(result protocol.PasteResult) protocol.PasteFrameHeader {
+	switch typed := result.(type) {
+	case protocol.PasteTextResult:
+		return protocol.PasteFrameHeader{FrameReply: protocol.FrameReply{Version: ghosttykit.ProtocolVersion, Code: protocol.CodeOK}, Kind: protocol.PasteKindText, Bytes: int64(len(typed.Text))}
+	case protocol.PasteFilesResult:
+		return protocol.PasteFrameHeader{FrameReply: protocol.FrameReply{Version: ghosttykit.ProtocolVersion, Code: protocol.CodeOK}, Kind: protocol.PasteKindFiles, Files: typed.Files, Bytes: typed.Bytes}
 	default:
-		return protocol.PasteHeader{}
+		return protocol.PasteFrameHeader{}
 	}
 }
 

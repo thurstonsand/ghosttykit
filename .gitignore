@@ -21,3 +21,4 @@ yarn.lock
 # Editor
 .idea/
 .vscode/
+.clawpatch/

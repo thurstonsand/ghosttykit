@@ -423,7 +423,7 @@ Deferred. The current CLI-backed model works and is easier to port. Lua direct s
     - `go test ./...` passes in `sdk/go` and `cli/gty`.
     - `gty ping`, `gty paste --json`, and layout commands work locally after `ghosttykitd` adopts the GhosttyKit protocol.
 
-- [ ] Phase 3: Extract and rename the Swift daemon
+- [x] Phase 3: Extract and rename the Swift daemon
   - Goal: Move the Swift daemon into `daemon/ghosttykitd` and rename service/socket/log paths.
   - Files: `ansible/roles/ghostty_nav/files/ghostty-navd/**` -> `daemon/ghosttykitd/**`.
   - Work:
@@ -553,6 +553,7 @@ Deferred. The current CLI-backed model works and is easier to port. Lua direct s
     - Add troubleshooting docs for SSH forwarding, `GTY_SOCK`, remote bootstrap, stale sockets, and macOS TCC.
     - Add minimum manual test matrix covering two Ghostty panes to the same host, forwarding disabled, daemon restart, stale remote socket cleanup, and paste over bridge.
     - Add release automation for Go binaries, Swift daemon, Homebrew formula updates, and Pi package publishing as appropriate.
+    - Evaluate replacing generated AppleScript source strings with direct AppleEvents for safer argument passing and lower control overhead.
   - Validation:
     - Fresh-machine install path succeeds from documentation.
     - End-to-end local and remote workflows pass the documented test matrix.

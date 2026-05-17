@@ -1,0 +1,26 @@
+// swift-tools-version: 5.10
+
+import PackageDescription
+
+let package = Package(
+    name: "ghosttykitd",
+    platforms: [.macOS(.v13)],
+    products: [
+        .executable(name: "ghosttykitd", targets: ["ghosttykitd"])
+    ],
+    dependencies: [
+        .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.3.0"),
+        .package(url: "https://github.com/apple/swift-nio.git", from: "2.65.0")
+    ],
+    targets: [
+        .executableTarget(
+            name: "ghosttykitd",
+            dependencies: [
+                .product(name: "ArgumentParser", package: "swift-argument-parser"),
+                .product(name: "NIOCore", package: "swift-nio"),
+                .product(name: "NIOPosix", package: "swift-nio")
+            ],
+            linkerSettings: [.linkedFramework("AppKit")]
+        )
+    ]
+)

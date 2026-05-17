@@ -18,11 +18,11 @@ func keyTableCmd(opts *options) *cobra.Command {
 			Use:  "activate <table>",
 			Args: cobra.ExactArgs(1),
 			RunE: func(_ *cobra.Command, args []string) error {
-				value, err := requestTTY(opts)
+				target, err := requestTerminalTarget(opts)
 				if err != nil {
 					return err
 				}
-				_, err = client.New().Dispatch(protocol.KeyTableActivateRequest{Envelope: protocol.NewEnvelope("key-table-activate"), TTY: value, Table: args[0], Ack: wait})
+				_, err = client.New().Do(protocol.KeyTableActivateRequest{FrameEnvelope: protocol.NewFrameEnvelope("key-table-activate"), TTY: target.tty, Focused: target.focused, Table: args[0], Ack: wait})
 				return err
 			},
 		},
@@ -30,11 +30,11 @@ func keyTableCmd(opts *options) *cobra.Command {
 			Use:  "deactivate",
 			Args: cobra.NoArgs,
 			RunE: func(_ *cobra.Command, _ []string) error {
-				value, err := requestTTY(opts)
+				target, err := requestTerminalTarget(opts)
 				if err != nil {
 					return err
 				}
-				_, err = client.New().Dispatch(protocol.KeyTableDeactivateRequest{Envelope: protocol.NewEnvelope("key-table-deactivate"), TTY: value, Ack: wait})
+				_, err = client.New().Do(protocol.KeyTableDeactivateRequest{FrameEnvelope: protocol.NewFrameEnvelope("key-table-deactivate"), TTY: target.tty, Focused: target.focused, Ack: wait})
 				return err
 			},
 		},
