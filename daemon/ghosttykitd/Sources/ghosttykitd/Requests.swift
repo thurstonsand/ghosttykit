@@ -36,16 +36,64 @@ enum ProtocolCode {
     static let internalError = "internal_error"
 }
 
+enum ReplyMode {
+    case frame
+    case none
+    case stream
+}
+
+enum CommandResult {
+    case none
+    case reply(ReplyBody)
+}
+
 protocol CommandRequest: Decodable {
     var version: Int { get }
     var command: String { get }
     var tty: String? { get }
-    func reply(using context: CommandContext) throws -> FrameReplyBody
-    func errorReply(for error: Error) -> FrameReplyBody
+    var replyMode: ReplyMode { get }
+    func reply(using context: CommandContext) throws -> ReplyBody
+    func errorReply(for error: Error) -> ReplyBody
+}
+
+extension CommandRequest {
+    var replyMode: ReplyMode {
+        .frame
+    }
+
+    func dispatch(using context: CommandContext) -> CommandResult {
+        .reply(commandReply(using: context))
+    }
+
+    func commandReply(using context: CommandContext) -> ReplyBody {
+        do {
+            return try reply(using: context)
+        } catch {
+            context.cache.clear(tty: tty)
+            context.logger.ghosttykit("\(logSummary) failed error=\(error.localizedDescription)")
+            return errorReply(for: error)
+        }
+    }
+
+    func errorReply(for error: Error) -> ReplyBody {
+        .frame(responseForError(error))
+    }
+
+    var logSummary: String {
+        var parts = ["command=\(command)"]
+        if let tty { parts.append("tty=\(tty)") }
+        return parts.joined(separator: " ")
+    }
 }
 
 protocol AckCommandRequest: CommandRequest {
     var ack: Bool { get }
+}
+
+extension AckCommandRequest {
+    var replyMode: ReplyMode {
+        ack ? .frame : .none
+    }
 }
 
 protocol TerminalCommandRequest: CommandRequest {
@@ -60,37 +108,6 @@ extension TerminalCommandRequest {
 
     func terminal(using context: CommandContext) throws -> TerminalContext {
         try context.terminal(for: normalizeTTY(rawTTY), focused: focused)
-    }
-}
-
-enum CommandResult {
-    case noReply
-    case reply(FrameReplyBody)
-}
-
-extension CommandRequest {
-    func dispatch(using context: CommandContext) -> CommandResult {
-        .reply(commandReply(using: context))
-    }
-
-    func commandReply(using context: CommandContext) -> FrameReplyBody {
-        do {
-            return try reply(using: context)
-        } catch {
-            context.cache.clear(tty: tty)
-            context.logger.ghosttykit("\(logSummary) failed error=\(error.localizedDescription)")
-            return errorReply(for: error)
-        }
-    }
-
-    func errorReply(for error: Error) -> FrameReplyBody {
-        .json(responseForError(error))
-    }
-
-    var logSummary: String {
-        var parts = ["command=\(command)"]
-        if let tty { parts.append("tty=\(tty)") }
-        return parts.joined(separator: " ")
     }
 }
 
@@ -130,8 +147,8 @@ struct PingRequest: CommandRequest {
         nil
     }
 
-    func reply(using _: CommandContext) throws -> FrameReplyBody {
-        .json(FrameReply.ok("pong"))
+    func reply(using _: CommandContext) throws -> ReplyBody {
+        .frame(FrameReply.ok("pong"))
     }
 }
 
@@ -154,9 +171,9 @@ struct TerminalIDRequest: CommandRequest {
         rawTTY.map(normalizeTTY)
     }
 
-    func reply(using context: CommandContext) throws -> FrameReplyBody {
+    func reply(using context: CommandContext) throws -> ReplyBody {
         let terminal = try terminal(using: context)
-        return .json(FrameReply.ok(terminal.terminalID))
+        return .frame(FrameReply.ok(terminal.terminalID))
     }
 
     private func terminal(using context: CommandContext) throws -> TerminalContext {
@@ -196,10 +213,10 @@ struct TabTerminalCountRequest: CommandRequest {
         rawTTY.map(normalizeTTY)
     }
 
-    func reply(using context: CommandContext) throws -> FrameReplyBody {
+    func reply(using context: CommandContext) throws -> ReplyBody {
         let terminal = try tty.map { try context.terminal(for: $0, focused: focused) }
         let count = try context.ghostty.tabTerminalCount(terminal: terminal)
-        return .json(FrameReply.ok(String(count)))
+        return .frame(FrameReply.ok(String(count)))
     }
 }
 
@@ -225,9 +242,9 @@ struct ClearCacheRequest: AckCommandRequest {
         return "command=\(command) tty=\(tty ?? "")"
     }
 
-    func reply(using context: CommandContext) throws -> FrameReplyBody {
+    func reply(using context: CommandContext) throws -> ReplyBody {
         context.cache.clear(tty: tty)
-        return .json(FrameReply.ok())
+        return .frame(FrameReply.ok())
     }
 }
 
@@ -252,9 +269,9 @@ struct KeyTableActivateRequest: TerminalCommandRequest, AckCommandRequest {
         "command=\(command) tty=\(tty ?? "") table=\(table)"
     }
 
-    func reply(using context: CommandContext) throws -> FrameReplyBody {
+    func reply(using context: CommandContext) throws -> ReplyBody {
         try context.ghostty.activateKeyTable(table, terminal: terminal(using: context))
-        return .json(FrameReply.ok())
+        return .frame(FrameReply.ok())
     }
 }
 
@@ -273,9 +290,9 @@ struct KeyTableDeactivateRequest: TerminalCommandRequest, AckCommandRequest {
         case ack
     }
 
-    func reply(using context: CommandContext) throws -> FrameReplyBody {
+    func reply(using context: CommandContext) throws -> ReplyBody {
         try context.ghostty.deactivateKeyTable(terminal: terminal(using: context))
-        return .json(FrameReply.ok())
+        return .frame(FrameReply.ok())
     }
 }
 
@@ -300,9 +317,9 @@ struct FocusRequest: TerminalCommandRequest, AckCommandRequest {
         "command=\(command) tty=\(tty ?? "") direction=\(direction)"
     }
 
-    func reply(using context: CommandContext) throws -> FrameReplyBody {
+    func reply(using context: CommandContext) throws -> ReplyBody {
         try context.ghostty.focusSplit(direction: direction, terminal: terminal(using: context))
-        return .json(FrameReply.ok())
+        return .frame(FrameReply.ok())
     }
 }
 
@@ -333,7 +350,7 @@ struct SplitRequest: TerminalCommandRequest, AckCommandRequest {
         "command=\(command) tty=\(tty ?? "") direction=\(direction)"
     }
 
-    func reply(using context: CommandContext) throws -> FrameReplyBody {
+    func reply(using context: CommandContext) throws -> ReplyBody {
         try context.ghostty.split(
             direction: direction,
             cwd: cwd,
@@ -341,7 +358,7 @@ struct SplitRequest: TerminalCommandRequest, AckCommandRequest {
             focus: focus ?? .new,
             terminal: terminal(using: context)
         )
-        return .json(FrameReply.ok())
+        return .frame(FrameReply.ok())
     }
 }
 
@@ -368,11 +385,11 @@ struct ResizeCommandRequest: TerminalCommandRequest, AckCommandRequest {
         "command=\(command) tty=\(tty ?? "") direction=\(direction)"
     }
 
-    func reply(using context: CommandContext) throws -> FrameReplyBody {
+    func reply(using context: CommandContext) throws -> ReplyBody {
         try context.ghostty.resize(
             direction: direction, amount: amount, terminal: terminal(using: context)
         )
-        return .json(FrameReply.ok())
+        return .frame(FrameReply.ok())
     }
 }
 
@@ -391,9 +408,9 @@ struct ZoomRequest: TerminalCommandRequest, AckCommandRequest {
         case ack
     }
 
-    func reply(using context: CommandContext) throws -> FrameReplyBody {
+    func reply(using context: CommandContext) throws -> ReplyBody {
         try context.ghostty.toggleSplitZoom(terminal: terminal(using: context))
-        return .json(FrameReply.ok())
+        return .frame(FrameReply.ok())
     }
 }
 
@@ -412,35 +429,29 @@ struct PasteRequest: CommandRequest {
         rawTTY.map(normalizeTTY)
     }
 
-    func reply(using _: CommandContext) throws -> FrameReplyBody {
-        try .stream(readPasteboardContent())
+    var replyMode: ReplyMode {
+        .stream
     }
 
-    func errorReply(for error: Error) -> FrameReplyBody {
-        if let pasteboardError = error as? PasteboardError {
-            return .stream(
-                FrameStreamReply(
-                    header: PasteFrameReply.failure(
-                        code: pasteboardError.protocolCode, error.localizedDescription
-                    ),
-                    streams: []
-                )
-            )
-        }
-        let response = responseForError(error)
-        return .stream(
-            FrameStreamReply(
-                header: PasteFrameReply.failure(
-                    code: response.code, response.error ?? "request failed"
-                ),
-                streams: []
-            )
-        )
+    func reply(using context: CommandContext) throws -> ReplyBody {
+        try .stream(context.ghostty.readPasteboardContent())
+    }
+
+    func errorReply(for error: Error) -> ReplyBody {
+        .stream(FrameStreamReply(header: pasteFrameFailure(for: error), streams: []))
     }
 }
 
-enum FrameReplyBody {
-    case json(any Encodable)
+private func pasteFrameFailure(for error: Error) -> PasteFrameHeader {
+    if let pasteboardError = error as? PasteboardError {
+        return .failure(code: pasteboardError.protocolCode, error.localizedDescription)
+    }
+    let response = responseForError(error)
+    return .failure(code: response.code, response.error ?? "request failed")
+}
+
+enum ReplyBody {
+    case frame(any Encodable)
     case stream(FrameStreamReply)
 }
 
@@ -461,7 +472,7 @@ struct FrameReply: Encodable {
     }
 }
 
-struct PasteFrameReply: Encodable {
+struct PasteFrameHeader: Encodable {
     let version: Int
     let code: String
     let error: String?
@@ -469,8 +480,8 @@ struct PasteFrameReply: Encodable {
     let files: [PasteFrameFile]?
     let bytes: Int?
 
-    static func text(byteCount: Int) -> PasteFrameReply {
-        PasteFrameReply(
+    static func text(byteCount: Int) -> PasteFrameHeader {
+        PasteFrameHeader(
             version: ProtocolVersion.current,
             code: ProtocolCode.ok,
             error: nil,
@@ -480,8 +491,8 @@ struct PasteFrameReply: Encodable {
         )
     }
 
-    static func files(_ files: [PasteFrameFile]) -> PasteFrameReply {
-        PasteFrameReply(
+    static func files(_ files: [PasteFrameFile]) -> PasteFrameHeader {
+        PasteFrameHeader(
             version: ProtocolVersion.current,
             code: ProtocolCode.ok,
             error: nil,
@@ -491,8 +502,8 @@ struct PasteFrameReply: Encodable {
         )
     }
 
-    static func failure(code: String, _ error: String) -> PasteFrameReply {
-        PasteFrameReply(
+    static func failure(code: String, _ error: String) -> PasteFrameHeader {
+        PasteFrameHeader(
             version: ProtocolVersion.current,
             code: code,
             error: error,

@@ -24,6 +24,7 @@ enum GhosttyKitError: Error, LocalizedError {
 
 protocol GhosttyControlling {
     func focusedTerminalContext() throws -> TerminalContext
+    func readPasteboardContent() throws -> FrameStreamReply
     func activateKeyTable(_ table: String, terminal: TerminalContext) throws
     func deactivateKeyTable(terminal: TerminalContext) throws
     func focusSplit(direction: Direction, terminal: TerminalContext) throws
@@ -45,9 +46,20 @@ final class DryRunGhosttyController: GhosttyControlling {
         windowID: "dry-run-window",
         tabID: "dry-run-tab"
     )
+    private let pasteText: String?
+
+    init(pasteText: String? = nil) {
+        self.pasteText = pasteText
+    }
 
     func focusedTerminalContext() throws -> TerminalContext {
         terminal
+    }
+
+    func readPasteboardContent() throws -> FrameStreamReply {
+        guard let pasteText else { return try readSystemPasteboardContent() }
+        let data = Data(pasteText.utf8)
+        return FrameStreamReply(header: PasteFrameHeader.text(byteCount: data.count), streams: [.data(data)])
     }
 
     func activateKeyTable(_: String, terminal _: TerminalContext) throws {}
@@ -99,6 +111,10 @@ final class AppleScriptGhosttyController: GhosttyControlling {
             windowID: parts.count > 1 ? String(parts[1]) : nil,
             tabID: parts.count > 2 ? String(parts[2]) : nil
         )
+    }
+
+    func readPasteboardContent() throws -> FrameStreamReply {
+        try readSystemPasteboardContent()
     }
 
     func activateKeyTable(_ table: String, terminal: TerminalContext) throws {

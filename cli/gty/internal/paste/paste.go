@@ -198,7 +198,7 @@ func Text(result protocol.PasteResult) string {
 	case protocol.PasteFilesResult:
 		paths := make([]string, 0, len(typed.Files))
 		for _, file := range typed.Files {
-			paths = append(paths, file.Path)
+			paths = append(paths, shellQuote(file.Path))
 		}
 		return strings.Join(paths, " ")
 	default:
@@ -225,6 +225,10 @@ func toHeader(result protocol.PasteResult) protocol.PasteFrameHeader {
 	default:
 		return protocol.PasteFrameHeader{}
 	}
+}
+
+func shellQuote(value string) string {
+	return "'" + strings.ReplaceAll(value, "'", "'\\''") + "'"
 }
 
 func sumFileBytes(files []protocol.PasteFile) int64 {

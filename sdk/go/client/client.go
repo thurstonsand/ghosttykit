@@ -14,7 +14,14 @@ import (
 	"github.com/thurstonsand/ghosttykit/sdk/go/protocol"
 )
 
-var errStreamReply = errors.New("request requires stream handling")
+var (
+	// ErrStreamReplyMode means the request returns a stream reply, not a single JSON frame.
+	ErrStreamReplyMode = errors.New("request reply mode is stream")
+	// ErrFrameReplyMode means the request returns a single JSON frame, not a stream.
+	ErrFrameReplyMode = errors.New("request reply mode is frame")
+	// ErrNoReplyMode means the request does not return reply bytes.
+	ErrNoReplyMode = errors.New("request reply mode is none")
+)
 
 // Client opens one connection per request to a GhosttyKit endpoint.
 type Client struct {
@@ -59,15 +66,16 @@ func (c Client) Do(request protocol.Request) (*protocol.FrameReply, error) {
 	if err := validateRequest(request); err != nil {
 		return nil, err
 	}
-	switch protocol.ReplyModeOf(request) {
+	mode := protocol.ReplyModeOf(request)
+	switch mode {
 	case protocol.ReplyModeFrame:
 		return c.doWithReply(request)
 	case protocol.ReplyModeNone:
 		return nil, c.doNoReply(request)
 	case protocol.ReplyModeStream:
-		return nil, errStreamReply
+		return nil, ErrStreamReplyMode
 	default:
-		return nil, fmt.Errorf("unsupported reply mode %d", protocol.ReplyModeOf(request))
+		return nil, fmt.Errorf("unsupported reply mode %d", mode)
 	}
 }
 
@@ -105,8 +113,15 @@ func validateRequest(request protocol.Request) error {
 }
 
 func (c Client) stream(request protocol.Request) (*Conn, error) {
-	if protocol.ReplyModeOf(request) != protocol.ReplyModeStream {
-		return nil, errStreamReply
+	mode := protocol.ReplyModeOf(request)
+	switch mode {
+	case protocol.ReplyModeStream:
+	case protocol.ReplyModeFrame:
+		return nil, ErrFrameReplyMode
+	case protocol.ReplyModeNone:
+		return nil, ErrNoReplyMode
+	default:
+		return nil, fmt.Errorf("unsupported reply mode %d", mode)
 	}
 	if err := validateRequest(request); err != nil {
 		return nil, err

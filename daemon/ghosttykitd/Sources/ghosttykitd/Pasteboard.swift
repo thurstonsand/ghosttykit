@@ -2,7 +2,7 @@ import AppKit
 import Foundation
 import UniformTypeIdentifiers
 
-func readPasteboardContent() throws -> FrameStreamReply {
+func readSystemPasteboardContent() throws -> FrameStreamReply {
     let pasteboard = NSPasteboard.general
 
     let fileItems = try readFileURLItems(from: pasteboard)
@@ -18,9 +18,8 @@ func readPasteboardContent() throws -> FrameStreamReply {
         return pasteFrameStreamReply([dataItem])
     }
 
-    if let text = pasteboard.string(forType: .string), !text.isEmpty {
-        let data = Data(text.utf8)
-        return FrameStreamReply(header: PasteFrameReply.text(byteCount: data.count), streams: [.data(data)])
+    if let data = pasteboard.data(forType: .string), !data.isEmpty {
+        return FrameStreamReply(header: PasteFrameHeader.text(byteCount: data.count), streams: [.data(data)])
     }
 
     if let dataItem = readFallbackDataItem(from: pasteboard) {
@@ -50,7 +49,7 @@ private struct PasteboardFileItem {
 }
 
 private func pasteFrameStreamReply(_ items: [PasteboardFileItem]) -> FrameStreamReply {
-    FrameStreamReply(header: PasteFrameReply.files(items.map(\.response)), streams: items.map(\.stream))
+    FrameStreamReply(header: PasteFrameHeader.files(items.map(\.response)), streams: items.map(\.stream))
 }
 
 private func readFileURLItems(from pasteboard: NSPasteboard) throws -> [PasteboardFileItem] {

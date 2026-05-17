@@ -35,7 +35,9 @@ final class GhosttyKitDaemon {
 
     init(options: DaemonOptions) {
         self.options = options
-        ghostty = options.dryRun ? DryRunGhosttyController() : AppleScriptGhosttyController()
+        ghostty = options.dryRun
+            ? DryRunGhosttyController(pasteText: ProcessInfo.processInfo.environment["GTY_DRY_RUN_PASTE_TEXT"])
+            : AppleScriptGhosttyController()
     }
 
     func start() async throws {
@@ -43,7 +45,7 @@ final class GhosttyKitDaemon {
         logger.ghosttykit("starting dry_run=\(options.dryRun) socket=\(options.socketPath)")
         let server = NetworkServer(socketPath: options.socketPath, logger: logger) { [weak self] request in
             guard let self else {
-                return .reply(.json(FrameReply.failure(code: ProtocolCode.internalError, "daemon unavailable")))
+                return .reply(.frame(FrameReply.failure(code: ProtocolCode.internalError, "daemon unavailable")))
             }
             return commandQueue.sync { self.dispatch(request) }
         }
@@ -52,11 +54,13 @@ final class GhosttyKitDaemon {
 
     private func dispatch(_ request: any CommandRequest) -> CommandResult {
         let context = CommandContext(cache: cache, ghostty: ghostty, logger: logger)
-        if let request = request as? any AckCommandRequest, !request.ack {
+        switch request.replyMode {
+        case .none:
             Task { _ = request.commandReply(using: context) }
-            return .noReply
+            return .none
+        case .frame, .stream:
+            return request.dispatch(using: context)
         }
-        return request.dispatch(using: context)
     }
 }
 

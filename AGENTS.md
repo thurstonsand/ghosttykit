@@ -44,6 +44,7 @@ just typecheck
 just test
 just build
 just check
+just smoke-real-daemon  # mutates the focused Ghostty window; use only when requested
 ```
 
 Component commands:
@@ -51,6 +52,7 @@ Component commands:
 ```sh
 just -f cli/gty/justfile check
 just -f sdk/go/justfile check
+just -f sdk/go/justfile integration-test
 just -f daemon/ghosttykitd/justfile check
 just -f nvim/justfile check
 just -f pi/pi-paste/justfile check

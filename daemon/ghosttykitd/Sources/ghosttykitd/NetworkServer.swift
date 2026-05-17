@@ -35,7 +35,7 @@ final class NetworkServer {
                             outboundType: ByteBuffer.self
                         )
                     )
-                    return AcceptedConnection(channel: channel, asyncChannel: asyncChannel)
+                    return AcceptedConnection(asyncChannel: asyncChannel)
                 }
             }
 
@@ -65,7 +65,6 @@ final class NetworkServer {
 }
 
 private struct AcceptedConnection {
-    let channel: Channel
     let asyncChannel: NIOAsyncChannel<ByteBuffer, ByteBuffer>
 }
 
@@ -73,7 +72,6 @@ private struct ConnectionHandler {
     private let connection: AcceptedConnection
     private let logger: Logger
     private let requestReader: RequestReader
-    private let replyWriter: ReplyWriter
     private let handler: @Sendable (any CommandRequest) -> CommandResult
 
     init(
@@ -84,16 +82,18 @@ private struct ConnectionHandler {
         self.connection = connection
         self.logger = logger
         requestReader = RequestReader()
-        replyWriter = ReplyWriter(channel: connection.channel)
         self.handler = handler
     }
 
     func run() async throws {
-        try await connection.asyncChannel.executeThenClose { inbound, _ in
+        let asyncChannel = connection.asyncChannel
+        try await asyncChannel.executeThenClose { inbound, _ in
+            let replyWriter = ReplyWriter(channel: asyncChannel.channel)
             let command: any CommandRequest
             do {
                 guard let decodedCommand = try await requestReader.readCommand(from: inbound) else {
                     logger.ghosttykit("empty request")
+                    try await replyWriter.closeOutput()
                     return
                 }
                 command = decodedCommand
@@ -101,19 +101,23 @@ private struct ConnectionHandler {
                 logger.ghosttykit(
                     "request failed before process error=\(error.localizedDescription)"
                 )
-                try await replyWriter.send(.json(responseForError(error)))
+                try await replyWriter.send(.frame(responseForError(error)))
+                try await replyWriter.closeOutput()
                 return
             }
 
             switch handler(command) {
-            case .noReply:
-                return
+            case .none:
+                break
             case let .reply(reply):
                 try await replyWriter.send(reply)
             }
+            try await replyWriter.closeOutput()
         }
     }
 }
+
+private struct WriteIdleTimeout: Error {}
 
 private struct RequestReader {
     private static let maxFrameBytes = 64 * 1024
@@ -155,15 +159,23 @@ private struct RequestReader {
 }
 
 private struct ReplyWriter {
-    private let channel: Channel
+    private static let writeIdleTimeout = Duration.seconds(30)
 
-    init(channel: Channel) {
+    private let channel: any Channel
+
+    init(channel: any Channel) {
         self.channel = channel
     }
 
-    func send(_ response: FrameReplyBody) async throws {
+    func closeOutput() async throws {
+        try await withWriteIdleTimeout {
+            try await channel.close(mode: .output).get()
+        }
+    }
+
+    func send(_ response: ReplyBody) async throws {
         switch response {
-        case let .json(jsonResponse):
+        case let .frame(jsonResponse):
             try await sendJSON(jsonResponse)
         case let .stream(streamResponse):
             try await send(streamResponse)
@@ -197,12 +209,30 @@ private struct ReplyWriter {
         while offset < data.endIndex {
             let end =
                 data.index(offset, offsetBy: chunkSize, limitedBy: data.endIndex) ?? data.endIndex
-            var buffer = ByteBufferAllocator().buffer(
+            var writableBuffer = ByteBufferAllocator().buffer(
                 capacity: data.distance(from: offset, to: end)
             )
-            buffer.writeBytes(data[offset ..< end])
-            try await channel.writeAndFlush(buffer).get()
+            writableBuffer.writeBytes(data[offset ..< end])
+            let buffer = writableBuffer
+            try await withWriteIdleTimeout {
+                try await channel.writeAndFlush(buffer).get()
+            }
             offset = end
+        }
+    }
+
+    private func withWriteIdleTimeout(_ operation: @escaping @Sendable () async throws -> Void) async throws {
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            group.addTask {
+                try await operation()
+            }
+            group.addTask {
+                try await Task.sleep(for: Self.writeIdleTimeout)
+                try await channel.close(mode: .all).get()
+                throw WriteIdleTimeout()
+            }
+            _ = try await group.next()
+            group.cancelAll()
         }
     }
 

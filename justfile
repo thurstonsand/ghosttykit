@@ -83,6 +83,10 @@ build-nvim:
 # Run all checks.
 check: fmt lint typecheck test build
 
+# Exercise daemon/cli against the focused Ghostty window. Mutates split layout, focus, resize, zoom, key table, cache, and pasteboard.
+smoke-real-daemon: build-go build-swift
+    scripts/smoke-real-daemon.sh
+
 install-deps: install-deps-pi
 
 install-deps-pi:
