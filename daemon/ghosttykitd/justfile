@@ -20,7 +20,10 @@ resolve:
 typecheck:
     swift build
 
-check: fmt lint typecheck build
+test:
+    swift test --quiet
+
+check: fmt lint typecheck test build
 
 build:
     swift build -c release

@@ -35,63 +35,61 @@ func TestIntegrationDryRunDaemonE2E(t *testing.T) {
 
 	c := ForSocket(socketPath)
 
-	reply, err := c.Do(protocol.PingRequest{FrameEnvelope: protocol.NewFrameEnvelope("ping")})
+	reply, err := Call[protocol.FrameReply](c, protocol.PingRequest{FrameEnvelope: protocol.NewFrameEnvelope("ping")})
 	if err != nil {
-		t.Fatalf("ping Do() error = %v", err)
+		t.Fatalf("ping Call() error = %v", err)
 	}
 	if got, want := reply.Value, "pong"; got != want {
 		t.Fatalf("ping value = %q, want %q", got, want)
 	}
 
 	tty := "/dev/ghosttykit-sdk-integration"
-	reply, err = c.Do(protocol.TerminalIDRequest{
+	reply, err = Call[protocol.FrameReply](c, protocol.TerminalIDRequest{
 		FrameEnvelope: protocol.NewFrameEnvelope("terminal-id"),
 		TTY:           tty,
 		Focused:       true,
 		Refresh:       true,
 	})
 	if err != nil {
-		t.Fatalf("terminal-id Do() error = %v", err)
+		t.Fatalf("terminal-id Call() error = %v", err)
 	}
 	if got, want := reply.Value, "dry-run-terminal"; got != want {
 		t.Fatalf("terminal-id value = %q, want %q", got, want)
 	}
 
-	reply, err = c.Do(protocol.TabTerminalCountRequest{
+	reply, err = Call[protocol.FrameReply](c, protocol.TabTerminalCountRequest{
 		FrameEnvelope: protocol.NewFrameEnvelope("tab-terminal-count"),
 		TTY:           tty,
 	})
 	if err != nil {
-		t.Fatalf("tab-terminal-count Do() error = %v", err)
+		t.Fatalf("tab-terminal-count Call() error = %v", err)
 	}
 	if got, want := reply.Value, "1"; got != want {
 		t.Fatalf("tab-terminal-count value = %q, want %q", got, want)
 	}
 
-	reply, err = c.Do(protocol.FocusRequest{
+	reply, err = Call[protocol.FrameReply](c, protocol.FocusRequest{
 		FrameEnvelope: protocol.NewFrameEnvelope("focus"),
 		TTY:           tty,
 		Direction:     "left",
 		Ack:           true,
 	})
 	if err != nil {
-		t.Fatalf("ack focus Do() error = %v", err)
+		t.Fatalf("ack focus Call() error = %v", err)
 	}
 	if got, want := reply.Code, protocol.CodeOK; got != want {
 		t.Fatalf("ack focus code = %q, want %q", got, want)
 	}
 
-	if reply, err := c.Do(protocol.FocusRequest{
+	if err := Notify(c, protocol.FocusRequest{
 		FrameEnvelope: protocol.NewFrameEnvelope("focus"),
 		TTY:           tty,
 		Direction:     "right",
 	}); err != nil {
-		t.Fatalf("no-ack focus Do() error = %v", err)
-	} else if reply != nil {
-		t.Fatalf("no-ack focus reply = %#v, want nil", reply)
+		t.Fatalf("no-ack focus Notify() error = %v", err)
 	}
 
-	header, body, err := Stream[protocol.PasteFrameHeader](
+	header, body, err := Stream[protocol.PasteStreamFrameHeader](
 		c,
 		protocol.PasteRequest{FrameEnvelope: protocol.NewFrameEnvelope("paste")},
 	)

@@ -22,4 +22,7 @@ func TestReplyModeOf(t *testing.T) {
 	if got := protocol.ReplyModeOf(protocol.PasteRequest{FrameEnvelope: protocol.NewFrameEnvelope("paste")}); got != protocol.ReplyModeStream {
 		t.Fatalf("paste reply mode = %v, want stream", got)
 	}
+	if got := protocol.ReplyModeOf(protocol.BridgeLeaseRequest{FrameEnvelope: protocol.NewFrameEnvelope("bridge-lease")}); got != protocol.ReplyModeHold {
+		t.Fatalf("bridge lease reply mode = %v, want hold", got)
+	}
 }

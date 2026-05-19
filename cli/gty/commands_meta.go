@@ -15,7 +15,7 @@ func pingCmd() *cobra.Command {
 		Use:  "ping",
 		Args: cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
-			reply, err := client.New().Do(protocol.PingRequest{FrameEnvelope: protocol.NewFrameEnvelope("ping")})
+			reply, err := client.Call[protocol.FrameReply](client.New(), protocol.PingRequest{FrameEnvelope: protocol.NewFrameEnvelope("ping")})
 			if err != nil {
 				return err
 			}
@@ -47,7 +47,7 @@ func terminalIDCmd(opts *options) *cobra.Command {
 				request.TTY = target.tty
 				request.Focused = target.focused
 			}
-			reply, err := client.New().Do(request)
+			reply, err := client.Call[protocol.FrameReply](client.New(), request)
 			if err != nil {
 				return err
 			}
@@ -74,8 +74,7 @@ func clearCacheCmd(opts *options) *cobra.Command {
 				}
 				request.TTY = value
 			}
-			_, err := client.New().Do(request)
-			return err
+			return client.NotifyAck(client.New(), request, wait)
 		},
 	}
 	cmd.Flags().BoolVar(&all, "all", false, "clear all cached terminal mappings")
@@ -83,8 +82,8 @@ func clearCacheCmd(opts *options) *cobra.Command {
 	return cmd
 }
 
-func printReplyValue(reply *protocol.FrameReply) {
-	if reply != nil && reply.Value != "" {
+func printReplyValue(reply protocol.FrameReply) {
+	if reply.Value != "" {
 		fmt.Println(reply.Value)
 	}
 }

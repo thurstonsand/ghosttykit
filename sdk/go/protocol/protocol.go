@@ -56,6 +56,8 @@ const (
 	ReplyModeNone
 	// ReplyModeStream means the command returns a JSON header frame followed by raw bytes.
 	ReplyModeStream
+	// ReplyModeHold means the command returns one JSON reply frame and holds the connection open.
+	ReplyModeHold
 )
 
 type replyModeRequest interface {
@@ -70,9 +72,14 @@ type FrameReply struct {
 	Error   string `json:"error,omitempty"`
 }
 
-// FrameHeader is implemented by streamed reply headers.
-type FrameHeader interface {
+// FrameResponse is implemented by JSON response frames with protocol status codes.
+type FrameResponse interface {
 	Err() error
+}
+
+// StreamFrameHeader is implemented by streamed reply headers.
+type StreamFrameHeader interface {
+	FrameResponse
 }
 
 // NewFrameEnvelope returns a frame envelope for the current GhosttyKit protocol.
@@ -198,6 +205,30 @@ type TabTerminalCountRequest struct {
 
 func (TabTerminalCountRequest) isRequest() {}
 
+// BridgeCreateRequest asks the local daemon to create a per-SSH-session bridge.
+type BridgeCreateRequest struct {
+	FrameEnvelope
+	TTY     string `json:"tty"`
+	Focused bool   `json:"focused,omitempty"`
+}
+
+func (BridgeCreateRequest) isRequest() {}
+
+// BridgeCreateReply is returned by bridge-create.
+type BridgeCreateReply struct {
+	FrameReply
+	SocketPath string `json:"socketPath,omitempty"`
+	LeaseToken string `json:"leaseToken,omitempty"`
+}
+
+// BridgeLeaseRequest authenticates the persistent local lease connection.
+type BridgeLeaseRequest struct {
+	FrameEnvelope
+	Token string `json:"token"`
+}
+
+func (BridgeLeaseRequest) isRequest() {}
+
 // ClearCacheRequest removes one TTY mapping, or all mappings when TTY is empty.
 type ClearCacheRequest struct {
 	FrameEnvelope
@@ -305,6 +336,8 @@ func (PasteRequest) isRequest() {}
 
 func (PasteRequest) replyMode() ReplyMode { return ReplyModeStream }
 
+func (BridgeLeaseRequest) replyMode() ReplyMode { return ReplyModeHold }
+
 func ackReplyMode(ack bool) ReplyMode {
 	if ack {
 		return ReplyModeFrame
@@ -331,8 +364,8 @@ type PasteFile struct {
 	Source    string `json:"source,omitempty"`
 }
 
-// PasteFrameHeader is the JSON header sent before any streamed paste bytes.
-type PasteFrameHeader struct {
+// PasteStreamFrameHeader is the JSON header sent before any streamed paste bytes.
+type PasteStreamFrameHeader struct {
 	FrameReply
 	Kind  PasteKind   `json:"kind,omitempty"`
 	Files []PasteFile `json:"files,omitempty"`

@@ -45,6 +45,29 @@ enum ReplyMode {
 enum CommandResult {
     case none
     case reply(ReplyBody)
+    case hold(HoldReplyBody)
+}
+
+enum ReplyBody {
+    case frame(any Encodable)
+    case stream(FrameStreamReply)
+}
+
+struct HoldReplyBody {
+    let frame: any Encodable
+    let hold: ConnectionHold
+}
+
+struct ConnectionHold {
+    private let releaseHandler: @Sendable () -> Void
+
+    init(release: @escaping @Sendable () -> Void) {
+        releaseHandler = release
+    }
+
+    func release() {
+        releaseHandler()
+    }
 }
 
 protocol CommandRequest: Decodable {
@@ -52,6 +75,7 @@ protocol CommandRequest: Decodable {
     var command: String { get }
     var tty: String? { get }
     var replyMode: ReplyMode { get }
+    func dispatch(using context: CommandContext) -> CommandResult
     func reply(using context: CommandContext) throws -> ReplyBody
     func errorReply(for error: Error) -> ReplyBody
 }
@@ -111,10 +135,31 @@ extension TerminalCommandRequest {
     }
 }
 
-struct CommandContext {
+protocol CommandContext: AnyObject {
+    var cache: TerminalIDCache { get }
+    var ghostty: GhosttyControlling { get }
+    var logger: Logger { get }
+
+    func terminal(for tty: String, focused: Bool) throws -> TerminalContext
+}
+
+final class MainCommandContext: CommandContext {
     let cache: TerminalIDCache
     let ghostty: GhosttyControlling
     let logger: Logger
+    private let bridgeManager: BridgeSessionManaging
+
+    init(
+        cache: TerminalIDCache,
+        ghostty: GhosttyControlling,
+        logger: Logger,
+        bridgeManager: BridgeSessionManaging
+    ) {
+        self.cache = cache
+        self.ghostty = ghostty
+        self.logger = logger
+        self.bridgeManager = bridgeManager
+    }
 
     func terminal(for tty: String, focused: Bool) throws -> TerminalContext {
         if let terminal = cache.terminal(for: tty) {
@@ -126,6 +171,40 @@ struct CommandContext {
         let terminal = try ghostty.focusedTerminalContext()
         cache.store(terminal: terminal, for: tty)
         return terminal
+    }
+
+    func createBridge(terminal: TerminalContext) throws -> BridgeCreateReply {
+        try bridgeManager.createBridge(terminal: terminal)
+    }
+}
+
+final class BridgeCommandContext: CommandContext {
+    let cache: TerminalIDCache
+    let ghostty: GhosttyControlling
+    let logger: Logger
+    private let bridgeTerminal: TerminalContext
+    private let lease: BridgeLease
+
+    init(
+        cache: TerminalIDCache,
+        ghostty: GhosttyControlling,
+        logger: Logger,
+        terminal: TerminalContext,
+        lease: BridgeLease
+    ) {
+        self.cache = cache
+        self.ghostty = ghostty
+        self.logger = logger
+        bridgeTerminal = terminal
+        self.lease = lease
+    }
+
+    func terminal(for _: String, focused _: Bool) throws -> TerminalContext {
+        bridgeTerminal
+    }
+
+    func acceptHold(token: String) throws -> ConnectionHold {
+        try lease.accept(token: token)
     }
 }
 
@@ -414,6 +493,57 @@ struct ZoomRequest: TerminalCommandRequest, AckCommandRequest {
     }
 }
 
+struct CreateBridgeRequest: TerminalCommandRequest {
+    let version: Int
+    let command: String
+    let rawTTY: String
+    @DefaultFalse var focused: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case version
+        case command
+        case rawTTY = "tty"
+        case focused
+    }
+
+    var logSummary: String {
+        "command=\(command) tty=\(tty ?? "")"
+    }
+
+    func reply(using context: CommandContext) throws -> ReplyBody {
+        guard let context = context as? MainCommandContext else {
+            throw RequestValidationError.invalidRequest("bridge creation is not accepted by this endpoint")
+        }
+        return try .frame(context.createBridge(terminal: terminal(using: context)))
+    }
+}
+
+struct BridgeLeaseRequest: CommandRequest {
+    let version: Int
+    let command: String
+    let token: String
+
+    var tty: String? {
+        nil
+    }
+
+    func dispatch(using context: CommandContext) -> CommandResult {
+        do {
+            guard let context = context as? BridgeCommandContext else {
+                throw RequestValidationError.invalidRequest("hold is not accepted by this endpoint")
+            }
+            return try .hold(HoldReplyBody(frame: FrameReply.ok(), hold: context.acceptHold(token: token)))
+        } catch {
+            context.logger.ghosttykit("\(logSummary) failed error=\(error.localizedDescription)")
+            return .reply(errorReply(for: error))
+        }
+    }
+
+    func reply(using context: CommandContext) throws -> ReplyBody {
+        .frame(FrameReply.ok())
+    }
+}
+
 struct PasteRequest: CommandRequest {
     let version: Int
     let command: String
@@ -442,7 +572,7 @@ struct PasteRequest: CommandRequest {
     }
 }
 
-private func pasteFrameFailure(for error: Error) -> PasteFrameHeader {
+private func pasteFrameFailure(for error: Error) -> PasteStreamFrameHeader {
     if let pasteboardError = error as? PasteboardError {
         return .failure(code: pasteboardError.protocolCode, error.localizedDescription)
     }
@@ -450,12 +580,25 @@ private func pasteFrameFailure(for error: Error) -> PasteFrameHeader {
     return .failure(code: response.code, response.error ?? "request failed")
 }
 
-enum ReplyBody {
-    case frame(any Encodable)
-    case stream(FrameStreamReply)
+struct BridgeCreateReply: Codable {
+    let version: Int
+    let code: String
+    let socketPath: String?
+    let leaseToken: String?
+    let error: String?
+
+    static func ok(socketPath: String, leaseToken: String) -> BridgeCreateReply {
+        BridgeCreateReply(
+            version: ProtocolVersion.current,
+            code: ProtocolCode.ok,
+            socketPath: socketPath,
+            leaseToken: leaseToken,
+            error: nil
+        )
+    }
 }
 
-struct FrameReply: Encodable {
+struct FrameReply: Codable {
     let version: Int
     let code: String
     let value: String?
@@ -472,7 +615,7 @@ struct FrameReply: Encodable {
     }
 }
 
-struct PasteFrameHeader: Encodable {
+struct PasteStreamFrameHeader: Encodable {
     let version: Int
     let code: String
     let error: String?
@@ -480,8 +623,8 @@ struct PasteFrameHeader: Encodable {
     let files: [PasteFrameFile]?
     let bytes: Int?
 
-    static func text(byteCount: Int) -> PasteFrameHeader {
-        PasteFrameHeader(
+    static func text(byteCount: Int) -> PasteStreamFrameHeader {
+        PasteStreamFrameHeader(
             version: ProtocolVersion.current,
             code: ProtocolCode.ok,
             error: nil,
@@ -491,8 +634,8 @@ struct PasteFrameHeader: Encodable {
         )
     }
 
-    static func files(_ files: [PasteFrameFile]) -> PasteFrameHeader {
-        PasteFrameHeader(
+    static func files(_ files: [PasteFrameFile]) -> PasteStreamFrameHeader {
+        PasteStreamFrameHeader(
             version: ProtocolVersion.current,
             code: ProtocolCode.ok,
             error: nil,
@@ -502,8 +645,8 @@ struct PasteFrameHeader: Encodable {
         )
     }
 
-    static func failure(code: String, _ error: String) -> PasteFrameHeader {
-        PasteFrameHeader(
+    static func failure(code: String, _ error: String) -> PasteStreamFrameHeader {
+        PasteStreamFrameHeader(
             version: ProtocolVersion.current,
             code: code,
             error: error,
@@ -582,7 +725,7 @@ private func decodingErrorMessage(_ error: DecodingError) -> String {
     }
 }
 
-private enum RequestValidationError: Error, LocalizedError {
+enum RequestValidationError: Error, LocalizedError {
     case invalidRequest(String)
 
     var errorDescription: String? {
@@ -620,6 +763,8 @@ private let commandDecoders: [String: (Data) throws -> any CommandRequest] = [
     "terminal-id": { try JSONDecoder().decode(TerminalIDRequest.self, from: $0) },
     "tab-terminal-count": { try JSONDecoder().decode(TabTerminalCountRequest.self, from: $0) },
     "clear-cache": { try JSONDecoder().decode(ClearCacheRequest.self, from: $0) },
+    "bridge-create": { try JSONDecoder().decode(CreateBridgeRequest.self, from: $0) },
+    "bridge-lease": { try JSONDecoder().decode(BridgeLeaseRequest.self, from: $0) },
     "key-table-activate": { try JSONDecoder().decode(KeyTableActivateRequest.self, from: $0) },
     "key-table-deactivate": { try JSONDecoder().decode(KeyTableDeactivateRequest.self, from: $0) },
     "focus": { try JSONDecoder().decode(FocusRequest.self, from: $0) },

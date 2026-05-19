@@ -22,8 +22,14 @@ func keyTableCmd(opts *options) *cobra.Command {
 				if err != nil {
 					return err
 				}
-				_, err = client.New().Do(protocol.KeyTableActivateRequest{FrameEnvelope: protocol.NewFrameEnvelope("key-table-activate"), TTY: target.tty, Focused: target.focused, Table: args[0], Ack: wait})
-				return err
+				request := protocol.KeyTableActivateRequest{
+					FrameEnvelope: protocol.NewFrameEnvelope("key-table-activate"),
+					TTY:           target.tty,
+					Focused:       target.focused,
+					Table:         args[0],
+					Ack:           wait,
+				}
+				return client.NotifyAck(client.New(), request, wait)
 			},
 		},
 		&cobra.Command{
@@ -34,8 +40,13 @@ func keyTableCmd(opts *options) *cobra.Command {
 				if err != nil {
 					return err
 				}
-				_, err = client.New().Do(protocol.KeyTableDeactivateRequest{FrameEnvelope: protocol.NewFrameEnvelope("key-table-deactivate"), TTY: target.tty, Focused: target.focused, Ack: wait})
-				return err
+				request := protocol.KeyTableDeactivateRequest{
+					FrameEnvelope: protocol.NewFrameEnvelope("key-table-deactivate"),
+					TTY:           target.tty,
+					Focused:       target.focused,
+					Ack:           wait,
+				}
+				return client.NotifyAck(client.New(), request, wait)
 			},
 		},
 	)

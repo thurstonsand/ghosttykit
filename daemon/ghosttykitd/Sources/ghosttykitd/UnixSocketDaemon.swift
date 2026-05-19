@@ -3,11 +3,12 @@ import NIOCore
 import NIOPosix
 import OSLog
 
-final class NetworkServer {
+final class UnixSocketDaemon {
     private let group = MultiThreadedEventLoopGroup.singleton
     private let logger: Logger
     private let socketPath: String
     private let handler: @Sendable (any CommandRequest) -> CommandResult
+    private var serverChannel: (any Channel)?
 
     init(
         socketPath: String,
@@ -20,6 +21,41 @@ final class NetworkServer {
     }
 
     func start() async throws {
+        let server = try await bind()
+        try await run(server)
+    }
+
+    func startDetached() throws -> Task<Void, Error> {
+        let semaphore = DispatchSemaphore(value: 0)
+        let startup = LockedValue<Result<Void, Error>?>(nil)
+        let task = Task {
+            do {
+                let server = try await bind()
+                startup.set(.success(()))
+                semaphore.signal()
+                try await run(server)
+            } catch {
+                startup.set(.failure(error))
+                semaphore.signal()
+                throw error
+            }
+        }
+        semaphore.wait()
+        if case let .failure(error) = startup.get() {
+            throw error
+        }
+        return task
+    }
+
+    func stop() {
+        if let channel = serverChannel {
+            try? channel.close(mode: .all).wait()
+            serverChannel = nil
+        }
+        try? FileManager.default.removeItem(atPath: socketPath)
+    }
+
+    private func bind() async throws -> NIOAsyncChannel<AcceptedConnection, Never> {
         try ensureSocketParentDirectory()
         let server = try await ServerBootstrap(group: group)
             .serverChannelOption(.socketOption(.so_reuseaddr), value: 1)
@@ -38,8 +74,12 @@ final class NetworkServer {
                     return AcceptedConnection(asyncChannel: asyncChannel)
                 }
             }
-
+        serverChannel = server.channel
         logger.ghosttykit("listening socket=\(socketPath)")
+        return server
+    }
+
+    private func run(_ server: NIOAsyncChannel<AcceptedConnection, Never>) async throws {
         try await withThrowingTaskGroup(of: Void.self) { group in
             try await server.executeThenClose { clients in
                 for try await client in clients {
@@ -64,14 +104,31 @@ final class NetworkServer {
     }
 }
 
-private struct AcceptedConnection {
+struct AcceptedConnection {
     let asyncChannel: NIOAsyncChannel<ByteBuffer, ByteBuffer>
+}
+
+private final class LockedValue<Value>: @unchecked Sendable {
+    // Safe to share across tasks because all access to value is serialized by lock.
+    private let lock = NSLock()
+    private var value: Value
+
+    init(_ value: Value) {
+        self.value = value
+    }
+
+    func set(_ value: Value) {
+        lock.withLock { self.value = value }
+    }
+
+    func get() -> Value {
+        lock.withLock { value }
+    }
 }
 
 private struct ConnectionHandler {
     private let connection: AcceptedConnection
     private let logger: Logger
-    private let requestReader: RequestReader
     private let handler: @Sendable (any CommandRequest) -> CommandResult
 
     init(
@@ -81,19 +138,18 @@ private struct ConnectionHandler {
     ) {
         self.connection = connection
         self.logger = logger
-        requestReader = RequestReader()
         self.handler = handler
     }
 
     func run() async throws {
         let asyncChannel = connection.asyncChannel
         try await asyncChannel.executeThenClose { inbound, _ in
-            let replyWriter = ReplyWriter(channel: asyncChannel.channel)
+            var connection = ProtocolConnection(inbound: inbound, channel: asyncChannel.channel)
             let command: any CommandRequest
             do {
-                guard let decodedCommand = try await requestReader.readCommand(from: inbound) else {
+                guard let decodedCommand = try await RequestReader.readCommand(from: &connection.iterator) else {
                     logger.ghosttykit("empty request")
-                    try await replyWriter.closeOutput()
+                    try await connection.closeOutput()
                     return
                 }
                 command = decodedCommand
@@ -101,32 +157,66 @@ private struct ConnectionHandler {
                 logger.ghosttykit(
                     "request failed before process error=\(error.localizedDescription)"
                 )
-                try await replyWriter.send(.frame(responseForError(error)))
-                try await replyWriter.closeOutput()
+                try await connection.send(.frame(responseForError(error)))
+                try await connection.closeOutput()
                 return
             }
 
             switch handler(command) {
             case .none:
-                break
+                try await connection.closeOutput()
             case let .reply(reply):
-                try await replyWriter.send(reply)
+                try await connection.send(reply)
+                try await connection.closeOutput()
+            case let .hold(holdReply):
+                try await connection.send(.frame(holdReply.frame))
+                do {
+                    try await connection.waitForClientCloseRejectingData()
+                } catch {
+                    logger.ghosttykit("hold connection rejected extra client data error=\(error.localizedDescription)")
+                }
+                holdReply.hold.release()
             }
-            try await replyWriter.closeOutput()
+        }
+    }
+}
+
+struct ProtocolConnection {
+    var iterator: NIOAsyncChannelInboundStream<ByteBuffer>.AsyncIterator
+    private let writer: ReplyWriter
+
+    init(inbound: NIOAsyncChannelInboundStream<ByteBuffer>, channel: any Channel) {
+        iterator = inbound.makeAsyncIterator()
+        writer = ReplyWriter(channel: channel)
+    }
+
+    func send(_ response: ReplyBody) async throws {
+        try await writer.send(response)
+    }
+
+    func closeOutput() async throws {
+        try await writer.closeOutput()
+    }
+
+    mutating func waitForClientCloseRejectingData() async throws {
+        while let chunk = try await iterator.next() {
+            if chunk.readableBytes > 0 {
+                throw RequestValidationError.invalidRequest("client sent data after hold frame")
+            }
         }
     }
 }
 
 private struct WriteIdleTimeout: Error {}
 
-private struct RequestReader {
+enum RequestReader {
     private static let maxFrameBytes = 64 * 1024
 
-    func readCommand(from inbound: NIOAsyncChannelInboundStream<ByteBuffer>) async throws -> (
-        any CommandRequest
-    )? {
+    static func readCommand(
+        from iterator: inout NIOAsyncChannelInboundStream<ByteBuffer>.AsyncIterator
+    ) async throws -> (any CommandRequest)? {
         var buffer = Data()
-        for try await var chunk in inbound {
+        while var chunk = try await iterator.next() {
             guard let bytes = chunk.readBytes(length: chunk.readableBytes), !bytes.isEmpty else {
                 continue
             }
@@ -140,25 +230,25 @@ private struct RequestReader {
         return try decodeCommand(from: buffer)
     }
 
-    private func appendFrameBytes(_ bytes: ArraySlice<UInt8>, to buffer: inout Data) throws {
-        guard buffer.count + bytes.count <= Self.maxFrameBytes else {
+    private static func appendFrameBytes(_ bytes: ArraySlice<UInt8>, to buffer: inout Data) throws {
+        guard buffer.count + bytes.count <= maxFrameBytes else {
             throw DecodingError.dataCorrupted(
                 .init(
                     codingPath: [],
                     debugDescription:
-                    "request frame exceeds maximum size of \(Self.maxFrameBytes) bytes"
+                    "request frame exceeds maximum size of \(maxFrameBytes) bytes"
                 )
             )
         }
         buffer.append(contentsOf: bytes)
     }
 
-    private func appendFrameBytes(_ bytes: [UInt8], to buffer: inout Data) throws {
+    private static func appendFrameBytes(_ bytes: [UInt8], to buffer: inout Data) throws {
         try appendFrameBytes(bytes[...], to: &buffer)
     }
 }
 
-private struct ReplyWriter {
+struct ReplyWriter {
     private static let writeIdleTimeout = Duration.seconds(30)
 
     private let channel: any Channel

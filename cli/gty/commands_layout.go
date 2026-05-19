@@ -15,7 +15,12 @@ func tabTerminalCountCmd(opts *options) *cobra.Command {
 		Args: cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			target := optionalTerminalTarget(opts)
-			reply, err := client.New().Do(protocol.TabTerminalCountRequest{FrameEnvelope: protocol.NewFrameEnvelope("tab-terminal-count"), TTY: target.tty, Focused: target.focused})
+			request := protocol.TabTerminalCountRequest{
+				FrameEnvelope: protocol.NewFrameEnvelope("tab-terminal-count"),
+				TTY:           target.tty,
+				Focused:       target.focused,
+			}
+			reply, err := client.Call[protocol.FrameReply](client.New(), request)
 			if err != nil {
 				return err
 			}
@@ -35,8 +40,14 @@ func focusCmd(opts *options) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			_, err = client.New().Do(protocol.FocusRequest{FrameEnvelope: protocol.NewFrameEnvelope("focus"), TTY: target.tty, Focused: target.focused, Direction: args[0], Ack: wait})
-			return err
+			request := protocol.FocusRequest{
+				FrameEnvelope: protocol.NewFrameEnvelope("focus"),
+				TTY:           target.tty,
+				Focused:       target.focused,
+				Direction:     args[0],
+				Ack:           wait,
+			}
+			return client.NotifyAck(client.New(), request, wait)
 		},
 	}
 	cmd.Flags().BoolVar(&wait, "wait", false, "wait for acknowledgement")
@@ -56,8 +67,17 @@ func splitCmd(opts *options) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			_, err = client.New().Do(protocol.SplitRequest{FrameEnvelope: protocol.NewFrameEnvelope("split"), TTY: target.tty, Focused: target.focused, Direction: args[0], CWD: cwd, CommandText: commandText, Focus: focus, Ack: wait})
-			return err
+			request := protocol.SplitRequest{
+				FrameEnvelope: protocol.NewFrameEnvelope("split"),
+				TTY:           target.tty,
+				Focused:       target.focused,
+				Direction:     args[0],
+				CWD:           cwd,
+				CommandText:   commandText,
+				Focus:         focus,
+				Ack:           wait,
+			}
+			return client.NotifyAck(client.New(), request, wait)
 		},
 	}
 	cmd.Flags().StringVar(&cwd, "cwd", "", "initial working directory")
@@ -83,8 +103,15 @@ func resizeCmd(opts *options) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			_, err = client.New().Do(protocol.ResizeRequest{FrameEnvelope: protocol.NewFrameEnvelope("resize"), TTY: target.tty, Focused: target.focused, Direction: args[0], Amount: amount, Ack: wait})
-			return err
+			request := protocol.ResizeRequest{
+				FrameEnvelope: protocol.NewFrameEnvelope("resize"),
+				TTY:           target.tty,
+				Focused:       target.focused,
+				Direction:     args[0],
+				Amount:        amount,
+				Ack:           wait,
+			}
+			return client.NotifyAck(client.New(), request, wait)
 		},
 	}
 	cmd.Flags().IntVar(&pixels, "pixels", 0, "resize amount in pixels")
@@ -114,8 +141,13 @@ func zoomCmd(opts *options) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			_, err = client.New().Do(protocol.ZoomRequest{FrameEnvelope: protocol.NewFrameEnvelope("zoom"), TTY: target.tty, Focused: target.focused, Ack: wait})
-			return err
+			request := protocol.ZoomRequest{
+				FrameEnvelope: protocol.NewFrameEnvelope("zoom"),
+				TTY:           target.tty,
+				Focused:       target.focused,
+				Ack:           wait,
+			}
+			return client.NotifyAck(client.New(), request, wait)
 		},
 	}
 	cmd.Flags().BoolVar(&wait, "wait", false, "wait for acknowledgement")

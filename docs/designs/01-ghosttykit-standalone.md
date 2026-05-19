@@ -438,7 +438,7 @@ Deferred. The current CLI-backed model works and is easier to port. Lua direct s
     - `gty ping`, key-table, focus, split, resize, zoom, title, and paste work locally.
     - Daemon restart removes stale local daemon/bridge sockets.
 
-- [ ] Phase 4: Implement daemon-owned SSH bridge sessions
+- [x] Phase 4: Implement daemon-owned SSH bridge sessions
   - Goal: Add local bridge sessions to `ghosttykitd` and local bridge creation to `gty ssh`.
   - Files: `daemon/ghosttykitd/**`, `sdk/go/**`, `cli/gty/**`, `docs/protocol.md`, `docs/ssh.md`.
   - Work:

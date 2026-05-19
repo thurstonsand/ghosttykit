@@ -59,11 +59,14 @@ typecheck-nvim:
     just -f nvim/justfile typecheck
 
 # Test all components with tests.
-test: test-go
+test: test-go test-swift
 
 test-go:
     just -f sdk/go/justfile test
     just -f cli/gty/justfile test
+
+test-swift:
+    just -f daemon/ghosttykitd/justfile test
 
 # Build binaries and build-check non-binary packages.
 build: build-go build-swift build-pi build-nvim

@@ -32,7 +32,7 @@ func (NoContentError) ExitCode() int { return noContentExitCode }
 
 // Receive sends request and materializes streamed files into outputDir.
 func Receive(gtyClient client.Client, request protocol.PasteRequest, outputDir string) (protocol.PasteResult, error) {
-	header, body, err := client.Stream[protocol.PasteFrameHeader](gtyClient, request)
+	header, body, err := client.Stream[protocol.PasteStreamFrameHeader](gtyClient, request)
 	if err != nil {
 		return nil, noContentError(err)
 	}
@@ -43,7 +43,7 @@ func Receive(gtyClient client.Client, request protocol.PasteRequest, outputDir s
 
 // Write sends request and writes text content directly to out.
 func Write(out io.Writer, gtyClient client.Client, request protocol.PasteRequest, outputDir string) error {
-	header, body, err := client.Stream[protocol.PasteFrameHeader](gtyClient, request)
+	header, body, err := client.Stream[protocol.PasteStreamFrameHeader](gtyClient, request)
 	if err != nil {
 		return noContentError(err)
 	}
@@ -66,7 +66,7 @@ func Write(out io.Writer, gtyClient client.Client, request protocol.PasteRequest
 	}
 }
 
-func receive(body io.Reader, header protocol.PasteFrameHeader, outputDir string) (protocol.PasteResult, error) {
+func receive(body io.Reader, header protocol.PasteStreamFrameHeader, outputDir string) (protocol.PasteResult, error) {
 	switch header.Kind {
 	case protocol.PasteKindText:
 		var builder strings.Builder
@@ -216,14 +216,14 @@ func PrintJSON(out io.Writer, result protocol.PasteResult) error {
 	return err
 }
 
-func toHeader(result protocol.PasteResult) protocol.PasteFrameHeader {
+func toHeader(result protocol.PasteResult) protocol.PasteStreamFrameHeader {
 	switch typed := result.(type) {
 	case protocol.PasteTextResult:
-		return protocol.PasteFrameHeader{FrameReply: protocol.FrameReply{Version: ghosttykit.ProtocolVersion, Code: protocol.CodeOK}, Kind: protocol.PasteKindText, Bytes: int64(len(typed.Text))}
+		return protocol.PasteStreamFrameHeader{FrameReply: protocol.FrameReply{Version: ghosttykit.ProtocolVersion, Code: protocol.CodeOK}, Kind: protocol.PasteKindText, Bytes: int64(len(typed.Text))}
 	case protocol.PasteFilesResult:
-		return protocol.PasteFrameHeader{FrameReply: protocol.FrameReply{Version: ghosttykit.ProtocolVersion, Code: protocol.CodeOK}, Kind: protocol.PasteKindFiles, Files: typed.Files, Bytes: typed.Bytes}
+		return protocol.PasteStreamFrameHeader{FrameReply: protocol.FrameReply{Version: ghosttykit.ProtocolVersion, Code: protocol.CodeOK}, Kind: protocol.PasteKindFiles, Files: typed.Files, Bytes: typed.Bytes}
 	default:
-		return protocol.PasteFrameHeader{}
+		return protocol.PasteStreamFrameHeader{}
 	}
 }
 

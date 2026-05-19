@@ -31,6 +31,20 @@ final class GhosttyKitDaemon {
     private let options: DaemonOptions
     private let ghostty: GhosttyControlling
     private lazy var cache = TerminalIDCache(logger: logger)
+    private lazy var bridgeManager = BridgeSessionManager(logger: logger) { [weak self] terminal, lease, request in
+        guard let self else {
+            return .reply(.frame(FrameReply.failure(code: ProtocolCode.internalError, "daemon unavailable")))
+        }
+        let context = BridgeCommandContext(
+            cache: cache,
+            ghostty: ghostty,
+            logger: logger,
+            terminal: terminal,
+            lease: lease
+        )
+        return commandQueue.sync { self.dispatch(request, using: context) }
+    }
+
     private let commandQueue = DispatchQueue(label: "ghosttykitd.commands")
 
     init(options: DaemonOptions) {
@@ -43,17 +57,22 @@ final class GhosttyKitDaemon {
     func start() async throws {
         await MainActor.run { _ = NSApplication.shared }
         logger.ghosttykit("starting dry_run=\(options.dryRun) socket=\(options.socketPath)")
-        let server = NetworkServer(socketPath: options.socketPath, logger: logger) { [weak self] request in
+        let daemon = UnixSocketDaemon(socketPath: options.socketPath, logger: logger) { [weak self] request in
             guard let self else {
                 return .reply(.frame(FrameReply.failure(code: ProtocolCode.internalError, "daemon unavailable")))
             }
-            return commandQueue.sync { self.dispatch(request) }
+            let context = MainCommandContext(
+                cache: cache,
+                ghostty: ghostty,
+                logger: logger,
+                bridgeManager: bridgeManager
+            )
+            return commandQueue.sync { self.dispatch(request, using: context) }
         }
-        try await server.start()
+        try await daemon.start()
     }
 
-    private func dispatch(_ request: any CommandRequest) -> CommandResult {
-        let context = CommandContext(cache: cache, ghostty: ghostty, logger: logger)
+    private func dispatch(_ request: any CommandRequest, using context: CommandContext) -> CommandResult {
         switch request.replyMode {
         case .none:
             Task { _ = request.commandReply(using: context) }

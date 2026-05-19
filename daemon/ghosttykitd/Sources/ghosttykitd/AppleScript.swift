@@ -59,7 +59,7 @@ final class DryRunGhosttyController: GhosttyControlling {
     func readPasteboardContent() throws -> FrameStreamReply {
         guard let pasteText else { return try readSystemPasteboardContent() }
         let data = Data(pasteText.utf8)
-        return FrameStreamReply(header: PasteFrameHeader.text(byteCount: data.count), streams: [.data(data)])
+        return FrameStreamReply(header: PasteStreamFrameHeader.text(byteCount: data.count), streams: [.data(data)])
     }
 
     func activateKeyTable(_: String, terminal _: TerminalContext) throws {}

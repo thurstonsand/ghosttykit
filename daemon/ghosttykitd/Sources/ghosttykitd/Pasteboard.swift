@@ -19,7 +19,7 @@ func readSystemPasteboardContent() throws -> FrameStreamReply {
     }
 
     if let data = pasteboard.data(forType: .string), !data.isEmpty {
-        return FrameStreamReply(header: PasteFrameHeader.text(byteCount: data.count), streams: [.data(data)])
+        return FrameStreamReply(header: PasteStreamFrameHeader.text(byteCount: data.count), streams: [.data(data)])
     }
 
     if let dataItem = readFallbackDataItem(from: pasteboard) {
@@ -49,7 +49,7 @@ private struct PasteboardFileItem {
 }
 
 private func pasteFrameStreamReply(_ items: [PasteboardFileItem]) -> FrameStreamReply {
-    FrameStreamReply(header: PasteFrameHeader.files(items.map(\.response)), streams: items.map(\.stream))
+    FrameStreamReply(header: PasteStreamFrameHeader.files(items.map(\.response)), streams: items.map(\.stream))
 }
 
 private func readFileURLItems(from pasteboard: NSPasteboard) throws -> [PasteboardFileItem] {

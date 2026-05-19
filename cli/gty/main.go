@@ -38,6 +38,7 @@ func newRootCmd() *cobra.Command {
 		pasteCmd(opts),
 		clearCacheCmd(opts),
 		titleCmd(),
+		sshCmd(opts),
 	)
 	configureUsageErrors(root)
 	return root

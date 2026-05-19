@@ -21,6 +21,10 @@ let package = Package(
                 .product(name: "NIOPosix", package: "swift-nio")
             ],
             linkerSettings: [.linkedFramework("AppKit")]
+        ),
+        .testTarget(
+            name: "ghosttykitdTests",
+            dependencies: ["ghosttykitd"]
         )
     ]
 )
