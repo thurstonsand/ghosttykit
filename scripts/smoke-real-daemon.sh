@@ -10,6 +10,24 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 GTY_BIN="${GTY_BIN:-$repo_root/cli/gty/gty}"
 GHOSTTYKITD_BIN="${GHOSTTYKITD_BIN:-$repo_root/daemon/ghosttykitd/ghosttykitd}"
 
+bridge_mode=0
+for arg in "$@"; do
+  case "$arg" in
+    --bridge)
+      bridge_mode=1
+      ;;
+    -h|--help)
+      echo "usage: $0 [--bridge]" >&2
+      exit 0
+      ;;
+    *)
+      echo "smoke-real-daemon: unknown argument: $arg" >&2
+      echo "usage: $0 [--bridge]" >&2
+      exit 2
+      ;;
+  esac
+done
+
 if [[ ! -x "$GTY_BIN" ]]; then
   echo "smoke-real-daemon: gty not found at $GTY_BIN; run just build-go or set GTY_BIN" >&2
   exit 2
@@ -27,6 +45,8 @@ fi
 daemon_pid=""
 daemon_log=""
 daemon_socket=""
+lease_pid=""
+bridge_socket=""
 
 start_local_daemon() {
   daemon_socket="$(mktemp -u /tmp/ghosttykit-smoke.XXXXXX).sock"
@@ -60,6 +80,42 @@ export GTY_TTY="$SMOKE_TTY"
 run() {
   printf '→ %s\n' "$*" >&2
   "$GTY_BIN" "$@"
+}
+
+start_bridge() {
+  local main_socket="$GTY_SOCK"
+  local bridge_line lease_token
+
+  printf '→ ssh bridge-create\n' >&2
+  bridge_line="$("$GTY_BIN" ssh bridge-create)"
+  bridge_socket="${bridge_line%%$'\t'*}"
+  lease_token="${bridge_line#*$'\t'}"
+  if [[ -z "$bridge_socket" || -z "$lease_token" || ! -S "$bridge_socket" ]]; then
+    echo "smoke-real-daemon: bridge-create returned invalid socket/token" >&2
+    exit 1
+  fi
+
+  printf '→ ssh bridge-lease %s <token>\n' "$bridge_socket" >&2
+  "$GTY_BIN" ssh bridge-lease "$bridge_socket" "$lease_token" &
+  lease_pid="$!"
+  export GTY_SOCK="$bridge_socket"
+
+  for _ in {1..50}; do
+    if [[ "$("$GTY_BIN" ping 2>/dev/null || true)" == "pong" ]]; then
+      printf 'bridge-socket: %s\n' "$bridge_socket" >&2
+      return
+    fi
+    if ! kill -0 "$lease_pid" 2>/dev/null; then
+      echo "smoke-real-daemon: bridge lease exited before bridge was ready" >&2
+      export GTY_SOCK="$main_socket"
+      exit 1
+    fi
+    sleep 0.1
+  done
+
+  echo "smoke-real-daemon: bridge did not accept requests" >&2
+  export GTY_SOCK="$main_socket"
+  exit 1
 }
 
 expect() {
@@ -100,6 +156,10 @@ restore_clipboard() {
 cleanup() {
   run key-table deactivate --wait >/dev/null 2>&1 || true
   restore_clipboard
+  if [[ -n "$lease_pid" ]]; then
+    kill "$lease_pid" 2>/dev/null || true
+    wait "$lease_pid" 2>/dev/null || true
+  fi
   if [[ -n "$daemon_pid" ]]; then
     kill "$daemon_pid" 2>/dev/null || true
     wait "$daemon_pid" 2>/dev/null || true
@@ -109,10 +169,16 @@ cleanup() {
 trap cleanup EXIT
 
 printf 'GhosttyKit real-daemon smoke test\n' >&2
+printf 'mode: %s\n' "$([[ "$bridge_mode" -eq 1 ]] && echo bridge || echo direct)" >&2
 printf 'gty: %s\n' "$GTY_BIN" >&2
 printf 'ghosttykitd: %s\n' "$GHOSTTYKITD_BIN" >&2
 printf 'GTY_SOCK: %s\n' "${GTY_SOCK:-<default>}" >&2
 printf 'GTY_TTY: %s\n' "$GTY_TTY" >&2
+
+if [[ "$bridge_mode" -eq 1 ]]; then
+  start_bridge
+  printf 'GTY_SOCK: %s\n' "$GTY_SOCK" >&2
+fi
 
 ping_output="$(run ping)"
 expect ping "$ping_output" pong

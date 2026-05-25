@@ -148,13 +148,13 @@ The public command grammar should stay minimal:
 gty ssh [gty-options] host
 ```
 
-If the user needs arbitrary SSH options or a remote command, require an explicit delimiter so ownership is clear:
+If the user needs a remote command, require an explicit delimiter so ownership is clear:
 
 ```sh
-gty ssh [gty-options] host -- [ssh options and remote command]
+gty ssh [gty-options] host -- [remote command]
 ```
 
-The simple host-only form is the default path; the delimited form is for advanced cases.
+The wrapper intentionally does not parse or pass through ad hoc OpenSSH options. Stable connection details belong in SSH config; keeping those out of the command grammar keeps bridge ownership unambiguous.
 
 ### 8. Bind remote identity to daemon-owned bridge sessions
 
@@ -453,11 +453,11 @@ Deferred. The current CLI-backed model works and is easier to port. Lua direct s
     - Manual local simulated bridge request reaches the correct Ghostty terminal.
     - Remote request cannot spoof a lease without the local-only token.
 
-- [ ] Phase 5: Implement `gty ssh` wrapper, bootstrap, `remote-init`, and `remote-run`
+- [x] Phase 5: Implement `gty ssh` wrapper, bootstrap, `remote-init`, and `remote-run`
   - Goal: Provide the first end-to-end SSH bridge flow.
   - Files: `cli/gty/**`, `sdk/go/**`, `docs/ssh.md`, `docs/install.md`.
   - Work:
-    - Add `gty ssh [gty-options] host` and `gty ssh [gty-options] host -- [ssh options and remote command]`.
+    - Add `gty ssh [gty-options] host` and `gty ssh [gty-options] host -- [remote command]`; defer ad hoc OpenSSH option passthrough.
     - Add `--require-bridge` strict mode.
     - Apply managed SSH options internally: `ExitOnForwardFailure=yes`, `StreamLocalBindUnlink=yes`, `StreamLocalBindMask=0177`, `ServerAliveInterval=15`, `ServerAliveCountMax=3`, `ControlMaster=no`, `ControlPath=none`.
     - Add debug escape hatch to skip managed SSH options.

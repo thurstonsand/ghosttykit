@@ -45,6 +45,7 @@ just test
 just build
 just check
 just smoke-real-daemon  # mutates the focused Ghostty window; use only when requested
+just smoke-real-daemon --bridge  # same checks through a daemon-owned bridge socket
 ```
 
 Component commands:

@@ -1,30 +1,98 @@
 # SSH Bridge
 
-Status: partial implementation.
+`gty ssh` wraps OpenSSH and exposes the originating local Ghostty surface to commands on the remote host.
 
-`gty ssh` uses OpenSSH Unix-socket reverse forwarding to expose a daemon-owned local bridge socket to a remote `gty` process.
+Default behavior is soft failure. If the bridge cannot be prepared, `gty ssh` prints:
 
-Default behavior is soft failure: if bootstrap, forwarding, or bridge setup fails, `gty ssh` warns and continues as plain SSH. `--require-bridge` makes bridge setup failure fatal for tests and debugging.
+```text
+gty: Ghostty bridge unavailable: <reason>
+gty: continuing with plain SSH
+```
 
-## Local bridge lifecycle
+Then it continues as plain SSH. Use `--require-bridge` when the bridge is mandatory:
 
-GhosttyKit has a daemon-owned local bridge primitive used by the later full SSH wrapper:
+```sh
+gty ssh --require-bridge host
+```
 
-1. Local `gty` asks `ghosttykitd` to create a bridge for the current local TTY.
-2. `ghosttykitd` resolves that TTY to a trusted Ghostty terminal id.
-3. `ghosttykitd` creates a per-session local Unix socket under `~/.local/run/ghosttykit/bridges/`.
-4. The daemon returns the local socket path and a local-only lease token.
-5. Local `gty` opens a persistent lease connection to that socket and authenticates with the lease token.
-6. One-shot request connections to that same socket execute against the bridge-bound terminal id.
-7. Closing the lease destroys the bridge session and unlinks the bridge socket.
+## Usage
 
-The lease token is only a lifecycle guard. Remote request connections do not receive it and do not need it.
+Simple interactive session:
 
-Hidden debug CLI hooks:
+```sh
+gty ssh host
+```
+
+A remote command must follow `--`:
+
+```sh
+gty ssh host -- gty focus left
+```
+
+`gty ssh` does not support ad hoc OpenSSH flags. Put stable connection details such as `Port`, `User`, `ProxyCommand`, or `IdentityFile` in SSH config.
+
+GhosttyKit applies these OpenSSH options internally:
+
+```text
+ExitOnForwardFailure=yes
+StreamLocalBindUnlink=yes
+StreamLocalBindMask=0177
+ServerAliveInterval=15
+ServerAliveCountMax=3
+ControlMaster=no
+ControlPath=none
+```
+
+For debugging, `--debug-unmanaged-ssh` skips those managed options. `--debug-no-bootstrap` skips the remote `gty` bootstrap attempt.
+
+## Bridge flow
+
+1. `gty ssh` finds or bootstraps a remote `gty`.
+2. It runs `gty ssh remote-init` on the remote host.
+3. The local daemon creates a daemon-owned bridge socket for the originating Ghostty terminal.
+4. `gty ssh` opens a local bridge lease and starts OpenSSH with Unix-socket reverse forwarding:
+
+   ```text
+   ssh -R remote_socket:local_bridge_socket host ...
+   ```
+
+5. The remote command runs under `gty ssh remote-run` with `GTY_SOCK` set to the forwarded remote socket.
+6. Remote `gty` commands connect through `GTY_SOCK` and target the local bridge-bound Ghostty terminal.
+7. When the SSH session exits, the remote socket pathname is removed and the local lease closes.
+
+`GTY_SOCK` is the only remote environment variable required by bridge-aware commands.
+
+## Remote runtime cleanup
+
+`gty ssh remote-init` chooses a runtime directory in this order:
+
+```text
+$XDG_RUNTIME_DIR/gty
+/tmp/gty-$UID
+```
+
+It creates the directory with mode `0700`, removes dead GhosttyKit socket pathnames by connect-probing them, preserves active sockets, and prints JSON:
+
+```json
+{
+  "runtimeDir": "/run/user/501/gty",
+  "socketPath": "/run/user/501/gty/bridge-...sock"
+}
+```
+
+`gty ssh remote-run` parents the remote shell or command, preserves the child exit status, and removes the current `GTY_SOCK` pathname on normal wrapper exit.
+
+## Bootstrap
+
+When remote `gty` is missing or reports a different `gty version` line, the wrapper bootstraps/upgrades `~/.local/bin/gty` over SSH and makes it executable.
+
+## Hidden debug hooks
+
+These commands are hidden and intended for tests or diagnosis:
 
 ```sh
 gty ssh bridge-create                 # prints: SOCKET<TAB>TOKEN
 gty ssh bridge-lease SOCKET TOKEN     # holds the lease until interrupted
+gty ssh remote-init                   # prints remote runtime JSON
+GTY_SOCK=/path/to/socket gty ssh remote-run -- command args...
 ```
-
-The full SSH wrapper, remote runtime setup, and remote bootstrap flow are not implemented yet.
