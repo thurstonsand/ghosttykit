@@ -83,8 +83,16 @@ build-pi:
 build-nvim:
     just -f nvim/justfile build
 
+# Validate GitHub Actions workflows.
+check-github-actions:
+    actionlint
+
+# Validate dependency update configuration.
+check-renovate:
+    renovate-config-validator renovate.json
+
 # Run all checks.
-check: fmt lint typecheck test build
+check: fmt lint typecheck test build check-github-actions check-renovate
 
 # Exercise daemon/cli against the focused Ghostty window. Mutates split layout, focus, resize, zoom, key table, cache, and pasteboard.
 smoke-real-daemon *args: build-go build-swift

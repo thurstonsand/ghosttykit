@@ -1,0 +1,162 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    name: CI
+    uses: ./.github/workflows/ci.yml
+
+  build:
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - name: darwin-arm64
+            runner: macos-26
+            goarch: arm64
+          - name: darwin-amd64
+            runner: macos-26-intel
+            goarch: amd64
+    name: Build (${{ matrix.name }})
+    needs: ci
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up mise
+        uses: jdx/mise-action@v4
+        with:
+          install: true
+          cache: true
+
+      - name: Validate signing secrets
+        env:
+          APPLE_CODESIGN_IDENTITY: ${{ secrets.APPLE_CODESIGN_IDENTITY }}
+          APPLE_DEVELOPER_ID_CERTIFICATE_BASE64: ${{ secrets.APPLE_DEVELOPER_ID_CERTIFICATE_BASE64 }}
+          APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD }}
+          APPLE_NOTARY_ISSUER_ID: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
+          APPLE_NOTARY_KEY: ${{ secrets.APPLE_NOTARY_KEY }}
+          APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+        run: |
+          test -n "${APPLE_CODESIGN_IDENTITY}"
+          test -n "${APPLE_DEVELOPER_ID_CERTIFICATE_BASE64}"
+          test -n "${APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD}"
+          test -n "${APPLE_NOTARY_ISSUER_ID}"
+          test -n "${APPLE_NOTARY_KEY}"
+          test -n "${APPLE_NOTARY_KEY_ID}"
+
+      - name: Import Developer ID certificate
+        env:
+          APPLE_CODESIGN_IDENTITY: ${{ secrets.APPLE_CODESIGN_IDENTITY }}
+          APPLE_DEVELOPER_ID_CERTIFICATE_BASE64: ${{ secrets.APPLE_DEVELOPER_ID_CERTIFICATE_BASE64 }}
+          APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD }}
+        run: |
+          keychain_path="${RUNNER_TEMP}/ghosttykit-signing.keychain-db"
+          keychain_password="$(openssl rand -base64 32)"
+          certificate_path="${RUNNER_TEMP}/developer-id-application.p12"
+
+          echo "${APPLE_DEVELOPER_ID_CERTIFICATE_BASE64}" | base64 --decode > "${certificate_path}"
+          security create-keychain -p "${keychain_password}" "${keychain_path}"
+          security set-keychain-settings -lut 21600 "${keychain_path}"
+          security unlock-keychain -p "${keychain_password}" "${keychain_path}"
+          security import "${certificate_path}" -P "${APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD}" -A -t cert -f pkcs12 -k "${keychain_path}"
+          security list-keychains -d user -s "${keychain_path}"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "${keychain_password}" "${keychain_path}"
+
+          echo "CODESIGN_IDENTITY=${APPLE_CODESIGN_IDENTITY}" >> "${GITHUB_ENV}"
+
+      - name: Write notarization key
+        env:
+          APPLE_NOTARY_KEY: ${{ secrets.APPLE_NOTARY_KEY }}
+          APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+          APPLE_NOTARY_ISSUER_ID: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
+        run: |
+          key_path="${RUNNER_TEMP}/AuthKey_${APPLE_NOTARY_KEY_ID}.p8"
+          printf '%s' "${APPLE_NOTARY_KEY}" > "${key_path}"
+          chmod 600 "${key_path}"
+          {
+            echo "APPLE_NOTARY_KEY_PATH=${key_path}"
+            echo "APPLE_NOTARY_KEY_ID=${APPLE_NOTARY_KEY_ID}"
+            echo "APPLE_NOTARY_ISSUER_ID=${APPLE_NOTARY_ISSUER_ID}"
+          } >> "${GITHUB_ENV}"
+
+      - name: Resolve release version
+        id: version
+        run: |
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            echo "version=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build release archive
+        env:
+          GOOS: darwin
+          GOARCH: ${{ matrix.goarch }}
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+        run: scripts/build-release-archive.sh
+
+      - name: Upload release archive
+        uses: actions/upload-artifact@v7
+        with:
+          name: ghosttykit-${{ matrix.name }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: Publish Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Download archives
+        uses: actions/download-artifact@v8
+        with:
+          path: dist
+          pattern: ghosttykit-*
+          merge-multiple: true
+
+      - name: Publish tag release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release create "$TAG" dist/* \
+            --verify-tag \
+            --title "$TAG" \
+            --generate-notes
+
+      - name: Publish main release
+        if: github.ref_type == 'branch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: nightly
+        run: |
+          git tag --force "$TAG" "$GITHUB_SHA"
+          git push --force origin "refs/tags/$TAG"
+          gh release delete "$TAG" --yes || true
+          gh release create "$TAG" dist/* \
+            --target "$GITHUB_SHA" \
+            --title "Nightly" \
+            --prerelease \
+            --notes "Automated release for ${GITHUB_SHA}."

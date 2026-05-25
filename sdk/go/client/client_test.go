@@ -163,6 +163,6 @@ func testUnixSocket(t *testing.T) string {
 }
 
 func isTimeout(err error) bool {
-	var netErr net.Error
-	return errors.As(err, &netErr) && netErr.Timeout()
+	netErr, ok := errors.AsType[net.Error](err)
+	return ok && netErr.Timeout()
 }

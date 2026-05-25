@@ -5,4 +5,4 @@ package ghosttykit
 const ProtocolVersion = 1
 
 // Version is replaced by release builds when available.
-const Version = "0.0.0-dev"
+var Version = "0.0.0-dev"
