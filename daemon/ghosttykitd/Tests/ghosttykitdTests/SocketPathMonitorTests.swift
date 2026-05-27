@@ -11,14 +11,15 @@ final class SocketPathMonitorTests: XCTestCase {
         defer { try? FileManager.default.removeItem(atPath: path) }
 
         let monitor = try SocketPathMonitor(path: path)
-        let waiterStarted = expectation(description: "monitor waiter started")
+        let monitorReady = expectation(description: "monitor ready")
         let changed = expectation(description: "socket path changed")
         Task.detached {
-            waiterStarted.fulfill()
-            await monitor.waitUntilChanged()
+            await monitor.waitUntilChanged {
+                monitorReady.fulfill()
+            }
             changed.fulfill()
         }
-        wait(for: [waiterStarted], timeout: 1)
+        wait(for: [monitorReady], timeout: 1)
 
         try FileManager.default.removeItem(atPath: path)
         wait(for: [changed], timeout: 2)

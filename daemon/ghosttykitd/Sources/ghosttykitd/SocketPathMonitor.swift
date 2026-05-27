@@ -6,7 +6,9 @@ final class SocketPathMonitor: @unchecked Sendable {
     private let path: String
     private let identity: SocketPathIdentity
     private let directoryDescriptor: CInt
-    private let source: DispatchSourceFileSystemObject
+    private let eventSource: DispatchSourceFileSystemObject
+    private let timerSource: DispatchSourceTimer
+    private let queue = DispatchQueue(label: "ghosttykit.socket-path-monitor")
     private let lock = NSLock()
     private var started = false
 
@@ -18,36 +20,35 @@ final class SocketPathMonitor: @unchecked Sendable {
         guard directoryDescriptor >= 0 else {
             throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .ENOENT)
         }
-        source = DispatchSource.makeFileSystemObjectSource(
+        eventSource = DispatchSource.makeFileSystemObjectSource(
             fileDescriptor: directoryDescriptor,
             eventMask: [.write, .delete, .rename],
-            queue: DispatchQueue(label: "ghosttykit.socket-path-monitor")
+            queue: queue
         )
-        source.setCancelHandler { [directoryDescriptor] in
+        timerSource = DispatchSource.makeTimerSource(queue: queue)
+        timerSource.schedule(deadline: .now() + .milliseconds(100), repeating: .milliseconds(100))
+        eventSource.setCancelHandler { [directoryDescriptor] in
             close(directoryDescriptor)
         }
     }
 
-    func waitUntilChanged() async {
+    func waitUntilChanged(onReady: (@Sendable () -> Void)? = nil) async {
         await withTaskCancellationHandler {
             await AsyncStream<Void> { continuation in
-                source.setEventHandler { [weak self] in
+                let signalIfChanged = { [weak self] in
                     guard let self, pathChanged() else { return }
                     continuation.yield(())
                     continuation.finish()
                     cancel()
                 }
+                eventSource.setEventHandler(handler: signalIfChanged)
+                timerSource.setEventHandler(handler: signalIfChanged)
                 continuation.onTermination = { [weak self] _ in
                     self?.cancel()
                 }
-                if pathChanged() {
-                    continuation.yield(())
-                    continuation.finish()
-                    resumeOnce()
-                    cancel()
-                    return
-                }
                 resumeOnce()
+                signalIfChanged()
+                onReady?()
             }.first { _ in true }
         } onCancel: {
             cancel()
@@ -55,7 +56,8 @@ final class SocketPathMonitor: @unchecked Sendable {
     }
 
     func cancel() {
-        source.cancel()
+        eventSource.cancel()
+        timerSource.cancel()
     }
 
     private func pathChanged() -> Bool {
@@ -74,7 +76,8 @@ final class SocketPathMonitor: @unchecked Sendable {
         lock.withLock {
             guard !started else { return }
             started = true
-            source.resume()
+            eventSource.resume()
+            timerSource.resume()
         }
     }
 }
