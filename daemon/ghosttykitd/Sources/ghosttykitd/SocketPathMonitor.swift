@@ -40,6 +40,13 @@ final class SocketPathMonitor: @unchecked Sendable {
                 continuation.onTermination = { [weak self] _ in
                     self?.cancel()
                 }
+                if pathChanged() {
+                    continuation.yield(())
+                    continuation.finish()
+                    resumeOnce()
+                    cancel()
+                    return
+                }
                 resumeOnce()
             }.first { _ in true }
         } onCancel: {
