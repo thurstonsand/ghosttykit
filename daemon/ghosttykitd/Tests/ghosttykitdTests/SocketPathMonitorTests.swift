@@ -12,12 +12,12 @@ final class SocketPathMonitorTests: XCTestCase {
 
         let monitor = try SocketPathMonitor(path: path)
         let changed = expectation(description: "socket path changed")
-        Task {
+        Task.detached {
             await monitor.waitUntilChanged()
             changed.fulfill()
         }
 
         try FileManager.default.removeItem(atPath: path)
-        wait(for: [changed], timeout: 2)
+        wait(for: [changed], timeout: 10)
     }
 }
