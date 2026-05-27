@@ -25,4 +25,4 @@ base64 -i developer-id-application.p12 | pbcopy
 
 Create the notarization API key in App Store Connect under **Users and Access > Integrations > App Store Connect API**.
 
-The release workflow imports the certificate into a temporary keychain, signs `gty` and `ghosttykitd`, packages them into a zip archive, submits the archive to `notarytool`, and uploads the notarized archive plus a SHA-256 sidecar.
+The release workflow uses `apple-actions/import-codesign-certs` to import the certificate, signs `gty` and `ghosttykitd`, packages them into a zip archive, submits the archive to `notarytool`, and uploads the notarized archive plus a SHA-256 sidecar.
