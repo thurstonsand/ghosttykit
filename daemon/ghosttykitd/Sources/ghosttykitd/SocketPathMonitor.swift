@@ -7,10 +7,10 @@ final class SocketPathMonitor: @unchecked Sendable {
     private let identity: SocketPathIdentity
     private let directoryDescriptor: CInt
     private let eventSource: DispatchSourceFileSystemObject
-    private let timerSource: DispatchSourceTimer
     private let queue = DispatchQueue(label: "ghosttykit.socket-path-monitor")
     private let lock = NSLock()
-    private var started = false
+    private var sourceStarted = false
+    private var state = SocketPathMonitorState.idle
 
     init(path: String) throws {
         self.path = path
@@ -25,39 +25,102 @@ final class SocketPathMonitor: @unchecked Sendable {
             eventMask: [.write, .delete, .rename],
             queue: queue
         )
-        timerSource = DispatchSource.makeTimerSource(queue: queue)
-        timerSource.schedule(deadline: .now() + .milliseconds(100), repeating: .milliseconds(100))
+        eventSource.setEventHandler { [weak self] in
+            self?.finishIfChanged()
+        }
         eventSource.setCancelHandler { [directoryDescriptor] in
             close(directoryDescriptor)
         }
     }
 
-    func waitUntilChanged(onReady: (@Sendable () -> Void)? = nil) async {
+    func start() -> Bool {
+        let shouldStart = lock.withLock {
+            switch state {
+            case .idle:
+                state = .armed
+                return true
+            case .armed, .waiting:
+                return false
+            case .finished:
+                return false
+            }
+        }
+
+        guard shouldStart else { return stateIsActive() }
+
+        resumeOnce()
+        finishIfChanged()
+        return stateIsActive()
+    }
+
+    func waitUntilChanged() async {
         await withTaskCancellationHandler {
-            await AsyncStream<Void> { continuation in
-                let signalIfChanged = { [weak self] in
-                    guard let self, pathChanged() else { return }
-                    continuation.yield(())
-                    continuation.finish()
-                    cancel()
-                }
-                eventSource.setEventHandler(handler: signalIfChanged)
-                timerSource.setEventHandler(handler: signalIfChanged)
-                continuation.onTermination = { [weak self] _ in
-                    self?.cancel()
-                }
-                resumeOnce()
-                signalIfChanged()
-                onReady?()
-            }.first { _ in true }
+            await withCheckedContinuation { continuation in
+                wait(continuation)
+            }
         } onCancel: {
-            cancel()
+            finish()
         }
     }
 
     func cancel() {
+        finish()
+    }
+
+    private func wait(_ continuation: CheckedContinuation<Void, Never>) {
+        let shouldResume = lock.withLock {
+            switch state {
+            case .idle:
+                preconditionFailure("SocketPathMonitor must be started before waiting")
+            case .armed:
+                state = .waiting(continuation)
+                return false
+            case .waiting:
+                preconditionFailure("SocketPathMonitor only supports one waiter")
+            case .finished:
+                return true
+            }
+        }
+
+        if shouldResume {
+            continuation.resume()
+        }
+    }
+
+    private func stateIsActive() -> Bool {
+        lock.withLock {
+            switch state {
+            case .idle, .armed, .waiting:
+                true
+            case .finished:
+                false
+            }
+        }
+    }
+
+    private func finishIfChanged() {
+        guard pathChanged() else { return }
+        finish()
+    }
+
+    private func finish() {
+        let result = lock.withLock {
+            switch state {
+            case .idle, .armed:
+                state = .finished
+                return (continuation: nil as CheckedContinuation<Void, Never>?, shouldCancel: true)
+            case let .waiting(continuation):
+                state = .finished
+                return (continuation: continuation, shouldCancel: true)
+            case .finished:
+                return (continuation: nil as CheckedContinuation<Void, Never>?, shouldCancel: false)
+            }
+        }
+
+        guard result.shouldCancel else { return }
+        resumeOnce()
         eventSource.cancel()
-        timerSource.cancel()
+        result.continuation?.resume()
     }
 
     private func pathChanged() -> Bool {
@@ -74,12 +137,18 @@ final class SocketPathMonitor: @unchecked Sendable {
 
     private func resumeOnce() {
         lock.withLock {
-            guard !started else { return }
-            started = true
+            guard !sourceStarted else { return }
+            sourceStarted = true
             eventSource.resume()
-            timerSource.resume()
         }
     }
+}
+
+private enum SocketPathMonitorState {
+    case idle
+    case armed
+    case waiting(CheckedContinuation<Void, Never>)
+    case finished
 }
 
 private struct SocketPathIdentity: Equatable {

@@ -11,17 +11,33 @@ final class SocketPathMonitorTests: XCTestCase {
         defer { try? FileManager.default.removeItem(atPath: path) }
 
         let monitor = try SocketPathMonitor(path: path)
-        let monitorReady = expectation(description: "monitor ready")
+        XCTAssertTrue(monitor.start())
         let changed = expectation(description: "socket path changed")
         Task.detached {
-            await monitor.waitUntilChanged {
-                monitorReady.fulfill()
-            }
+            await monitor.waitUntilChanged()
             changed.fulfill()
         }
-        wait(for: [monitorReady], timeout: 1)
 
         try FileManager.default.removeItem(atPath: path)
+        wait(for: [changed], timeout: 2)
+    }
+
+    func testSignalsWhenPathWasRemovedBeforeWaiting() throws {
+        let path = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ghosttykit-monitor-\(UUID().uuidString)")
+            .path
+        FileManager.default.createFile(atPath: path, contents: Data())
+
+        let monitor = try SocketPathMonitor(path: path)
+        try FileManager.default.removeItem(atPath: path)
+
+        XCTAssertFalse(monitor.start())
+        let changed = expectation(description: "socket path already changed")
+        Task.detached {
+            await monitor.waitUntilChanged()
+            changed.fulfill()
+        }
+
         wait(for: [changed], timeout: 2)
     }
 }

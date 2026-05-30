@@ -80,9 +80,18 @@ final class UnixSocketDaemon {
     }
 
     private func run(_ server: NIOAsyncChannel<AcceptedConnection, Never>) async throws {
+        let monitor = try SocketPathMonitor(path: socketPath)
+        guard monitor.start() else {
+            logger.ghosttykit("socket path removed or replaced socket=\(socketPath); shutting down")
+            try? await server.channel.close(mode: .all).get()
+            return
+        }
+
         try await withThrowingTaskGroup(of: Void.self) { group in
-            group.addTask { [weak self] in
-                try await self?.monitorSocketPath(server.channel)
+            group.addTask { [logger, socketPath] in
+                await monitor.waitUntilChanged()
+                logger.ghosttykit("socket path removed or replaced socket=\(socketPath); shutting down")
+                try? await server.channel.close(mode: .all).get()
             }
             group.addTask { [handler, logger] in
                 try await Self.acceptClients(server, handler: handler, logger: logger)
@@ -112,13 +121,6 @@ final class UnixSocketDaemon {
                 }
             }
         }
-    }
-
-    private func monitorSocketPath(_ channel: any Channel) async throws {
-        let monitor = try SocketPathMonitor(path: socketPath)
-        await monitor.waitUntilChanged()
-        logger.ghosttykit("socket path removed or replaced socket=\(socketPath); shutting down")
-        try? await channel.close(mode: .all).get()
     }
 
     private func ensureSocketParentDirectory() throws {
