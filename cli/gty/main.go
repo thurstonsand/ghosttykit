@@ -27,7 +27,7 @@ func newRootCmd() *cobra.Command {
 
 	root.AddCommand(
 		versionCmd(),
-		pingCmd(),
+		doctorCmd(),
 		terminalIDCmd(opts),
 		tabTerminalCountCmd(opts),
 		keyTableCmd(opts),

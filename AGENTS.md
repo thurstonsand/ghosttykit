@@ -1,44 +1,47 @@
 # AGENTS.md
 
-## Mission
+With the advent of LLMs and coding harnesses like Claude Code, Codex, and Pi, I and many others find ourselves in the terminal far more often than ever before. I've been experimenting with a lot of different setups, between Neovim, tmux, zellij, Ghostty, iTerm2, and have found that I really just want the most straightforward surface as possible. This project focuses on making Ghostty, with its native windows, tabs, splits, panes, and terminals, work for all of my workflows by building on those primitives as well as Ghostty's control plane (i.e. AppleScript on macOS).
 
-GhosttyKit is a Ghostty terminal companion toolkit.
+## Project context
 
-## Project Context
+See @CONTEXT.md for terminology and architecture vocabulary.
 
-Use @CONTEXT.md for terminology and architecture vocabulary.
+## Ethos
 
-## Working Rules
+As I used the terminal more and more, I started drifting away from my prior IDE of choice VSCode, since I just wasn't happy with its built-in terminal. I tried iTerm2 for a little while, but had also learned about Ghostty, and really liked it. So I mained Ghostty+nvim, with nvim in its own tab, and agents in their own tabs. This felt inefficient, so I tried out zellij and then tmux to better handle window management, especially with vim-tmux-navigator. But I had this nagging feeling in the back of my mind that it seemed really wasteful to bring in the whole extra abstraction layer of tmux just for window management, especially since Ghostty ostensibly already supported it. I looked into it more, and thought Ghostty had potential to do everything I wanted, but its control plane of AppleScript was a little too awkward to use easily. So I started `ghosttykit` as a way to fit Ghostty with my desired workflows.
 
-- Preserve the established component boundaries. Moving code across them requires a concrete reason.
-- Do not keep legacy compatibility unless explicitly ordered -- prefer breaking changes. For now, GhosttyKit owns both sides of every internal interface; make hard breaks instead of compatibility shims unless this file is updated to say otherwise.
-- Prefer direct, boring implementations over abstraction.
-- When updating documentation/comments, keep it current, as if the code was always written that way. Don't include historical context unless the document is specifically historical.
-- Do not add comments that restate code. Use comments only for non-obvious decisions.
+## Design
 
-## Go Style
+This is a human-first project, as it builds towards improving the human experience of collaborating with coding agents in the Ghostty terminal, which may include editors, coding harnesses, and shells. `ghosttykitd` and the SDKs are the substrate that enable the integrations that make Ghostty an even better developer experience, some of which are contained in this repo (`nvim plugin`, `pi-paste`, `gty ssh`). While it may enable coding agents to effectively automate their own environment, that's a bonus.
 
-- Prefer top-down file organization: exported entry points and primary behavior first, with helper functions and private supporting types after their first use where practical.
-- Keep exported types near the top of the file when they define the package API.
-- Do not run `gofmt` directly. Format Go through the component `just fmt` recipe so the configured `goimports` and `gofumpt` behavior is used.
+Treat `ghosttykitd` as the owner of Ghostty control. Integrations should not affect Ghostty directly. They should use `gty`, an SDK, or the public daemon protocol. If a new Ghostty capability is needed, expose it through the shared protocol/SDK layer instead of hiding it inside one integration.
 
-## Repository Layout
+## Core principles
 
-- `cli/gty/`: Go CLI. Owns user-facing commands, local daemon calls, SSH wrapper behavior, and remote helper commands.
-- `sdk/go/`: Go client/protocol package. Shared Go code for request framing, socket selection, protocol types, and reusable client behavior.
-- `daemon/ghosttykitd/`: Swift macOS daemon. Owns Ghostty control, pasteboard access, local sockets, and daemon-managed bridge lifecycle.
-- `nvim/`: Neovim plugin. Coordinates editor split navigation with Ghostty pane focus and activates/deactivates the Ghostty Neovim key table.
-- `pi/pi-paste/`: Pi paste extension npm package. Pi-facing Alt-v paste flow backed by `gty paste`, including remote bridge support through normal CLI behavior.
-- `homebrew/`: Homebrew packaging material. macOS install path for `gty`, `ghosttykitd`, and daemon service management.
-- `docs/`: public docs and design records.
+- Prefer Ghostty capabilities and concepts where they apply
+- Be willing to pursue unusual workflow ideas
+- But strive to implement them in direct, boring, readable, maintainable code
+- Keep the core as small as possible, and prefer composing existing capabilities instead of building new ones
+- SDKs and protocols should be flexible enough for new integrations to compose capabilities in workflows I did not predict.
+- Never be afraid to suggest deep refactors when it could make the code more direct; backwards compatibility is to be avoided unless instructed otherwise
+- Avoid unnecessary abstraction. Be ambitious about structural simplification
+- Treat the docs as first class citizens. If there is a change in behavior that a downstream user of the SDK would notice, it should be captured in the relevant doc.
 
-## Commands
+## Code style
 
-Root commands:
+- Comments, outside those standardized in the language, should only ever be added to explain non-obvious decisions or surprising behavior.
+- Prefer top-down code organization:
+  - exported entry points and primary behavior first
+  - helpers after first use where practical
+  - exported API types near the top
+
+## Verification commands
+
+- Root commands:
 
 ```sh
 just --list
-just fmt
+just fmt # prefer this over language-native formatter binaries
 just lint
 just typecheck
 just test
@@ -48,21 +51,33 @@ just smoke-real-daemon  # mutates the focused Ghostty window; use only when requ
 just smoke-real-daemon --bridge  # same checks through a daemon-owned bridge socket
 ```
 
-Component commands:
+- Component commands:
 
 ```sh
-just -f cli/gty/justfile check
-just -f sdk/go/justfile check
-just -f sdk/go/justfile integration-test
-just -f daemon/ghosttykitd/justfile check
-just -f nvim/justfile check
-just -f pi/pi-paste/justfile check
+just fmt-go
+just fmt-swift
+just fmt-pi
+just fmt-nvim
+just fmt-docs
+just lint-go
+just lint-swift
+just lint-pi
+just lint-nvim
+just lint-docs
+just typecheck-go
+just typecheck-swift
+just typecheck-pi
+just typecheck-nvim
+just test-go
+just test-swift
+just build-go
+just build-swift
+just build-pi
+just build-nvim
 ```
 
-`pi/pi-paste` checks require `node_modules`. Use:
+- `pi/pi-paste` checks require `node_modules`. Use this if dependency issues arise:
 
 ```sh
 just install-deps-pi
 ```
-
-if you run into dependency issues.

@@ -14,21 +14,21 @@ import (
 )
 
 func TestCallRejectsStreamRequest(t *testing.T) {
-	_, err := Call[protocol.FrameReply](ForSocket("unused.sock"), protocol.PasteRequest{FrameEnvelope: protocol.NewFrameEnvelope("paste")})
+	_, err := Call[protocol.FrameReply](ForSocket("unused.sock"), protocol.NewPasteRequest(""))
 	if !errors.Is(err, ErrStreamReplyMode) {
 		t.Fatalf("Call(PasteRequest) error = %v, want %v", err, ErrStreamReplyMode)
 	}
 }
 
 func TestStreamRejectsFrameRequest(t *testing.T) {
-	_, _, err := Stream[protocol.PasteStreamFrameHeader](ForSocket("unused.sock"), protocol.PingRequest{FrameEnvelope: protocol.NewFrameEnvelope("ping")})
+	_, _, err := Stream[protocol.PasteStreamFrameHeader](ForSocket("unused.sock"), protocol.NewDoctorRequest())
 	if !errors.Is(err, ErrFrameReplyMode) {
-		t.Fatalf("Stream(PingRequest) error = %v, want %v", err, ErrFrameReplyMode)
+		t.Fatalf("Stream(DoctorRequest) error = %v, want %v", err, ErrFrameReplyMode)
 	}
 }
 
 func TestStreamRejectsNoReplyRequest(t *testing.T) {
-	_, _, err := Stream[protocol.PasteStreamFrameHeader](ForSocket("unused.sock"), protocol.FocusRequest{FrameEnvelope: protocol.NewFrameEnvelope("focus")})
+	_, _, err := Stream[protocol.PasteStreamFrameHeader](ForSocket("unused.sock"), protocol.NewFocusRequest("", "", false, false))
 	if !errors.Is(err, ErrNoReplyMode) {
 		t.Fatalf("Stream(FocusRequest) error = %v, want %v", err, ErrNoReplyMode)
 	}
@@ -92,10 +92,8 @@ func TestHoldKeepsConnectionOpenUntilCloserClosed(t *testing.T) {
 		serverDone <- err
 	}()
 
-	_, held, err := Hold[protocol.FrameReply](ForSocket(socketPath), protocol.BridgeLeaseRequest{
-		FrameEnvelope: protocol.NewFrameEnvelope("bridge-lease"),
-		Token:         "token",
-	})
+	request := protocol.NewBridgeLeaseRequest("token")
+	_, held, err := Hold[protocol.FrameReply](ForSocket(socketPath), request)
 	if err != nil {
 		t.Fatalf("Hold() error = %v", err)
 	}
@@ -134,7 +132,7 @@ func TestStreamPreservesPayloadBufferedWithHeader(t *testing.T) {
 		_, _ = conn.Write([]byte(`{"version":1,"code":"ok","kind":"text","bytes":11}` + "\nhello world"))
 	}()
 
-	header, body, err := Stream[protocol.PasteStreamFrameHeader](ForSocket(socketPath), protocol.PasteRequest{FrameEnvelope: protocol.NewFrameEnvelope("paste")})
+	header, body, err := Stream[protocol.PasteStreamFrameHeader](ForSocket(socketPath), protocol.NewPasteRequest(""))
 	if err != nil {
 		t.Fatalf("Stream() error = %v", err)
 	}

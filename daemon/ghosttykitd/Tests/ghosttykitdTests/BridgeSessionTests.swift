@@ -58,7 +58,7 @@ final class BridgeSessionTests: XCTestCase {
         let socketPath = try reply.socketPath.requireValue()
 
         let conn = try UnixJSONConnection(path: socketPath)
-        try conn.send(["version": 1, "command": "ping"])
+        try conn.send(["version": 1, "command": "doctor"])
         let ack: FrameReply = try conn.readReply()
         XCTAssertEqual(ack.code, ProtocolCode.invalidRequest)
         try conn.close()
@@ -82,7 +82,7 @@ final class BridgeSessionTests: XCTestCase {
         XCTAssertEqual(leaseAck.code, ProtocolCode.ok)
 
         let request = try UnixJSONConnection(path: socketPath)
-        try request.send(["version": 1, "command": "ping"])
+        try request.send(["version": 1, "command": "doctor"])
         let replyFrame: FrameReply = try request.readReply()
         XCTAssertEqual(replyFrame.value, "terminal")
         try request.close()

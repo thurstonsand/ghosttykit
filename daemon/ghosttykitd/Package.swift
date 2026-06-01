@@ -20,7 +20,15 @@ let package = Package(
                 .product(name: "NIOCore", package: "swift-nio"),
                 .product(name: "NIOPosix", package: "swift-nio")
             ],
-            linkerSettings: [.linkedFramework("AppKit")]
+            linkerSettings: [
+                .linkedFramework("AppKit"),
+                .unsafeFlags([
+                    "-Xlinker", "-sectcreate",
+                    "-Xlinker", "__TEXT",
+                    "-Xlinker", "__info_plist",
+                    "-Xlinker", "Metadata/Info.plist"
+                ])
+            ]
         ),
         .testTarget(
             name: "ghosttykitdTests",

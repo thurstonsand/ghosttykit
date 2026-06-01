@@ -18,7 +18,7 @@ Every request embeds this envelope:
 ```json
 {
   "version": 1,
-  "command": "ping"
+  "command": "doctor"
 }
 ```
 
@@ -54,7 +54,7 @@ See [protocol/codes.md](protocol/codes.md) for defined codes.
 
 | CLI                              | Request command        | Response behavior           | Extra fields                                                                 |
 | -------------------------------- | ---------------------- | --------------------------- | ---------------------------------------------------------------------------- |
-| `gty ping`                       | `ping`                 | always responds             | none                                                                         |
+| `gty doctor`                     | `doctor`               | always responds             | none                                                                         |
 | `gty terminal-id`                | `terminal-id`          | always responds             | `tty` optional, optional `focused`, optional `refresh`                       |
 | `gty tab-terminal-count`         | `tab-terminal-count`   | always responds             | `tty` optional, optional `focused`                                           |
 | `gty key-table activate <table>` | `key-table-activate`   | responds when `ack` is true | `tty`, `table`, optional `focused`, optional `ack`                           |

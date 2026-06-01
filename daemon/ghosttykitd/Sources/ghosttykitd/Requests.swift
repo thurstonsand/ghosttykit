@@ -218,19 +218,6 @@ struct ResizeAmount: Decodable {
     let percent: Double?
 }
 
-struct PingRequest: CommandRequest {
-    let version: Int
-    let command: String
-
-    var tty: String? {
-        nil
-    }
-
-    func reply(using _: CommandContext) throws -> ReplyBody {
-        .frame(FrameReply.ok("pong"))
-    }
-}
-
 struct TerminalIDRequest: CommandRequest {
     let version: Int
     let command: String
@@ -759,7 +746,7 @@ private enum RequestDecodeError: Error, LocalizedError {
 }
 
 private let commandDecoders: [String: (Data) throws -> any CommandRequest] = [
-    "ping": { try JSONDecoder().decode(PingRequest.self, from: $0) },
+    "doctor": { try JSONDecoder().decode(DoctorRequest.self, from: $0) },
     "terminal-id": { try JSONDecoder().decode(TerminalIDRequest.self, from: $0) },
     "tab-terminal-count": { try JSONDecoder().decode(TabTerminalCountRequest.self, from: $0) },
     "clear-cache": { try JSONDecoder().decode(ClearCacheRequest.self, from: $0) },

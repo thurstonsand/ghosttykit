@@ -22,13 +22,7 @@ func keyTableCmd(opts *options) *cobra.Command {
 				if err != nil {
 					return err
 				}
-				request := protocol.KeyTableActivateRequest{
-					FrameEnvelope: protocol.NewFrameEnvelope("key-table-activate"),
-					TTY:           target.tty,
-					Focused:       target.focused,
-					Table:         args[0],
-					Ack:           wait,
-				}
+				request := protocol.NewKeyTableActivateRequest(target.tty, args[0], target.focused, wait)
 				return client.NotifyAck(client.New(), request, wait)
 			},
 		},
@@ -40,12 +34,7 @@ func keyTableCmd(opts *options) *cobra.Command {
 				if err != nil {
 					return err
 				}
-				request := protocol.KeyTableDeactivateRequest{
-					FrameEnvelope: protocol.NewFrameEnvelope("key-table-deactivate"),
-					TTY:           target.tty,
-					Focused:       target.focused,
-					Ack:           wait,
-				}
+				request := protocol.NewKeyTableDeactivateRequest(target.tty, target.focused, wait)
 				return client.NotifyAck(client.New(), request, wait)
 			},
 		},

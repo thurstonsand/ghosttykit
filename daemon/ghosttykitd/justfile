@@ -4,6 +4,7 @@ binary := "ghosttykitd"
 install_dir := env_var_or_default("HOME", ".") + "/.local/bin"
 codesign_identity := env_var_or_default("GHOSTTYKIT_CODESIGN_IDENTITY", "-")
 codesign_identifier := "dev.ghosttykit.ghosttykitd"
+entitlements := "ghosttykitd.entitlements"
 
 _default:
     just --list
@@ -37,4 +38,4 @@ install:
     just sign {{install_dir}}/{{binary}}
 
 sign path:
-    codesign --force --sign '{{codesign_identity}}' --identifier '{{codesign_identifier}}' {{path}}
+    codesign --force --sign '{{codesign_identity}}' --identifier '{{codesign_identifier}}' --entitlements {{entitlements}} {{path}}

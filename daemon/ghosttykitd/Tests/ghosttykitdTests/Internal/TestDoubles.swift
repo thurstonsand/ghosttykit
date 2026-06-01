@@ -16,6 +16,8 @@ final class SpyGhosttyController: GhosttyControlling {
         focused = focusedTerminal
     }
 
+    func preflightAutomationPermission() throws -> Bool { true }
+
     func focusedTerminalContext() throws -> TerminalContext {
         focused
     }

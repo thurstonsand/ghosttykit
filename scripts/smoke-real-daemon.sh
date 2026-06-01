@@ -101,7 +101,7 @@ start_bridge() {
   export GTY_SOCK="$bridge_socket"
 
   for _ in {1..50}; do
-    if [[ "$("$GTY_BIN" ping 2>/dev/null || true)" == "pong" ]]; then
+    if "$GTY_BIN" doctor >/dev/null 2>&1; then
       printf 'bridge-socket: %s\n' "$bridge_socket" >&2
       return
     fi
@@ -180,8 +180,7 @@ if [[ "$bridge_mode" -eq 1 ]]; then
   printf 'GTY_SOCK: %s\n' "$GTY_SOCK" >&2
 fi
 
-ping_output="$(run ping)"
-expect ping "$ping_output" pong
+run doctor
 
 run clear-cache --all --wait >/dev/null
 terminal_id="$(run terminal-id --refresh)"

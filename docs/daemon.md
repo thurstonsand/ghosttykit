@@ -32,7 +32,7 @@ Example:
 ```sh
 sock=/tmp/ghosttykitd.sock
 GTY_SOCK=$sock ghosttykitd --dry-run &
-GTY_SOCK=$sock GTY_TTY=/dev/dryrun gty ping
+GTY_SOCK=$sock GTY_TTY=/dev/dryrun gty doctor
 ```
 
 ## Real daemon smoke test
@@ -49,6 +49,6 @@ To run the same checks through a daemon-owned bridge socket, run:
 just smoke-real-daemon --bridge
 ```
 
-If `GTY_SOCK` is unset, it starts the daemon on a temporary socket and cleans it up afterward. Set `GTY_BIN`, `GHOSTTYKITD_BIN`, or `GTY_SOCK` to override defaults. It refuses a dry-run endpoint, binds a temporary synthetic TTY to the focused terminal, and exercises real daemon behavior: ping, terminal-id cache refresh, tab count, pasteboard streaming, key-table activation/deactivation, split creation, focus movement, resize, zoom toggling, and cache clearing.
+If `GTY_SOCK` is unset, it starts the daemon on a temporary socket and cleans it up afterward. Set `GTY_BIN`, `GHOSTTYKITD_BIN`, or `GTY_SOCK` to override defaults. It refuses a dry-run endpoint, binds a temporary synthetic TTY to the focused terminal, and exercises real daemon behavior: doctor, terminal-id cache refresh, tab count, pasteboard streaming, key-table activation/deactivation, split creation, focus movement, resize, zoom toggling, and cache clearing.
 
 This test is intentionally mutating. It changes the pasteboard temporarily and creates a short-lived split in the focused Ghostty tab.

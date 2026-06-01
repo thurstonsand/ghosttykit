@@ -6,12 +6,12 @@ import (
 )
 
 func TestNewFrameEnvelopeSetsProtocolVersion(t *testing.T) {
-	envelope := NewFrameEnvelope("ping")
+	envelope := NewFrameEnvelope("doctor")
 	if envelope.Version != 1 {
 		t.Fatalf("Version = %d, want 1", envelope.Version)
 	}
-	if envelope.Command != "ping" {
-		t.Fatalf("Command = %q, want ping", envelope.Command)
+	if envelope.Command != "doctor" {
+		t.Fatalf("Command = %q, want doctor", envelope.Command)
 	}
 }
 

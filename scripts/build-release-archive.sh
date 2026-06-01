@@ -23,7 +23,14 @@ cp daemon/ghosttykitd/.build/release/ghosttykitd "${root}/bin/ghosttykitd"
 
 if [[ -n "${CODESIGN_IDENTITY:-}" ]]; then
   codesign --force --timestamp --options runtime --sign "${CODESIGN_IDENTITY}" "${root}/bin/gty"
-  codesign --force --timestamp --options runtime --sign "${CODESIGN_IDENTITY}" "${root}/bin/ghosttykitd"
+  codesign \
+    --force \
+    --timestamp \
+    --options runtime \
+    --identifier dev.ghosttykit.ghosttykitd \
+    --entitlements daemon/ghosttykitd/ghosttykitd.entitlements \
+    --sign "${CODESIGN_IDENTITY}" \
+    "${root}/bin/ghosttykitd"
 fi
 
 cp README.md LICENSE* "${root}/" 2>/dev/null || true

@@ -57,6 +57,7 @@ final class GhosttyKitDaemon {
     func start() async throws {
         await MainActor.run { _ = NSApplication.shared }
         logger.ghosttykit("starting dry_run=\(options.dryRun) socket=\(options.socketPath)")
+        preflightAutomationPermission()
         let daemon = UnixSocketDaemon(socketPath: options.socketPath, logger: logger) { [weak self] request in
             guard let self else {
                 return .reply(.frame(FrameReply.failure(code: ProtocolCode.internalError, "daemon unavailable")))
@@ -70,6 +71,18 @@ final class GhosttyKitDaemon {
             return commandQueue.sync { self.dispatch(request, using: context) }
         }
         try await daemon.start()
+    }
+
+    private func preflightAutomationPermission() {
+        do {
+            if try ghostty.preflightAutomationPermission() {
+                logger.ghosttykit("automation preflight completed")
+            } else {
+                logger.ghosttykit("automation preflight skipped reason=ghostty_not_running")
+            }
+        } catch {
+            logger.ghosttykit("automation preflight failed error=\(error.localizedDescription)")
+        }
     }
 
     private func dispatch(_ request: any CommandRequest, using context: CommandContext) -> CommandResult {

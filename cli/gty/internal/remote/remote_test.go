@@ -31,19 +31,19 @@ func TestManagedSSHArgs(t *testing.T) {
 }
 
 func TestSplitSSHArgsRequiresDelimiterBeforeRemoteCommand(t *testing.T) {
-	_, _, err := SplitSSHArgs([]string{"openclaw", "gty", "ping"}, -1)
+	_, _, err := SplitSSHArgs([]string{"openclaw", "gty", "doctor"}, -1)
 	if err == nil {
 		t.Fatal("SplitSSHArgs() error = nil, want usage error")
 	}
 
-	host, remoteCommand, err := SplitSSHArgs([]string{"openclaw", "gty", "ping"}, 1)
+	host, remoteCommand, err := SplitSSHArgs([]string{"openclaw", "gty", "doctor"}, 1)
 	if err != nil {
 		t.Fatalf("SplitSSHArgs() error = %v", err)
 	}
 	if host != "openclaw" {
 		t.Fatalf("host = %q, want openclaw", host)
 	}
-	if got, want := strings.Join(remoteCommand, " "), "gty ping"; got != want {
+	if got, want := strings.Join(remoteCommand, " "), "gty doctor"; got != want {
 		t.Fatalf("remote command = %q, want %q", got, want)
 	}
 }

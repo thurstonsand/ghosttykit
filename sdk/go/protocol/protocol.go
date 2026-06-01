@@ -171,12 +171,31 @@ type StreamFailedError struct{ protocolError }
 // InternalError means the daemon hit an unexpected failure.
 type InternalError struct{ protocolError }
 
-// PingRequest checks daemon reachability.
-type PingRequest struct {
+// DoctorRequest asks the daemon to run active health checks.
+type DoctorRequest struct {
 	FrameEnvelope
 }
 
-func (PingRequest) isRequest() {}
+func (DoctorRequest) isRequest() {}
+
+// NewDoctorRequest returns a doctor request.
+func NewDoctorRequest() DoctorRequest {
+	return DoctorRequest{FrameEnvelope: NewFrameEnvelope("doctor")}
+}
+
+// DoctorReply is returned by doctor.
+type DoctorReply struct {
+	FrameReply
+	Healthy bool          `json:"healthy"`
+	Checks  []DoctorCheck `json:"checks,omitempty"`
+}
+
+// DoctorCheck is one daemon health check result.
+type DoctorCheck struct {
+	Name    string `json:"name"`
+	Status  string `json:"status"`
+	Message string `json:"message,omitempty"`
+}
 
 // TerminalIDRequest asks the daemon to resolve the focused Ghostty terminal id.
 type TerminalIDRequest struct {
@@ -187,6 +206,16 @@ type TerminalIDRequest struct {
 }
 
 func (TerminalIDRequest) isRequest() {}
+
+// NewTerminalIDRequest returns a terminal-id request.
+func NewTerminalIDRequest(tty string, focused, refresh bool) TerminalIDRequest {
+	return TerminalIDRequest{
+		FrameEnvelope: NewFrameEnvelope("terminal-id"),
+		TTY:           tty,
+		Focused:       focused,
+		Refresh:       refresh,
+	}
+}
 
 // Validate checks terminal-id request invariants.
 func (r TerminalIDRequest) Validate() error {
@@ -205,6 +234,15 @@ type TabTerminalCountRequest struct {
 
 func (TabTerminalCountRequest) isRequest() {}
 
+// NewTabTerminalCountRequest returns a tab-terminal-count request.
+func NewTabTerminalCountRequest(tty string, focused bool) TabTerminalCountRequest {
+	return TabTerminalCountRequest{
+		FrameEnvelope: NewFrameEnvelope("tab-terminal-count"),
+		TTY:           tty,
+		Focused:       focused,
+	}
+}
+
 // BridgeCreateRequest asks the local daemon to create a per-SSH-session bridge.
 type BridgeCreateRequest struct {
 	FrameEnvelope
@@ -213,6 +251,15 @@ type BridgeCreateRequest struct {
 }
 
 func (BridgeCreateRequest) isRequest() {}
+
+// NewBridgeCreateRequest returns a bridge-create request.
+func NewBridgeCreateRequest(tty string, focused bool) BridgeCreateRequest {
+	return BridgeCreateRequest{
+		FrameEnvelope: NewFrameEnvelope("bridge-create"),
+		TTY:           tty,
+		Focused:       focused,
+	}
+}
 
 // BridgeCreateReply is returned by bridge-create.
 type BridgeCreateReply struct {
@@ -229,6 +276,11 @@ type BridgeLeaseRequest struct {
 
 func (BridgeLeaseRequest) isRequest() {}
 
+// NewBridgeLeaseRequest returns a bridge-lease request.
+func NewBridgeLeaseRequest(token string) BridgeLeaseRequest {
+	return BridgeLeaseRequest{FrameEnvelope: NewFrameEnvelope("bridge-lease"), Token: token}
+}
+
 // ClearCacheRequest removes one TTY mapping, or all mappings when TTY is empty.
 type ClearCacheRequest struct {
 	FrameEnvelope
@@ -237,6 +289,11 @@ type ClearCacheRequest struct {
 }
 
 func (ClearCacheRequest) isRequest() {}
+
+// NewClearCacheRequest returns a clear-cache request.
+func NewClearCacheRequest(tty string, ack bool) ClearCacheRequest {
+	return ClearCacheRequest{FrameEnvelope: NewFrameEnvelope("clear-cache"), TTY: tty, Ack: ack}
+}
 
 func (r ClearCacheRequest) replyMode() ReplyMode { return ackReplyMode(r.Ack) }
 
@@ -251,6 +308,17 @@ type KeyTableActivateRequest struct {
 
 func (KeyTableActivateRequest) isRequest() {}
 
+// NewKeyTableActivateRequest returns a key-table-activate request.
+func NewKeyTableActivateRequest(tty, table string, focused, ack bool) KeyTableActivateRequest {
+	return KeyTableActivateRequest{
+		FrameEnvelope: NewFrameEnvelope("key-table-activate"),
+		TTY:           tty,
+		Focused:       focused,
+		Table:         table,
+		Ack:           ack,
+	}
+}
+
 func (r KeyTableActivateRequest) replyMode() ReplyMode { return ackReplyMode(r.Ack) }
 
 // KeyTableDeactivateRequest deactivates the current Ghostty key table for the caller TTY.
@@ -262,6 +330,16 @@ type KeyTableDeactivateRequest struct {
 }
 
 func (KeyTableDeactivateRequest) isRequest() {}
+
+// NewKeyTableDeactivateRequest returns a key-table-deactivate request.
+func NewKeyTableDeactivateRequest(tty string, focused, ack bool) KeyTableDeactivateRequest {
+	return KeyTableDeactivateRequest{
+		FrameEnvelope: NewFrameEnvelope("key-table-deactivate"),
+		TTY:           tty,
+		Focused:       focused,
+		Ack:           ack,
+	}
+}
 
 func (r KeyTableDeactivateRequest) replyMode() ReplyMode { return ackReplyMode(r.Ack) }
 
@@ -275,6 +353,17 @@ type FocusRequest struct {
 }
 
 func (FocusRequest) isRequest() {}
+
+// NewFocusRequest returns a focus request.
+func NewFocusRequest(tty, direction string, focused, ack bool) FocusRequest {
+	return FocusRequest{
+		FrameEnvelope: NewFrameEnvelope("focus"),
+		TTY:           tty,
+		Focused:       focused,
+		Direction:     direction,
+		Ack:           ack,
+	}
+}
 
 func (r FocusRequest) replyMode() ReplyMode { return ackReplyMode(r.Ack) }
 
@@ -292,6 +381,20 @@ type SplitRequest struct {
 
 func (SplitRequest) isRequest() {}
 
+// NewSplitRequest returns a split request.
+func NewSplitRequest(tty, direction, cwd, commandText, focus string, focused, ack bool) SplitRequest {
+	return SplitRequest{
+		FrameEnvelope: NewFrameEnvelope("split"),
+		TTY:           tty,
+		Focused:       focused,
+		Direction:     direction,
+		CWD:           cwd,
+		CommandText:   commandText,
+		Focus:         focus,
+		Ack:           ack,
+	}
+}
+
 func (r SplitRequest) replyMode() ReplyMode { return ackReplyMode(r.Ack) }
 
 // ResizeRequest resizes a Ghostty split adjacent to the caller TTY terminal.
@@ -305,6 +408,18 @@ type ResizeRequest struct {
 }
 
 func (ResizeRequest) isRequest() {}
+
+// NewResizeRequest returns a resize request.
+func NewResizeRequest(tty, direction string, amount ResizeAmount, focused, ack bool) ResizeRequest {
+	return ResizeRequest{
+		FrameEnvelope: NewFrameEnvelope("resize"),
+		TTY:           tty,
+		Focused:       focused,
+		Direction:     direction,
+		Amount:        amount,
+		Ack:           ack,
+	}
+}
 
 func (r ResizeRequest) replyMode() ReplyMode { return ackReplyMode(r.Ack) }
 
@@ -324,6 +439,11 @@ type ZoomRequest struct {
 
 func (ZoomRequest) isRequest() {}
 
+// NewZoomRequest returns a zoom request.
+func NewZoomRequest(tty string, focused, ack bool) ZoomRequest {
+	return ZoomRequest{FrameEnvelope: NewFrameEnvelope("zoom"), TTY: tty, Focused: focused, Ack: ack}
+}
+
 func (r ZoomRequest) replyMode() ReplyMode { return ackReplyMode(r.Ack) }
 
 // PasteRequest asks the daemon to read the local clipboard for text or file-like content.
@@ -333,6 +453,11 @@ type PasteRequest struct {
 }
 
 func (PasteRequest) isRequest() {}
+
+// NewPasteRequest returns a paste request.
+func NewPasteRequest(tty string) PasteRequest {
+	return PasteRequest{FrameEnvelope: NewFrameEnvelope("paste"), TTY: tty}
+}
 
 func (PasteRequest) replyMode() ReplyMode { return ReplyModeStream }
 

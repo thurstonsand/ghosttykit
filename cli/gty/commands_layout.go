@@ -15,11 +15,7 @@ func tabTerminalCountCmd(opts *options) *cobra.Command {
 		Args: cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			target := optionalTerminalTarget(opts)
-			request := protocol.TabTerminalCountRequest{
-				FrameEnvelope: protocol.NewFrameEnvelope("tab-terminal-count"),
-				TTY:           target.tty,
-				Focused:       target.focused,
-			}
+			request := protocol.NewTabTerminalCountRequest(target.tty, target.focused)
 			reply, err := client.Call[protocol.FrameReply](client.New(), request)
 			if err != nil {
 				return err
@@ -40,13 +36,7 @@ func focusCmd(opts *options) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			request := protocol.FocusRequest{
-				FrameEnvelope: protocol.NewFrameEnvelope("focus"),
-				TTY:           target.tty,
-				Focused:       target.focused,
-				Direction:     args[0],
-				Ack:           wait,
-			}
+			request := protocol.NewFocusRequest(target.tty, args[0], target.focused, wait)
 			return client.NotifyAck(client.New(), request, wait)
 		},
 	}
@@ -67,16 +57,7 @@ func splitCmd(opts *options) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			request := protocol.SplitRequest{
-				FrameEnvelope: protocol.NewFrameEnvelope("split"),
-				TTY:           target.tty,
-				Focused:       target.focused,
-				Direction:     args[0],
-				CWD:           cwd,
-				CommandText:   commandText,
-				Focus:         focus,
-				Ack:           wait,
-			}
+			request := protocol.NewSplitRequest(target.tty, args[0], cwd, commandText, focus, target.focused, wait)
 			return client.NotifyAck(client.New(), request, wait)
 		},
 	}
@@ -103,14 +84,7 @@ func resizeCmd(opts *options) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			request := protocol.ResizeRequest{
-				FrameEnvelope: protocol.NewFrameEnvelope("resize"),
-				TTY:           target.tty,
-				Focused:       target.focused,
-				Direction:     args[0],
-				Amount:        amount,
-				Ack:           wait,
-			}
+			request := protocol.NewResizeRequest(target.tty, args[0], amount, target.focused, wait)
 			return client.NotifyAck(client.New(), request, wait)
 		},
 	}
@@ -141,12 +115,7 @@ func zoomCmd(opts *options) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			request := protocol.ZoomRequest{
-				FrameEnvelope: protocol.NewFrameEnvelope("zoom"),
-				TTY:           target.tty,
-				Focused:       target.focused,
-				Ack:           wait,
-			}
+			request := protocol.NewZoomRequest(target.tty, target.focused, wait)
 			return client.NotifyAck(client.New(), request, wait)
 		},
 	}

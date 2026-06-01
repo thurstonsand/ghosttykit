@@ -5,7 +5,7 @@ import XCTest
 
 final class RequestDispatchTests: XCTestCase {
     func testDecodeRejectsUnsupportedProtocolVersion() throws {
-        assertDecodeError(#"{"version":2,"command":"ping"}"#, code: ProtocolCode.protocolVersionMismatch)
+        assertDecodeError(#"{"version":2,"command":"doctor"}"#, code: ProtocolCode.protocolVersionMismatch)
     }
 
     func testDecodeRejectsUnknownCommand() throws {

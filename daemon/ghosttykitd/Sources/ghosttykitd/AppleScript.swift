@@ -23,6 +23,7 @@ enum GhosttyKitError: Error, LocalizedError {
 }
 
 protocol GhosttyControlling {
+    func preflightAutomationPermission() throws -> Bool
     func focusedTerminalContext() throws -> TerminalContext
     func readPasteboardContent() throws -> FrameStreamReply
     func activateKeyTable(_ table: String, terminal: TerminalContext) throws
@@ -50,6 +51,10 @@ final class DryRunGhosttyController: GhosttyControlling {
 
     init(pasteText: String? = nil) {
         self.pasteText = pasteText
+    }
+
+    func preflightAutomationPermission() throws -> Bool {
+        true
     }
 
     func focusedTerminalContext() throws -> TerminalContext {
@@ -86,6 +91,17 @@ final class DryRunGhosttyController: GhosttyControlling {
 }
 
 final class AppleScriptGhosttyController: GhosttyControlling {
+    func preflightAutomationPermission() throws -> Bool {
+        guard isGhosttyRunning() else { return false }
+        let source = """
+        tell application "Ghostty"
+            return count of windows
+        end tell
+        """
+        _ = try executeAppleScript(source)
+        return true
+    }
+
     func focusedTerminalContext() throws -> TerminalContext {
         let source = """
         tell application "Ghostty"
@@ -205,6 +221,12 @@ final class AppleScriptGhosttyController: GhosttyControlling {
         end tell
         """
         return try intValue(from: executeAppleScript(source))
+    }
+
+    private func isGhosttyRunning() -> Bool {
+        NSWorkspace.shared.runningApplications.contains { app in
+            app.bundleIdentifier == "com.mitchellh.ghostty" || app.localizedName == "Ghostty"
+        }
     }
 
     private func ghosttyWindowIndex(windowID: String?) throws -> Int {

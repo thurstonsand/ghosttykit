@@ -49,18 +49,13 @@ func createBridgeLease(opts *options) (remote.Bridge, error) {
 	if err != nil {
 		return remote.Bridge{}, err
 	}
-	reply, err := client.Call[protocol.BridgeCreateReply](client.New(), protocol.BridgeCreateRequest{
-		FrameEnvelope: protocol.NewFrameEnvelope("bridge-create"),
-		TTY:           target.tty,
-		Focused:       target.focused,
-	})
+	request := protocol.NewBridgeCreateRequest(target.tty, target.focused)
+	reply, err := client.Call[protocol.BridgeCreateReply](client.New(), request)
 	if err != nil {
 		return remote.Bridge{}, err
 	}
-	_, lease, err := client.Hold[protocol.FrameReply](client.ForSocket(reply.SocketPath), protocol.BridgeLeaseRequest{
-		FrameEnvelope: protocol.NewFrameEnvelope("bridge-lease"),
-		Token:         reply.LeaseToken,
-	})
+	leaseRequest := protocol.NewBridgeLeaseRequest(reply.LeaseToken)
+	_, lease, err := client.Hold[protocol.FrameReply](client.ForSocket(reply.SocketPath), leaseRequest)
 	if err != nil {
 		return remote.Bridge{}, err
 	}
@@ -110,11 +105,8 @@ func sshBridgeCreateCmd(opts *options) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			reply, err := client.Call[protocol.BridgeCreateReply](client.New(), protocol.BridgeCreateRequest{
-				FrameEnvelope: protocol.NewFrameEnvelope("bridge-create"),
-				TTY:           target.tty,
-				Focused:       target.focused,
-			})
+			request := protocol.NewBridgeCreateRequest(target.tty, target.focused)
+			reply, err := client.Call[protocol.BridgeCreateReply](client.New(), request)
 			if err != nil {
 				return err
 			}
@@ -131,10 +123,8 @@ func sshBridgeLeaseCmd() *cobra.Command {
 		Hidden: true,
 		Args:   cobra.ExactArgs(2),
 		RunE: func(_ *cobra.Command, args []string) error {
-			_, conn, err := client.Hold[protocol.FrameReply](client.ForSocket(args[0]), protocol.BridgeLeaseRequest{
-				FrameEnvelope: protocol.NewFrameEnvelope("bridge-lease"),
-				Token:         args[1],
-			})
+			request := protocol.NewBridgeLeaseRequest(args[1])
+			_, conn, err := client.Hold[protocol.FrameReply](client.ForSocket(args[0]), request)
 			if err != nil {
 				return err
 			}
