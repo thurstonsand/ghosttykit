@@ -280,7 +280,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          if git diff --quiet -- Formula; then
+          if git diff --quiet -- Formula && [[ -z "$(git ls-files --others --exclude-standard Formula)" ]]; then
             echo "Formula is already current."
             exit 0
           fi
