@@ -264,7 +264,7 @@ Normal exits should remove the current remote socket through `gty ssh remote-run
 Keep the existing command style rather than over-namespacing:
 
 ```sh
-gty ping
+gty doctor
 gty terminal-id
 gty tab-terminal-count
 gty key-table activate nvim
@@ -421,7 +421,7 @@ Deferred. The current CLI-backed model works and is easier to port. Lua direct s
     - Define the hard-break GhosttyKit protocol used by the CLI and Go SDK; the Swift daemon must adopt this protocol in Phase 3.
   - Validation:
     - `go test ./...` passes in `sdk/go` and `cli/gty`.
-    - `gty ping`, `gty paste --json`, and layout commands work locally after `ghosttykitd` adopts the GhosttyKit protocol.
+    - `gty doctor`, `gty paste --json`, and layout commands work locally after `ghosttykitd` adopts the GhosttyKit protocol.
 
 - [x] Phase 3: Extract and rename the Swift daemon
   - Goal: Move the Swift daemon into `daemon/ghosttykitd` and rename service/socket/log paths.
@@ -435,7 +435,7 @@ Deferred. The current CLI-backed model works and is easier to port. Lua direct s
     - Add runtime AppleScript capability detection for direct TTY lookup when Ghostty exposes it; keep focused-terminal bootstrap fallback.
   - Validation:
     - Swift format/lint/build passes.
-    - `gty ping`, key-table, focus, split, resize, zoom, title, and paste work locally.
+    - `gty doctor`, key-table, focus, split, resize, zoom, title, and paste work locally.
     - Daemon restart removes stale local daemon/bridge sockets.
 
 - [x] Phase 4: Implement daemon-owned SSH bridge sessions
@@ -471,18 +471,18 @@ Deferred. The current CLI-backed model works and is easier to port. Lua direct s
     - Remote `gty focus left` reaches local Ghostty through `GTY_SOCK`.
     - Stale dead remote socket pathnames are removed by `remote-init`; active sockets are preserved.
 
-- [ ] Phase 6: Package macOS Homebrew install
+- [x] Phase 6: Package macOS Homebrew install
   - Goal: Install `gty` and `ghosttykitd` through Homebrew with a user service.
   - Files: `homebrew/`, `daemon/ghosttykitd/`, `cli/gty/`, `docs/install.md`, `docs/tcc-macos.md`.
   - Work:
-    - Add Homebrew formula/tap material that builds and installs both binaries.
+    - Add a conventional `thurstonsand/homebrew-ghosttykit` tap that installs `gty` and the app-bundled daemon.
     - Add `service do` block for `ghosttykitd` with `brew services` support.
-    - Codesign both binaries where practical, with ad-hoc fallback for local/source builds.
-    - Add `gty doctor` or equivalent diagnostics for daemon reachability and macOS Automation/TCC permission failures if the packaging spike proves it necessary.
-    - Document foreground daemon authorization/test flow if launchd prompts are unreliable.
+    - Codesign and notarize release archives.
+    - Add `gty doctor` diagnostics for daemon reachability and macOS Automation/TCC permission failures.
+    - Package `ghosttykitd` inside `GhosttyKitD.app` so TCC records the stable bundle identity instead of versioned Cellar executable paths.
   - Validation:
-    - `brew install` from tap works on a clean macOS machine.
-    - `brew services start ghosttykit` starts `ghosttykitd`.
+    - `brew install thurstonsand/ghosttykit/ghosttykit-nightly` works on macOS.
+    - `brew services start thurstonsand/ghosttykit/ghosttykit-nightly` starts `ghosttykitd`.
     - Daemon can send a harmless AppleEvent to Ghostty after permission is granted.
     - Permission failure produces actionable diagnostics.
 

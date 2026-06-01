@@ -4,12 +4,15 @@ Status: in progress.
 
 `ghosttykitd` controls Ghostty through macOS Apple Events. Homebrew service packaging must prove that the daemon can request, retain, and diagnose Automation/TCC permissions when launched through `brew services`.
 
-Release builds embed an Info.plist with `NSAppleEventsUsageDescription` and sign `ghosttykitd` with the Apple Events hardened-runtime entitlement. On startup, the daemon performs a harmless Ghostty Apple Events preflight when Ghostty is already running. This is meant to make the first `brew services start ghosttykit/local/ghosttykit` trigger the normal macOS Automation prompt instead of deferring the failure until the first layout command.
+Release builds package `ghosttykitd` inside `GhosttyKitD.app`, a background-only app bundle with `NSAppleEventsUsageDescription` and the stable bundle identifier `dev.ghosttykit.ghosttykitd`. The bundle and daemon are signed with the Apple Events hardened-runtime entitlement. Homebrew launches the daemon from inside that bundle so macOS TCC records Automation access against the bundle identity instead of a versioned Cellar executable path.
+
+On startup, the daemon performs a harmless Ghostty Apple Events preflight when Ghostty is already running. This is meant to make the first `brew services start thurstonsand/ghosttykit/ghosttykit-nightly` trigger the normal macOS Automation prompt instead of deferring the failure until the first layout command. After that first bundled authorization, Homebrew upgrades should retain access as long as the bundle identifier and signing requirement stay stable.
 
 First-run flow:
 
 ```sh
-brew services start ghosttykit/local/ghosttykit
+open -a Ghostty
+brew services start thurstonsand/ghosttykit/ghosttykit-nightly
 gty doctor
 ```
 
@@ -21,5 +24,5 @@ For manual reset during packaging tests:
 
 ```sh
 tccutil reset AppleEvents dev.ghosttykit.ghosttykitd
-brew services restart ghosttykit/local/ghosttykit
+brew services restart thurstonsand/ghosttykit/ghosttykit-nightly
 ```

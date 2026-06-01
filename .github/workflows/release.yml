@@ -92,7 +92,7 @@ jobs:
             else
               base_version="${base_tag#v}"
             fi
-            echo "version=${base_version}-dev-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+            echo "version=${base_version}-dev-${GITHUB_RUN_ID}-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Build release archive
@@ -183,6 +183,7 @@ jobs:
           RELEASE_REF_TYPE: ${{ github.ref_type }}
           RELEASE_REF_NAME: ${{ github.ref_name }}
           RELEASE_SHA: ${{ github.sha }}
+          RELEASE_RUN_ID: ${{ github.run_id }}
         run: |
           set -euo pipefail
 
@@ -208,7 +209,7 @@ jobs:
             else
               base_version="${base_tag#v}"
             fi
-            asset_version="${base_version}-dev-${short_sha}"
+            asset_version="${base_version}-dev-${RELEASE_RUN_ID}-${short_sha}"
             formula_version="${asset_version}"
             nightly_notice="      This formula tracks nightly builds from GhosttyKit main and may break."
             nightly_spacer=""
@@ -253,8 +254,8 @@ jobs:
 
                   brew services start #{full_name}
 
-                macOS should ask for permission to let ghosttykitd control Ghostty.
-                After granting access, verify the install with:
+                On first start, macOS should ask for permission to let GhosttyKitD control Ghostty.
+                Grant access, then verify the install with:
 
                   gty doctor
               EOS
@@ -275,6 +276,7 @@ jobs:
           RELEASE_REF_TYPE: ${{ github.ref_type }}
           RELEASE_REF_NAME: ${{ github.ref_name }}
           RELEASE_SHA: ${{ github.sha }}
+          RELEASE_RUN_ID: ${{ github.run_id }}
         run: |
           set -euo pipefail
 
@@ -296,7 +298,7 @@ jobs:
             else
               base_version="${base_tag#v}"
             fi
-            git commit -m "ghosttykit-nightly ${base_version}-dev-${RELEASE_SHA::7}"
+            git commit -m "ghosttykit-nightly ${base_version}-dev-${RELEASE_RUN_ID}-${RELEASE_SHA::7}"
           fi
 
           git push

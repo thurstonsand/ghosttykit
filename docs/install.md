@@ -2,16 +2,23 @@
 
 Status: in progress.
 
-The primary macOS install path will be Homebrew. The formula should install:
-
-- `gty`
-- `ghosttykitd`
-- a `brew services` user service for `ghosttykitd`
-
-After installing from the tap, start the user service while Ghostty is running so macOS can ask for Automation permission:
+The primary macOS install path is the `thurstonsand/homebrew-ghosttykit` Homebrew tap. Nightly builds track recent commits on `main`:
 
 ```sh
-brew services start ghosttykit/local/ghosttykit
+brew install thurstonsand/ghosttykit/ghosttykit-nightly
+```
+
+The formula installs:
+
+- `gty`
+- `GhosttyKitD.app`, a background-only app bundle containing `ghosttykitd`
+- a `brew services` user service for the bundled daemon
+
+After installing from the tap, start the user service while Ghostty is running so macOS can ask for Automation permission on first start:
+
+```sh
+open -a Ghostty
+brew services start thurstonsand/ghosttykit/ghosttykit-nightly
 gty doctor
 ```
 

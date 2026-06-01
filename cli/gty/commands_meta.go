@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -11,20 +12,32 @@ import (
 )
 
 func doctorCmd() *cobra.Command {
-	return &cobra.Command{
+	var jsonOutput bool
+	cmd := &cobra.Command{
 		Use:  "doctor",
 		Args: cobra.NoArgs,
-		RunE: func(_ *cobra.Command, _ []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			reply, err := client.Call[protocol.DoctorReply](client.New(), protocol.NewDoctorRequest())
 			if err != nil {
 				return err
 			}
+			if jsonOutput {
+				encoder := json.NewEncoder(cmd.OutOrStdout())
+				encoder.SetIndent("", "  ")
+				if err := encoder.Encode(reply); err != nil {
+					return err
+				}
+				if !reply.Healthy {
+					return doctorError{}
+				}
+				return nil
+			}
 			for _, check := range reply.Checks {
 				if check.Message == "" {
-					fmt.Printf("%s: %s\n", check.Name, check.Status)
+					cmd.Printf("%s: %s\n", check.Name, check.Status)
 					continue
 				}
-				fmt.Printf("%s: %s - %s\n", check.Name, check.Status, check.Message)
+				cmd.Printf("%s: %s - %s\n", check.Name, check.Status, check.Message)
 			}
 			if !reply.Healthy {
 				return doctorError{}
@@ -32,6 +45,8 @@ func doctorCmd() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, "print structured doctor output")
+	return cmd
 }
 
 type doctorError struct{}
