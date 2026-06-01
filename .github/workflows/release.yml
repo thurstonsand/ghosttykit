@@ -196,7 +196,8 @@ jobs:
             release_tag="${RELEASE_REF_NAME}"
             asset_version="${RELEASE_REF_NAME}"
             formula_version="${RELEASE_REF_NAME#v}"
-            caveat_prefix=""
+            nightly_notice=""
+            nightly_spacer=""
           else
             formula="homebrew-tap/Formula/ghosttykit-nightly.rb"
             class_name="GhosttykitNightly"
@@ -209,7 +210,8 @@ jobs:
             fi
             asset_version="${base_version}-dev-${short_sha}"
             formula_version="${asset_version}"
-            caveat_prefix=$'This formula tracks nightly builds from GhosttyKit main and may break.\n\n'
+            nightly_notice="      This formula tracks nightly builds from GhosttyKit main and may break."
+            nightly_spacer=""
           fi
 
           cat > "${formula}" <<EOF
@@ -244,7 +246,9 @@ jobs:
 
             def caveats
               <<~EOS
-                ${caveat_prefix}Start Ghostty, then start the GhosttyKit daemon:
+          ${nightly_notice}
+          ${nightly_spacer}
+                Start Ghostty, then start the GhosttyKit daemon:
 
                   brew services start #{full_name}
 
