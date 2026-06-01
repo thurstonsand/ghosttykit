@@ -233,11 +233,12 @@ jobs:
 
             def install
               bin.install "bin/gty"
-              bin.install "bin/ghosttykitd"
+              prefix.install "GhosttyKitD.app"
+              bin.install_symlink prefix/"GhosttyKitD.app/Contents/MacOS/ghosttykitd" => "ghosttykitd"
             end
 
             service do
-              run [opt_bin/"ghosttykitd"]
+              run [opt_prefix/"GhosttyKitD.app/Contents/MacOS/ghosttykitd"]
               keep_alive true
               working_dir var
               log_path var/"log/ghosttykitd.log"

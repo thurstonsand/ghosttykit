@@ -19,7 +19,11 @@ go build \
   .
 
 swift build --package-path daemon/ghosttykitd --disable-sandbox -c release
-cp daemon/ghosttykitd/.build/release/ghosttykitd "${root}/bin/ghosttykitd"
+cp -R daemon/ghosttykitd/Bundle/GhosttyKitD.app "${root}/GhosttyKitD.app"
+mkdir -p "${root}/GhosttyKitD.app/Contents/MacOS"
+cp daemon/ghosttykitd/.build/release/ghosttykitd "${root}/GhosttyKitD.app/Contents/MacOS/ghosttykitd"
+/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${version}" "${root}/GhosttyKitD.app/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${version}" "${root}/GhosttyKitD.app/Contents/Info.plist"
 
 if [[ -n "${CODESIGN_IDENTITY:-}" ]]; then
   codesign --force --timestamp --options runtime --sign "${CODESIGN_IDENTITY}" "${root}/bin/gty"
@@ -30,7 +34,14 @@ if [[ -n "${CODESIGN_IDENTITY:-}" ]]; then
     --identifier dev.ghosttykit.ghosttykitd \
     --entitlements daemon/ghosttykitd/ghosttykitd.entitlements \
     --sign "${CODESIGN_IDENTITY}" \
-    "${root}/bin/ghosttykitd"
+    "${root}/GhosttyKitD.app/Contents/MacOS/ghosttykitd"
+  codesign \
+    --force \
+    --timestamp \
+    --options runtime \
+    --entitlements daemon/ghosttykitd/ghosttykitd.entitlements \
+    --sign "${CODESIGN_IDENTITY}" \
+    "${root}/GhosttyKitD.app"
 fi
 
 cp README.md LICENSE* "${root}/" 2>/dev/null || true
