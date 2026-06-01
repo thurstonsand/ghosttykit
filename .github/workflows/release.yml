@@ -86,7 +86,13 @@ jobs:
           if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
             echo "version=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
           else
-            echo "version=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+            base_tag="$(git describe --tags --abbrev=0 --match 'v[0-9]*' 2>/dev/null || true)"
+            if [[ -z "${base_tag}" ]]; then
+              base_version="0.0.0"
+            else
+              base_version="${base_tag#v}"
+            fi
+            echo "version=${base_version}-dev-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Build release archive
@@ -147,3 +153,145 @@ jobs:
             --title "Nightly" \
             --prerelease \
             --notes "Automated release for ${GITHUB_SHA}."
+
+  update-homebrew-tap:
+    name: Update Homebrew Tap
+    needs: publish
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Download archives
+        uses: actions/download-artifact@v8
+        with:
+          path: dist
+          pattern: ghosttykit-*
+          merge-multiple: true
+
+      - name: Checkout Homebrew tap
+        uses: actions/checkout@v6
+        with:
+          repository: thurstonsand/homebrew-ghosttykit
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: homebrew-tap
+
+      - name: Update formula
+        env:
+          RELEASE_REF_TYPE: ${{ github.ref_type }}
+          RELEASE_REF_NAME: ${{ github.ref_name }}
+          RELEASE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          short_sha="${RELEASE_SHA::7}"
+          amd64_sha="$(cut -d ' ' -f 1 dist/ghosttykit_*_darwin_amd64.zip.sha256)"
+          arm64_sha="$(cut -d ' ' -f 1 dist/ghosttykit_*_darwin_arm64.zip.sha256)"
+
+          if [[ "${RELEASE_REF_TYPE}" == "tag" ]]; then
+            formula="homebrew-tap/Formula/ghosttykit.rb"
+            class_name="Ghosttykit"
+            release_tag="${RELEASE_REF_NAME}"
+            asset_version="${RELEASE_REF_NAME}"
+            formula_version="${RELEASE_REF_NAME#v}"
+            caveat_prefix=""
+          else
+            formula="homebrew-tap/Formula/ghosttykit-nightly.rb"
+            class_name="GhosttykitNightly"
+            release_tag="nightly"
+            base_tag="$(git describe --tags --abbrev=0 --match 'v[0-9]*' 2>/dev/null || true)"
+            if [[ -z "${base_tag}" ]]; then
+              base_version="0.0.0"
+            else
+              base_version="${base_tag#v}"
+            fi
+            asset_version="${base_version}-dev-${short_sha}"
+            formula_version="${asset_version}"
+            caveat_prefix=$'This formula tracks nightly builds from GhosttyKit main and may break.\n\n'
+          fi
+
+          cat > "${formula}" <<EOF
+          class ${class_name} < Formula
+            desc "Ghostty terminal companion toolkit"
+            homepage "https://github.com/thurstonsand/ghosttykit"
+            version "${formula_version}"
+            license "MIT"
+
+            on_macos do
+              if Hardware::CPU.arm?
+                url "https://github.com/thurstonsand/ghosttykit/releases/download/${release_tag}/ghosttykit_${asset_version}_darwin_arm64.zip"
+                sha256 "${arm64_sha}"
+              else
+                url "https://github.com/thurstonsand/ghosttykit/releases/download/${release_tag}/ghosttykit_${asset_version}_darwin_amd64.zip"
+                sha256 "${amd64_sha}"
+              end
+            end
+
+            def install
+              bin.install "bin/gty"
+              bin.install "bin/ghosttykitd"
+            end
+
+            service do
+              run [opt_bin/"ghosttykitd"]
+              keep_alive true
+              working_dir var
+              log_path var/"log/ghosttykitd.log"
+              error_log_path var/"log/ghosttykitd.log"
+            end
+
+            def caveats
+              <<~EOS
+                ${caveat_prefix}Start Ghostty, then start the GhosttyKit daemon:
+
+                  brew services start #{full_name}
+
+                macOS should ask for permission to let ghosttykitd control Ghostty.
+                After granting access, verify the install with:
+
+                  gty doctor
+              EOS
+            end
+
+            test do
+              assert_match "gty ${asset_version} protocol=", shell_output("#{bin}/gty version")
+              assert_match "ghosttykitd 0.0.0-dev", shell_output("#{bin}/ghosttykitd --version")
+            end
+          end
+          EOF
+
+          ruby -c "${formula}"
+
+      - name: Commit formula update
+        working-directory: homebrew-tap
+        env:
+          RELEASE_REF_TYPE: ${{ github.ref_type }}
+          RELEASE_REF_NAME: ${{ github.ref_name }}
+          RELEASE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          if git diff --quiet -- Formula; then
+            echo "Formula is already current."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Formula
+
+          if [[ "${RELEASE_REF_TYPE}" == "tag" ]]; then
+            git commit -m "ghosttykit ${RELEASE_REF_NAME#v}"
+          else
+            base_tag="$(git -C .. describe --tags --abbrev=0 --match 'v[0-9]*' 2>/dev/null || true)"
+            if [[ -z "${base_tag}" ]]; then
+              base_version="0.0.0"
+            else
+              base_version="${base_tag#v}"
+            fi
+            git commit -m "ghosttykit-nightly ${base_version}-dev-${RELEASE_SHA::7}"
+          fi
+
+          git push
