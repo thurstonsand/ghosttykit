@@ -13,7 +13,7 @@ struct GhosttyKitDaemonCommand: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "ghosttykitd",
         abstract: "GhosttyKit macOS daemon.",
-        version: "ghosttykitd 0.0.0-dev"
+        version: "ghosttykitd \(GhosttyKitVersion.current)"
     )
 
     @Flag(help: "Run without calling Ghostty AppleScript APIs.")
@@ -23,6 +23,37 @@ struct GhosttyKitDaemonCommand: AsyncParsableCommand {
         let options = DaemonOptions(dryRun: dryRun, socketPath: daemonSocketPath())
         let daemon = GhosttyKitDaemon(options: options)
         try await daemon.start()
+    }
+}
+
+enum GhosttyKitVersion {
+    static var current: String {
+        bundledVersion ?? "0.0.0-dev"
+    }
+
+    private static var bundledVersion: String? {
+        if let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String {
+            return version
+        }
+
+        guard let executableURL = Bundle.main.executableURL?.resolvingSymlinksInPath() else {
+            return nil
+        }
+
+        let infoURL = executableURL
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("Info.plist")
+
+        guard
+            let data = try? Data(contentsOf: infoURL),
+            let plist = try? PropertyListSerialization.propertyList(from: data, options: [], format: nil),
+            let dictionary = plist as? [String: Any]
+        else {
+            return nil
+        }
+
+        return dictionary["CFBundleShortVersionString"] as? String
     }
 }
 

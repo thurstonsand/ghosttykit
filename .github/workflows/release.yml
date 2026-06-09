@@ -267,7 +267,7 @@ jobs:
 
             test do
               assert_match "gty ${asset_version} protocol=", shell_output("#{bin}/gty version")
-              assert_match "ghosttykitd 0.0.0-dev", shell_output("#{bin}/ghosttykitd --version")
+              assert_match "ghosttykitd ${asset_version}", shell_output("#{bin}/ghosttykitd --version")
             end
           end
           EOF
