@@ -2,7 +2,7 @@
 
 GhosttyKit publishes release archives from GitHub Actions.
 
-Pushes to `main` update the moving `nightly` prerelease. Nightly archive and formula versions use `<latest-tag>-dev-<github-run-id>-<short-sha>` so Homebrew can reliably detect newer builds. Pushes of `v*` tags create normal releases. Each release builds Darwin archives for Apple Silicon and Intel Macs.
+Pushes to `main` update the moving `nightly` prerelease and `Formula/ghosttykit-nightly.rb` in the Homebrew tap. Nightly archive and formula versions use `<latest-tag>-dev-<github-run-id>-<short-sha>` so Homebrew can reliably detect newer builds. Pushes of `v*` tags create normal releases and update `Formula/ghosttykit.rb`. Each release builds Darwin archives for Apple Silicon and Intel Macs.
 
 ## Developer ID signing and notarization
 

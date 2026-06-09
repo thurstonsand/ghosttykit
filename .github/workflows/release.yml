@@ -84,7 +84,7 @@ jobs:
         id: version
         run: |
           if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
-            echo "version=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+            echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
           else
             base_tag="$(git describe --tags --abbrev=0 --match 'v[0-9]*' 2>/dev/null || true)"
             if [[ -z "${base_tag}" ]]; then
@@ -195,8 +195,9 @@ jobs:
             formula="homebrew-tap/Formula/ghosttykit.rb"
             class_name="Ghosttykit"
             release_tag="${RELEASE_REF_NAME}"
-            asset_version="${RELEASE_REF_NAME}"
+            asset_version="${RELEASE_REF_NAME#v}"
             formula_version="${RELEASE_REF_NAME#v}"
+            conflict_formula="ghosttykit-nightly"
             nightly_notice=""
             nightly_spacer=""
           else
@@ -211,6 +212,7 @@ jobs:
             fi
             asset_version="${base_version}-dev-${RELEASE_RUN_ID}-${short_sha}"
             formula_version="${asset_version}"
+            conflict_formula="ghosttykit"
             nightly_notice="      This formula tracks nightly builds from GhosttyKit main and may break."
             nightly_spacer=""
           fi
@@ -221,6 +223,7 @@ jobs:
             homepage "https://github.com/thurstonsand/ghosttykit"
             version "${formula_version}"
             license "MIT"
+            conflicts_with "${conflict_formula}", because: "both install gty and ghosttykitd"
 
             on_macos do
               if Hardware::CPU.arm?

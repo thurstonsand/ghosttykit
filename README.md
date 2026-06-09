@@ -7,11 +7,17 @@ GhosttyKit is a Ghostty companion toolkit for macOS-local terminal control, edit
 - Neovim plugin: `nvim/`
 - Pi paste extension: `pi/pi-paste/`
 
-Status: extraction in progress. The Go `gty` CLI, Go SDK, Swift daemon, SSH bridge flow, and release workflow are present; editor, Homebrew, and extension packaging work continues under `docs/designs/01-ghosttykit-standalone.md`.
+Status: extraction in progress. The Go `gty` CLI, Go SDK, Swift daemon, SSH bridge flow, Homebrew packaging, and release workflow are present; editor and extension packaging work continues under `docs/designs/01-ghosttykit-standalone.md`.
 
 ## Install
 
 GhosttyKit is distributed for macOS through the `thurstonsand/homebrew-ghosttykit` Homebrew tap.
+
+Stable releases follow `v*` tags:
+
+```sh
+brew install thurstonsand/ghosttykit/ghosttykit
+```
 
 Nightly builds track recent commits on `main`:
 
@@ -23,7 +29,7 @@ Start Ghostty before starting the daemon so macOS can ask for Automation permiss
 
 ```sh
 open -a Ghostty
-brew services start thurstonsand/ghosttykit/ghosttykit-nightly
+brew services start thurstonsand/ghosttykit/ghosttykit
 gty doctor
 ```
 
@@ -38,10 +44,8 @@ automation: ok - Ghostty accepted Apple Events
 To stop the daemon:
 
 ```sh
-brew services stop thurstonsand/ghosttykit/ghosttykit-nightly
+brew services stop thurstonsand/ghosttykit/ghosttykit
 ```
-
-Stable releases will be published as `ghosttykit` once GhosttyKit starts cutting `v*` release tags.
 
 ## Development
 

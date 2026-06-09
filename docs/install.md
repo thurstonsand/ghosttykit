@@ -2,7 +2,13 @@
 
 Status: in progress.
 
-The primary macOS install path is the `thurstonsand/homebrew-ghosttykit` Homebrew tap. Nightly builds track recent commits on `main`:
+The primary macOS install path is the `thurstonsand/homebrew-ghosttykit` Homebrew tap. Stable releases follow `v*` tags:
+
+```sh
+brew install thurstonsand/ghosttykit/ghosttykit
+```
+
+Nightly builds track recent commits on `main` and may break:
 
 ```sh
 brew install thurstonsand/ghosttykit/ghosttykit-nightly
@@ -18,7 +24,7 @@ After installing from the tap, start the user service while Ghostty is running s
 
 ```sh
 open -a Ghostty
-brew services start thurstonsand/ghosttykit/ghosttykit-nightly
+brew services start thurstonsand/ghosttykit/ghosttykit
 gty doctor
 ```
 
