@@ -223,7 +223,6 @@ jobs:
             homepage "https://github.com/thurstonsand/ghosttykit"
             version "${formula_version}"
             license "MIT"
-            conflicts_with "${conflict_formula}", because: "both install gty and ghosttykitd"
 
             on_macos do
               if Hardware::CPU.arm?
@@ -234,6 +233,8 @@ jobs:
                 sha256 "${amd64_sha}"
               end
             end
+
+            conflicts_with "${conflict_formula}", because: "both install gty and ghosttykitd"
 
             def install
               bin.install "bin/gty"
