@@ -1,5 +1,6 @@
 local ghosttykit = require("ghosttykit")
 local helpers = require("spec.helpers")
+local uv = require("luv")
 
 describe("ghosttykit luv transport", function()
   it("calls doctor over a Unix socket", function()
@@ -42,25 +43,45 @@ describe("ghosttykit luv transport", function()
     assert.is_true(ok)
   end)
 
-  it("returns stream headers and body", function()
+  it("returns a lazy stream body", function()
     local socket_path, dir = helpers.socket_path("stream.sock")
+    local stream_conn
+    local sent_rest = false
+    local timer
     local server = helpers.run_server(socket_path, function(request, conn)
       assert.are.equal("paste", request.command)
-      conn:write('{"version":1,"code":"ok","kind":"text","bytes":11}\nhello world')
-      conn:shutdown(function()
-        helpers.close(conn)
+      stream_conn = conn
+      conn:write('{"version":1,"code":"ok","kind":"text","bytes":11}\nhello')
+      timer = assert(uv.new_timer())
+      timer:start(100, 0, function()
+        sent_rest = true
+        timer:close()
+        stream_conn:write(" world")
+        stream_conn:shutdown(function()
+          helpers.close(stream_conn)
+        end)
       end)
     end)
 
     local client = ghosttykit.client({ socket_path = socket_path, transport = require("ghosttykit.transport_luv") })
     local result, err = client:paste()
 
+    assert.is_nil(err)
+    assert.are.equal("text", result.header.kind)
+    assert.are.equal(11, result.header.bytes)
+    assert.is_false(sent_rest)
+
+    local first, first_err = result.body:read()
+    assert.is_nil(first_err)
+    assert.are.equal("hello", first)
+
+    local rest, rest_err = result.body:read_all()
+    result.body:close()
     helpers.close(server)
     helpers.cleanup_dir(dir)
 
-    assert.is_nil(err)
-    assert.are.equal("text", result.header.kind)
-    assert.are.equal("hello world", result.body)
+    assert.is_nil(rest_err)
+    assert.are.equal(" world", rest)
   end)
 
   it("keeps hold connections open until closed", function()

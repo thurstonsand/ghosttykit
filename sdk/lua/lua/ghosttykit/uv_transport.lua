@@ -101,6 +101,72 @@ local function read_to_eof(pipe, initial, run_once)
   return table.concat(done.chunks), nil
 end
 
+local function stream_reader(pipe, initial, run_once)
+  local reader = {
+    pipe = pipe,
+    pending = initial or "",
+    closed = false,
+    eof = false,
+  }
+
+  function reader:read()
+    if self.closed then
+      return nil, "stream is closed"
+    end
+    if self.pending ~= "" then
+      local chunk = self.pending
+      self.pending = ""
+      return chunk, nil
+    end
+    if self.eof then
+      return nil, nil
+    end
+
+    local done = { finished = false }
+    self.pipe:read_start(function(err, chunk)
+      self.pipe:read_stop()
+      if err then
+        done.err = err
+        done.finished = true
+        return
+      end
+      if chunk then
+        done.chunk = chunk
+        done.finished = true
+        return
+      end
+      self.eof = true
+      done.finished = true
+    end)
+    wait_for(done, run_once)
+    if done.err then
+      return nil, tostring(done.err)
+    end
+    return done.chunk, nil
+  end
+
+  function reader:read_all()
+    local chunks = {}
+    while true do
+      local chunk, err = self:read()
+      if err then
+        return nil, err
+      end
+      if not chunk then
+        return table.concat(chunks), nil
+      end
+      table.insert(chunks, chunk)
+    end
+  end
+
+  function reader:close()
+    self.closed = true
+    close_pipe(self.pipe)
+  end
+
+  return reader
+end
+
 function M.new(uv, json, run_once)
   return {
     request = function(_, socket_path, payload, mode)
@@ -137,13 +203,7 @@ function M.new(uv, json, run_once)
 
       local reply = json.decode(frame)
       if mode == "stream" then
-        local body
-        body, err = read_to_eof(pipe, rest, run_once)
-        close_pipe(pipe)
-        if err then
-          return nil, "read stream: " .. err
-        end
-        return { header = reply, body = body }, nil
+        return { header = reply, body = stream_reader(pipe, rest, run_once) }, nil
       end
 
       if mode == "hold" then

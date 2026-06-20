@@ -208,7 +208,7 @@ func Text(result protocol.PasteResult) string {
 
 // PrintJSON writes a structured paste result as one JSON line.
 func PrintJSON(out io.Writer, result protocol.PasteResult) error {
-	encoded, err := json.Marshal(toHeader(result))
+	encoded, err := json.Marshal(toJSONResult(result))
 	if err != nil {
 		return fmt.Errorf("encode paste result: %w", err)
 	}
@@ -216,14 +216,22 @@ func PrintJSON(out io.Writer, result protocol.PasteResult) error {
 	return err
 }
 
-func toHeader(result protocol.PasteResult) protocol.PasteStreamFrameHeader {
+type jsonResult struct {
+	protocol.FrameReply
+	Kind  protocol.PasteKind   `json:"kind,omitempty"`
+	Text  string               `json:"text,omitempty"`
+	Files []protocol.PasteFile `json:"files,omitempty"`
+	Bytes int64                `json:"bytes,omitempty"`
+}
+
+func toJSONResult(result protocol.PasteResult) jsonResult {
 	switch typed := result.(type) {
 	case protocol.PasteTextResult:
-		return protocol.PasteStreamFrameHeader{FrameReply: protocol.FrameReply{Version: ghosttykit.ProtocolVersion, Code: protocol.CodeOK}, Kind: protocol.PasteKindText, Bytes: int64(len(typed.Text))}
+		return jsonResult{FrameReply: protocol.FrameReply{Version: ghosttykit.ProtocolVersion, Code: protocol.CodeOK}, Kind: protocol.PasteKindText, Text: typed.Text, Bytes: int64(len(typed.Text))}
 	case protocol.PasteFilesResult:
-		return protocol.PasteStreamFrameHeader{FrameReply: protocol.FrameReply{Version: ghosttykit.ProtocolVersion, Code: protocol.CodeOK}, Kind: protocol.PasteKindFiles, Files: typed.Files, Bytes: typed.Bytes}
+		return jsonResult{FrameReply: protocol.FrameReply{Version: ghosttykit.ProtocolVersion, Code: protocol.CodeOK}, Kind: protocol.PasteKindFiles, Files: typed.Files, Bytes: typed.Bytes}
 	default:
-		return protocol.PasteStreamFrameHeader{}
+		return jsonResult{}
 	}
 }
 

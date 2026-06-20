@@ -10,16 +10,16 @@ func readSystemPasteboardContent() throws -> FrameStreamReply {
         return pasteFrameStreamReply(fileItems)
     }
 
+    if let data = pasteboard.data(forType: .string), !data.isEmpty {
+        return FrameStreamReply(header: PasteStreamFrameHeader.text(byteCount: data.count), streams: [.data(data)])
+    }
+
     if let imageItem = readImageItem(from: pasteboard) {
         return pasteFrameStreamReply([imageItem])
     }
 
     if let dataItem = readTypedDataItem(from: pasteboard) {
         return pasteFrameStreamReply([dataItem])
-    }
-
-    if let data = pasteboard.data(forType: .string), !data.isEmpty {
-        return FrameStreamReply(header: PasteStreamFrameHeader.text(byteCount: data.count), streams: [.data(data)])
     }
 
     if let dataItem = readFallbackDataItem(from: pasteboard) {

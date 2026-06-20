@@ -14,9 +14,14 @@ local socket = require("ghosttykit.socket")
 ---@class ghosttykit.Transport
 ---@field request fun(self: ghosttykit.Transport, socket_path: string, payload: string, mode: string): table?, string?
 
+---@class ghosttykit.StreamBody
+---@field read fun(self: ghosttykit.StreamBody): string?, string?
+---@field read_all fun(self: ghosttykit.StreamBody): string?, string?
+---@field close fun(self: ghosttykit.StreamBody)
+
 ---@class ghosttykit.StreamResult
 ---@field header table
----@field body string
+---@field body ghosttykit.StreamBody
 
 ---@class ghosttykit.HoldResult
 ---@field reply table
