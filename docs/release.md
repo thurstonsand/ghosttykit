@@ -10,7 +10,7 @@ Pushes to `main` publish nightly artifacts. Pushes of `v*` tags publish stable a
 
 The `Release` workflow builds Darwin archives for Apple Silicon and Intel Macs.
 
-Pushes to `main` update the moving `nightly` prerelease. Nightly archive versions use `<latest-tag>-dev-<github-run-id>-<short-sha>` so package managers can reliably detect newer builds.
+Pushes to `main` update the moving `nightly` prerelease. Nightly archive versions use `<latest-tag>-dev-<github-run-id>-<short-sha>` so package managers can reliably detect newer builds. Old nightly assets remain attached to the `nightly` release so stale Homebrew tap checkouts can still download the formula version they reference.
 
 Stable releases are tag-driven. Create and push an annotated `v*` git tag; the workflow then creates the GitHub release with the `RELEASE.md` entry as the release body.
 

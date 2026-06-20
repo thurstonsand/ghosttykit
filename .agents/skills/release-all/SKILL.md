@@ -17,7 +17,7 @@ Use this skill when preparing or publishing a GhosttyKit release.
 - Use the exact same release-note text from `RELEASE.md` for the annotated git tag body.
 - Stable releases are `vX.Y.Z` tags.
 - Stable package tags are immutable. Never force-push a stable release tag or stable mirror tag.
-- Nightly refs move with `main` and may be force-updated by automation.
+- Nightly refs move with `main` and may be force-updated by automation. Do not delete the nightly GitHub release; stale Homebrew formulas still need old nightly assets to remain downloadable.
 
 ## Release channels
 

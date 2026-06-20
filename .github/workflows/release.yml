@@ -148,12 +148,20 @@ jobs:
         run: |
           git tag --force "$TAG" "$GITHUB_SHA"
           git push --force origin "refs/tags/$TAG"
-          gh release delete "$TAG" --yes || true
-          gh release create "$TAG" dist/* \
-            --target "$GITHUB_SHA" \
-            --title "Nightly" \
-            --prerelease \
-            --notes "Automated release for ${GITHUB_SHA}."
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" \
+              --target "$GITHUB_SHA" \
+              --title "Nightly" \
+              --prerelease \
+              --notes "Automated release for ${GITHUB_SHA}."
+            gh release upload "$TAG" dist/* --clobber
+          else
+            gh release create "$TAG" dist/* \
+              --target "$GITHUB_SHA" \
+              --title "Nightly" \
+              --prerelease \
+              --notes "Automated release for ${GITHUB_SHA}."
+          fi
 
   update-homebrew-tap:
     name: Update Homebrew Tap
