@@ -128,7 +128,7 @@ Create an annotated tag after the user approves stable publishing. Use the exact
 ```sh
 VERSION=X.Y.Z
 scripts/extract-release-notes.sh "v${VERSION}" > "/tmp/ghosttykit-v${VERSION}-notes.md"
-git tag -a "v${VERSION}" -F "/tmp/ghosttykit-v${VERSION}-notes.md"
+git tag -a "v${VERSION}" --cleanup=verbatim -F "/tmp/ghosttykit-v${VERSION}-notes.md"
 git push origin "v${VERSION}"
 ```
 
@@ -146,7 +146,7 @@ gh run watch <release-run-id> --exit-status
 
 `Publish Lua Mirrors` should push stable mirror tags without force. If it fails because a stable mirror tag already exists, treat that as a real release immutability violation and stop.
 
-`Release` should create the GitHub release archives and update the stable Homebrew formula.
+`Release` should create the GitHub release archives using the `RELEASE.md` entry as the release body, then update the stable Homebrew formula.
 
 ## 7. Watch LuaRocks publishing
 

@@ -1,5 +1,15 @@
 # Release notes
 
+## 0.2.1
+
+Release process hardening.
+
+### Changed
+
+- Stable GitHub releases now use the matching `RELEASE.md` entry as the release body when the tag-triggered workflow creates the release.
+- Documented the stable release flow as tag-driven across GitHub releases, Homebrew, Lua mirrors, and LuaRocks.
+- Added the `release-all` skill for coordinating GhosttyKit releases.
+
 ## 0.2.0
 
 Initial GhosttyKit release.

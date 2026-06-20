@@ -134,10 +134,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
         run: |
+          scripts/extract-release-notes.sh "$TAG" > /tmp/ghosttykit-release-notes.md
           gh release create "$TAG" dist/* \
             --verify-tag \
             --title "$TAG" \
-            --generate-notes
+            --notes-file /tmp/ghosttykit-release-notes.md
 
       - name: Publish main release
         if: github.ref_type == 'branch'

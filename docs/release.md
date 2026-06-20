@@ -10,7 +10,9 @@ Pushes to `main` publish nightly artifacts. Pushes of `v*` tags publish stable a
 
 The `Release` workflow builds Darwin archives for Apple Silicon and Intel Macs.
 
-Pushes to `main` update the moving `nightly` prerelease. Nightly archive versions use `<latest-tag>-dev-<github-run-id>-<short-sha>` so package managers can reliably detect newer builds. Pushes of `v*` tags create normal releases.
+Pushes to `main` update the moving `nightly` prerelease. Nightly archive versions use `<latest-tag>-dev-<github-run-id>-<short-sha>` so package managers can reliably detect newer builds.
+
+Stable releases are tag-driven. Create and push an annotated `v*` git tag; the workflow then creates the GitHub release with the `RELEASE.md` entry as the release body.
 
 ### Homebrew tap
 
@@ -22,10 +24,10 @@ Pushes to `main` update `Formula/ghosttykit-nightly.rb`. Pushes of `v*` tags upd
 
 The `Publish Lua Mirrors` workflow splits monorepo subdirectories into standalone repositories:
 
-| Monorepo path | Mirror repo                         |
-| ------------- | ----------------------------------- |
-| `sdk/lua`     | `thurstonsand/ghosttykit.lua`       |
-| `nvim`        | `thurstonsand/ghosttykit.nvim`      |
+| Monorepo path | Mirror repo                    |
+| ------------- | ------------------------------ |
+| `sdk/lua`     | `thurstonsand/ghosttykit.lua`  |
+| `nvim`        | `thurstonsand/ghosttykit.nvim` |
 
 Every push to `main` force-pushes each mirror repo's `main` branch and force-updates its `nightly` tag. Pushes of `v*` tags push matching stable mirror tags without force so an already-published stable package version cannot be replaced.
 
@@ -33,15 +35,20 @@ Local development and dogfooding can track mirror `main` instead.
 
 ## Repository secrets
 
-### Homebrew tap and Lua mirrors
+### Package publishing
 
-The release workflows use `HOMEBREW_TAP_TOKEN` to write to:
+The release workflows use these package-publishing secrets:
+
+| Secret               | Purpose                                                                                           |
+| -------------------- | ------------------------------------------------------------------------------------------------- |
+| `HOMEBREW_TAP_TOKEN` | Writes Homebrew formulas and Lua mirror branches/tags to separate GitHub repositories             |
+| `LUAROCKS_API_KEY`   | Publishes the Lua SDK from `thurstonsand/ghosttykit.lua` to LuaRocks after stable SDK mirror tags |
+
+`HOMEBREW_TAP_TOKEN` must have write access to:
 
 - `thurstonsand/homebrew-ghosttykit`
 - `thurstonsand/ghosttykit.lua`
 - `thurstonsand/ghosttykit.nvim`
-
-The token must have write access to all three repositories.
 
 ## Developer ID signing and notarization
 
