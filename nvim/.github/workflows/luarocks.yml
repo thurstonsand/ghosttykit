@@ -1,0 +1,27 @@
+name: LuaRocks
+
+on:
+  workflow_dispatch:
+
+jobs:
+  luarocks:
+    name: Publish Neovim plugin
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Publish to LuaRocks
+        uses: nvim-neorocks/luarocks-tag-release@v7
+        env:
+          LUAROCKS_API_KEY: ${{ secrets.LUAROCKS_API_KEY }}
+        with:
+          name: ghosttykit.nvim
+          summary: Neovim integration for GhosttyKit
+          license: MIT
+          dependencies: |
+            ghosttykit
+          labels: |
+            ghostty
+            ghosttykit
+            neovim

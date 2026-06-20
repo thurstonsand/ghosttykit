@@ -1,12 +1,51 @@
 # Release
 
-GhosttyKit publishes release archives from GitHub Actions.
+GhosttyKit publishes release artifacts from GitHub Actions.
 
-Pushes to `main` update the moving `nightly` prerelease and `Formula/ghosttykit-nightly.rb` in the Homebrew tap. Nightly archive and formula versions use `<latest-tag>-dev-<github-run-id>-<short-sha>` so Homebrew can reliably detect newer builds. Pushes of `v*` tags create normal releases and update `Formula/ghosttykit.rb`. Each release builds Darwin archives for Apple Silicon and Intel Macs.
+Pushes to `main` publish nightly artifacts. Pushes of `v*` tags publish stable artifacts. The release workflows keep stable tags immutable for package consumers while allowing nightly refs to move with `main`.
+
+## Release channels
+
+### GitHub releases
+
+The `Release` workflow builds Darwin archives for Apple Silicon and Intel Macs.
+
+Pushes to `main` update the moving `nightly` prerelease. Nightly archive versions use `<latest-tag>-dev-<github-run-id>-<short-sha>` so package managers can reliably detect newer builds. Pushes of `v*` tags create normal releases.
+
+### Homebrew tap
+
+The `Release` workflow also updates `thurstonsand/homebrew-ghosttykit` after publishing GitHub release archives.
+
+Pushes to `main` update `Formula/ghosttykit-nightly.rb`. Pushes of `v*` tags update `Formula/ghosttykit.rb`. The Homebrew formula version matches the GitHub release archive version.
+
+### Lua SDK and Neovim plugin mirrors
+
+The `Publish Lua Mirrors` workflow splits monorepo subdirectories into standalone repositories:
+
+| Monorepo path | Mirror repo                         |
+| ------------- | ----------------------------------- |
+| `sdk/lua`     | `thurstonsand/ghosttykit.lua`       |
+| `nvim`        | `thurstonsand/ghosttykit.nvim`      |
+
+Every push to `main` force-pushes each mirror repo's `main` branch and force-updates its `nightly` tag. Pushes of `v*` tags push matching stable mirror tags without force so an already-published stable package version cannot be replaced.
+
+Local development and dogfooding can track mirror `main` instead.
+
+## Repository secrets
+
+### Homebrew tap and Lua mirrors
+
+The release workflows use `HOMEBREW_TAP_TOKEN` to write to:
+
+- `thurstonsand/homebrew-ghosttykit`
+- `thurstonsand/ghosttykit.lua`
+- `thurstonsand/ghosttykit.nvim`
+
+The token must have write access to all three repositories.
 
 ## Developer ID signing and notarization
 
-Release archives must be signed with a Developer ID Application certificate and submitted to Apple notarization before publication. Configure these repository secrets before enabling release pushes:
+Release archives must be signed with a Developer ID Application certificate and submitted to Apple notarization before publication. Repo is configured with the following to assist with that:
 
 | Secret                                    | Purpose                                                                                  |
 | ----------------------------------------- | ---------------------------------------------------------------------------------------- |
@@ -17,7 +56,7 @@ Release archives must be signed with a Developer ID Application certificate and 
 | `APPLE_NOTARY_KEY_ID`                     | App Store Connect API key id                                                             |
 | `APPLE_NOTARY_ISSUER_ID`                  | App Store Connect issuer id                                                              |
 
-Create the certificate in Apple Developer under **Certificates, Identifiers & Profiles** using **Developer ID Application**. Export it from Keychain Access as a password-protected `.p12`, then encode it:
+Created the certificate in Apple Developer under **Certificates, Identifiers & Profiles** using **Developer ID Application**. Exported it from Keychain Access as a password-protected `.p12`, then encode it:
 
 ```sh
 base64 -i developer-id-application.p12 | pbcopy

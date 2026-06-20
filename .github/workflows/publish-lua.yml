@@ -1,0 +1,85 @@
+name: Publish Lua Mirrors
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    name: CI
+    uses: ./.github/workflows/ci.yml
+
+  publish:
+    name: Publish Mirrors
+    needs: ci
+    runs-on: ubuntu-latest
+    env:
+      SDK_REPO: thurstonsand/ghosttykit.lua
+      NVIM_REPO: thurstonsand/ghosttykit.nvim
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Resolve mirror ref
+        id: refs
+        run: |
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+            echo "stable=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=nightly" >> "$GITHUB_OUTPUT"
+            echo "stable=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Split Lua SDK mirror branch
+        run: git subtree split --prefix=sdk/lua -b publish/ghosttykit.lua
+
+      - name: Split Neovim plugin mirror branch
+        run: git subtree split --prefix=nvim -b publish/ghosttykit.nvim
+
+      - name: Push Lua SDK mirror main
+        env:
+          MIRROR_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          git push --force "https://x-access-token:${MIRROR_TOKEN}@github.com/${SDK_REPO}.git" publish/ghosttykit.lua:main
+
+      - name: Push Neovim plugin mirror main
+        env:
+          MIRROR_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          git push --force "https://x-access-token:${MIRROR_TOKEN}@github.com/${NVIM_REPO}.git" publish/ghosttykit.nvim:main
+
+      - name: Push stable mirror tags
+        if: steps.refs.outputs.stable == 'true'
+        env:
+          MIRROR_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          MIRROR_TAG: ${{ steps.refs.outputs.tag }}
+        run: |
+          git push "https://x-access-token:${MIRROR_TOKEN}@github.com/${SDK_REPO}.git" "publish/ghosttykit.lua:refs/tags/${MIRROR_TAG}"
+          git push "https://x-access-token:${MIRROR_TOKEN}@github.com/${NVIM_REPO}.git" "publish/ghosttykit.nvim:refs/tags/${MIRROR_TAG}"
+
+      - name: Push nightly mirror tags
+        if: steps.refs.outputs.stable == 'false'
+        env:
+          MIRROR_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          MIRROR_TAG: ${{ steps.refs.outputs.tag }}
+        run: |
+          git push --force "https://x-access-token:${MIRROR_TOKEN}@github.com/${SDK_REPO}.git" "publish/ghosttykit.lua:refs/tags/${MIRROR_TAG}"
+          git push --force "https://x-access-token:${MIRROR_TOKEN}@github.com/${NVIM_REPO}.git" "publish/ghosttykit.nvim:refs/tags/${MIRROR_TAG}"

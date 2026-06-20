@@ -23,5 +23,10 @@ jobs:
       - name: Install Pi package dependencies
         run: just install-deps-pi
 
+      - name: Install Lua package dependencies
+        run: |
+          just install-deps-lua
+          just install-deps-nvim
+
       - name: Run checks
         run: just check

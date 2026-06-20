@@ -1,0 +1,8 @@
+{
+  "runtime.version": "LuaJIT",
+  "runtime.path": ["?.lua", "?/init.lua", "lua/?.lua", "lua/?/init.lua", "../sdk/lua/lua/?.lua", "../sdk/lua/lua/?/init.lua"],
+  "workspace.library": ["lua", "../sdk/lua/lua", "../.luals/addons/busted/library", "../.luals/addons/luassert/library", "../.luals/nvim-runtime/lua"],
+  "workspace.checkThirdParty": false,
+  "workspace.ignoreDir": [".luarocks"],
+  "telemetry.enable": false
+}

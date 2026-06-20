@@ -60,7 +60,8 @@ ghosttykit/
   cli/gty/                 # Go CLI, imports sdk/go
   daemon/ghosttykitd/       # Swift macOS daemon
   sdk/go/                   # Go client/protocol package
-  nvim/                     # Neovim plugin, initially CLI-backed
+  sdk/lua/                  # Lua client/protocol package
+  nvim/                     # Neovim plugin, consumes sdk/lua
   pi/pi-paste/              # Pi extension npm package
   homebrew/                 # Homebrew tap/formula
   docs/
@@ -126,7 +127,7 @@ For debugging, tests, and explicit bridge-dependent workflows, support strict mo
 gty ssh --require-bridge host
 ```
 
-In strict mode, missing remote `gty`, failed bootstrap, failed `remote-init`, failed forwarding, or failed bridge ping exits instead of continuing as plain SSH.
+In strict mode, missing remote `gty`, failed bootstrap, failed `remote-init`, failed forwarding, or failed bridge `doctor` exits instead of continuing as plain SSH.
 
 `gty ssh` should apply a small set of managed SSH options internally:
 
@@ -288,11 +289,21 @@ gty copy
 
 There is no need for a `clipboard` namespace unless the command surface becomes harder to scan.
 
-### 13. Port the Neovim plugin first, optimize later
+### 13. Add a Lua SDK before the Neovim plugin
 
-The initial Neovim plugin should be a standalone port of the current dotfile integration. It can call `gty` as a subprocess, just as the current integration calls `ghostty-nav`.
+The Neovim plugin should consume a Lua SDK under `sdk/lua`, not shell out to `gty` for its primary daemon interactions. The Lua SDK should match the Go SDK's behavioral scope while using idiomatic Lua structure:
 
-A native Lua socket client can come later as an optimization. It should not block extraction or v1 packaging.
+- protocol version constant and request constructors
+- `GTY_SOCK` and default local daemon socket resolution
+- one Unix socket connection per request
+- JSON request framing and reply decoding
+- frame, no-reply, stream, and held-connection reply modes where needed
+- protocol error objects with stable response codes
+- `doctor` support for health checks
+
+The SDK owns daemon socket transport. The Neovim plugin owns editor behavior: keymaps, `<Plug>` mappings, autocommands, TTY discovery, floating-window navigation decisions, user configuration, and `:checkhealth ghosttykit` presentation.
+
+The first Lua SDK should include both a Neovim runtime transport using `vim.uv` and `vim.json`, and a non-Neovim runtime transport using LuaRocks dependencies such as `luv` and a JSON library. The public SDK API should hide the transport choice so Neovim and other Lua consumers use the same request-level contract.
 
 ### 14. Ship the Ghostty key-table config as part of the integration
 
@@ -377,9 +388,9 @@ Rejected because the bridge listener is reachable through the forwarded remote s
 
 Rejected for v1. JSON Schema code generation is uneven across target languages, especially Lua. OpenAPI is the wrong abstraction for Unix-socket RPC. Hand-written protocol docs and language implementations are simpler.
 
-### Lua socket client as v1 Neovim implementation
+### CLI-backed Neovim plugin as the primary implementation
 
-Deferred. The current CLI-backed model works and is easier to port. Lua direct socket calls can be an optimization after the standalone project exists.
+Rejected. Shelling out to `gty` is useful as a fallback or debugging path, but the standalone project already has an SDK boundary. The Neovim plugin should exercise the same daemon protocol through `sdk/lua` that other Lua consumers will use.
 
 ## Integration Points
 
@@ -486,19 +497,35 @@ Deferred. The current CLI-backed model works and is easier to port. Lua direct s
     - Daemon can send a harmless AppleEvent to Ghostty after permission is granted.
     - Permission failure produces actionable diagnostics.
 
+- [ ] Phase 7-1: Add Lua SDK and Lua tooling
+  - Goal: Create a real Lua SDK before extracting the Neovim plugin, matching the Go SDK's daemon protocol scope without copying its Go package structure.
+  - Files: `sdk/lua/**`, `mise.toml`, root `justfile`, `docs/protocol.md` if protocol documentation needs Lua notes.
+  - Work:
+    - Add `ghosttykit` Lua package under `sdk/lua` with LuaRocks metadata.
+    - Add protocol constants, request constructors, reply-mode handling, response-code errors, `GTY_SOCK`/default socket resolution, and `doctor` support.
+    - Add Unix socket transports for Neovim (`vim.uv`/`vim.json`) and non-Neovim Lua (`luv` plus a LuaRocks JSON dependency), hidden behind one SDK API.
+    - Add StyLua, luacheck, LuaCATS annotations, LuaLS-compatible project config, and busted tests as part of the component setup.
+    - Add just recipes for `fmt`, `lint`, `typecheck`, `test`, and `check`, and wire them into root commands.
+    - Keep SDK code free of Neovim editor behavior such as keymaps, autocommands, window navigation, and health UI.
+  - Validation:
+    - Lua SDK tests cover request encoding, socket path selection, frame/no-reply/stream/hold behavior where implemented, and response-code error mapping.
+    - A test Unix socket can receive a `doctor` request and return a decoded `doctor` reply through both supported transports where the runtime is available.
+    - Root `just fmt`, `just lint`, `just typecheck`, and `just test` include the Lua SDK.
+
 - [ ] Phase 7: Extract Neovim plugin
-  - Goal: Publish the current Neovim navigation integration as a standalone plugin using `gty`.
-  - Files: `chezmoi/dot_config/nvim/lua/lib/ghostty-nav.lua`, `chezmoi/dot_config/nvim/lua/plugins/ghostty-navigator.lua` -> `nvim/**`.
+  - Goal: Publish the current Neovim navigation integration as a standalone plugin using `sdk/lua`.
+  - Files: `chezmoi/dot_config/nvim/lua/lib/ghostty-nav.lua`, `chezmoi/dot_config/nvim/lua/plugins/ghostty-navigator.lua` -> `nvim/**`; consume `sdk/lua`.
   - Work:
     - Rename plugin/module to GhosttyKit naming.
     - Port current navigation and floating-window behavior.
-    - Replace `ghostty-nav` invocations with `gty` commands.
-    - Use `gty key-table activate/deactivate` and `gty focus` command names.
-    - Keep CLI-backed implementation for v1; document future Lua socket client optimization.
+    - Use `ghosttykit` SDK requests for key-table activate/deactivate and focus movement.
+    - Add `ghosttykit.nvim` module, `<Plug>` mappings, opt-in `default_keymaps`, user configuration validation, basic vimdoc, and `:checkhealth ghosttykit` backed by the SDK `doctor` request.
+    - Keep any CLI-backed path as fallback or debugging behavior only, not as the primary implementation.
   - Validation:
     - Local Ghostty + Neovim split navigation works.
     - Remote Neovim over `gty ssh` routes edge navigation to the originating local Ghostty pane.
     - Bridge failures do not block editor navigation.
+    - `:checkhealth ghosttykit` reports daemon `doctor` checks and actionable bridge/Ghostty context.
 
 - [ ] Phase 8: Document Ghostty key-table config
   - Goal: Make the Ghostty-side `Ctrl-h/j/k/l` bindings a first-class part of the Neovim navigation integration.

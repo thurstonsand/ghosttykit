@@ -1,0 +1,29 @@
+name: LuaRocks
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  luarocks:
+    name: Publish Lua SDK
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Publish to LuaRocks
+        uses: nvim-neorocks/luarocks-tag-release@v7
+        env:
+          LUAROCKS_API_KEY: ${{ secrets.LUAROCKS_API_KEY }}
+        with:
+          name: ghosttykit
+          summary: Lua SDK for GhosttyKit daemon clients
+          license: MIT
+          dependencies: |
+            luv >= 1.51.0
+            dkjson >= 2.8
+          labels: |
+            ghostty
+            ghosttykit

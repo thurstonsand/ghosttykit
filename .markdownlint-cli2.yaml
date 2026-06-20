@@ -4,6 +4,8 @@ globs:
   - "**/*.md"
 ignores:
   - "**/node_modules/**"
+  - "**/.luals/**"
+  - "**/.luarocks/**"
   - "**/.git/**"
   - "**/.build/**"
   - "**/.clawpatch/**"

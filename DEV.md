@@ -35,16 +35,21 @@ just fmt-docs
 just lint-go
 just lint-swift
 just lint-pi
+just lint-lua
 just lint-nvim
 just lint-docs
 just typecheck-go
 just typecheck-swift
+just typecheck-lua
 just typecheck-pi
 just typecheck-nvim
 just test-go
 just test-swift
+just test-lua
+just test-nvim
 just build-go
 just build-swift
+just build-lua
 just build-pi
 just build-nvim
 ```

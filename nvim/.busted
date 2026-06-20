@@ -1,0 +1,9 @@
+return {
+  _all = {
+    coverage = false,
+    lpath = "lua/?.lua;lua/?/init.lua;../sdk/lua/lua/?.lua;../sdk/lua/lua/?/init.lua;spec/?.lua",
+  },
+  default = {
+    verbose = true,
+  },
+}
