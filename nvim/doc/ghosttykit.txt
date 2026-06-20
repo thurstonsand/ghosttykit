@@ -4,9 +4,10 @@
 CONTENTS                                            *ghosttykit.nvim-contents*
 
 1. Installation                                 |ghosttykit.nvim-installation|
-2. Options                                      |ghosttykit.nvim-options|
-3. Mappings                                     |ghosttykit.nvim-mappings|
-4. Health                                       |ghosttykit.nvim-health|
+2. Ghostty key table                            |ghosttykit.nvim-key-table|
+3. Options                                      |ghosttykit.nvim-options|
+4. Mappings                                     |ghosttykit.nvim-mappings|
+5. Health                                       |ghosttykit.nvim-health|
 
 ==============================================================================
 INSTALLATION                                    *ghosttykit.nvim-installation*
@@ -14,8 +15,16 @@ INSTALLATION                                    *ghosttykit.nvim-installation*
 `ghosttykit.nvim` lets Neovim navigation keys move between Neovim windows and
 Ghostty splits as one workspace.
 
-Load the plugin at startup. It coordinates focus state with Ghostty, so
-lazy loading is not recommended.
+Install GhosttyKit first. The Neovim plugin talks to the `ghosttykitd` daemon
+through the Lua SDK.
+
+Stable channel:
+>
+  brew install thurstonsand/ghosttykit/ghosttykit
+  open -a Ghostty
+  brew services start thurstonsand/ghosttykit/ghosttykit
+  gty doctor
+<
 
 With lazy.nvim:
 >
@@ -25,6 +34,27 @@ With lazy.nvim:
     opts = {},
   }
 <
+
+Nightly channel. Pair `ghosttykit-nightly` with the plugin mirror's `main`
+branch:
+>
+  brew install thurstonsand/ghosttykit/ghosttykit-nightly
+  brew services start thurstonsand/ghosttykit/ghosttykit-nightly
+<
+>
+  {
+    "thurstonsand/ghosttykit.nvim",
+    branch = "main",
+    opts = {},
+  }
+<
+
+See the root GhosttyKit README for the full install flow and Automation
+permission details:
+https://github.com/thurstonsand/ghosttykit#install
+
+Load the plugin at startup. It coordinates focus state with Ghostty, so
+lazy loading is not recommended.
 
 The bundled lazy.nvim spec maps CTRL-h, CTRL-j, CTRL-k, and CTRL-l through
 lazy.nvim `keys`.
@@ -41,13 +71,35 @@ the provided <Plug> mappings:
 <
 
 ==============================================================================
+GHOSTTY KEY TABLE                                  *ghosttykit.nvim-key-table*
+
+Add this fragment to your Ghostty config. It makes CTRL-h/j/k/l move between
+Ghostty splits in shells, while passing those keys through to Neovim when
+`ghosttykit.nvim` activates the `nvim` key table.
+>
+  # ctrl-hjkl navigates Ghostty splits unless this surface is in the nvim key table
+  keybind = ctrl+h=goto_split:left
+  keybind = ctrl+j=goto_split:down
+  keybind = ctrl+k=goto_split:up
+  keybind = ctrl+l=goto_split:right
+  keybind = nvim/
+  keybind = nvim/ctrl+h=text:\x08
+  keybind = nvim/ctrl+j=text:\x0a
+  keybind = nvim/ctrl+k=text:\x0b
+  keybind = nvim/ctrl+l=text:\x0c
+<
+
+The key table must be named `nvim`. GhosttyKit does not edit your Ghostty
+config automatically.
+
+==============================================================================
 OPTIONS                                              *ghosttykit.nvim-options*
 
 Example:
 >
   {
     "thurstonsand/ghosttykit.nvim",
-    version = "*",
+    version = "*", -- use branch = "main" with ghosttykit-nightly
     opts = {
       focused = true,
       key_table = "nvim",

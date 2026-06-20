@@ -497,7 +497,7 @@ Rejected. Shelling out to `gty` is useful as a fallback or debugging path, but t
     - Daemon can send a harmless AppleEvent to Ghostty after permission is granted.
     - Permission failure produces actionable diagnostics.
 
-- [ ] Phase 7-1: Add Lua SDK and Lua tooling
+- [x] Phase 7-1: Add Lua SDK and Lua tooling
   - Goal: Create a real Lua SDK before extracting the Neovim plugin, matching the Go SDK's daemon protocol scope without copying its Go package structure.
   - Files: `sdk/lua/**`, `mise.toml`, root `justfile`, `docs/protocol.md` if protocol documentation needs Lua notes.
   - Work:
@@ -512,7 +512,7 @@ Rejected. Shelling out to `gty` is useful as a fallback or debugging path, but t
     - A test Unix socket can receive a `doctor` request and return a decoded `doctor` reply through both supported transports where the runtime is available.
     - Root `just fmt`, `just lint`, `just typecheck`, and `just test` include the Lua SDK.
 
-- [ ] Phase 7: Extract Neovim plugin
+- [x] Phase 7: Extract Neovim plugin
   - Goal: Publish the current Neovim navigation integration as a standalone plugin using `sdk/lua`.
   - Files: `chezmoi/dot_config/nvim/lua/lib/ghostty-nav.lua`, `chezmoi/dot_config/nvim/lua/plugins/ghostty-navigator.lua` -> `nvim/**`; consume `sdk/lua`.
   - Work:
@@ -527,7 +527,7 @@ Rejected. Shelling out to `gty` is useful as a fallback or debugging path, but t
     - Bridge failures do not block editor navigation.
     - `:checkhealth ghosttykit` reports daemon `doctor` checks and actionable bridge/Ghostty context.
 
-- [ ] Phase 8: Document Ghostty key-table config
+- [x] Phase 8: Document Ghostty key-table config
   - Goal: Make the Ghostty-side `Ctrl-h/j/k/l` bindings a first-class part of the Neovim navigation integration.
   - Files: `chezmoi/dot_config/ghostty/config.tmpl` -> `docs/install.md` or `docs/ghostty.md`.
   - Work:
@@ -541,12 +541,12 @@ Rejected. Shelling out to `gty` is useful as a fallback or debugging path, but t
     - Neovim `Ctrl-h/j/k/l` moves inside Neovim or falls through to `gty focus` at edges.
     - The documented fragment contains only GhosttyKit-relevant keybinds.
 
-- [ ] Phase 9: Package Pi paste extension
+- [x] Phase 9: Package Pi paste extension
   - Goal: Move Alt-v paste behavior into a real Pi extension package.
   - Files: `chezmoi/private_dot_pi/agent/extensions/pi-paste-file/**` -> `pi/pi-paste/**`.
   - Work:
     - Create npm package metadata with `pi.extensions` entry, modeled on Pi package conventions.
-    - Rename package to a GhosttyKit name such as `@ghosttykit/pi-paste`.
+    - Rename package to a publishable GhosttyKit-related name under the existing npm scope.
     - Call `gty paste --json --output-dir ...` and respect local/remote endpoint behavior through `GTY_SOCK`.
     - Make the `gty` path configurable if needed.
     - Document that the extension can read the local macOS clipboard through GhosttyKit when used over a bridge.

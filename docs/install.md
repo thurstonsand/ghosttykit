@@ -42,4 +42,36 @@ mkdir -p ~/.local/bin
 chmod 755 ~/.local/bin/gty
 ```
 
+## Ghostty config for Neovim navigation
+
+Copy the Ghostty key-table fragment from the root [README](../README.md#ghostty-config-for-neovim-navigation) into your Ghostty config if you use `ghosttykit.nvim` split navigation. GhosttyKit does not modify your config automatically; the required key table name is `nvim`.
+
+## Pi paste extension
+
+Install the stable Pi extension from npm:
+
+```sh
+pi install npm:@thurstonsand/pi-paste
+```
+
+Use the nightly dist-tag when pairing with `ghosttykit-nightly`:
+
+```sh
+pi install npm:@thurstonsand/pi-paste@nightly
+```
+
+The extension enables paste even over ssh when combined with `gty ssh`.
+
+Optional settings, in `~/.pi/agent/settings.json`:
+
+```json
+{
+  "paste": {
+    "shortcut": "alt+v",
+    "outputDir": "/tmp/pi-paste-file",
+    "gtyBin": "gty"
+  }
+}
+```
+
 See [daemon.md](daemon.md) for daemon socket selection and dry-run behavior, and [ssh.md](ssh.md) for bridge behavior.

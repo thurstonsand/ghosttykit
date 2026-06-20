@@ -30,8 +30,9 @@ One stable tag fans out into several release surfaces:
 | Lua SDK mirror          | `.github/workflows/publish-lua.yml`                    | `thurstonsand/ghosttykit.lua` `main`, `nightly`, and `vX.Y.Z`  |
 | Neovim plugin mirror    | `.github/workflows/publish-lua.yml`                    | `thurstonsand/ghosttykit.nvim` `main`, `nightly`, and `vX.Y.Z` |
 | Lua SDK LuaRock         | `sdk/lua/.github/workflows/luarocks.yml` in the mirror | `ghosttykit` on LuaRocks                                       |
+| Pi paste npm package    | manual npm publish from `pi/pi-paste`                  | `@thurstonsand/pi-paste` on npm                                |
 
-The SDK rock is part of the default release path because it is a library dependency. Neovim plugin releases are Git-based through the `ghosttykit.nvim` mirror.
+The SDK rock is part of the default release path because it is a library dependency. Neovim plugin releases are Git-based through the `ghosttykit.nvim` mirror. The Pi paste package is published manually to npm during stable releases only; do not publish npm nightlies unless the user explicitly asks for an npm prerelease flow.
 
 ## 1. Inspect release state
 
@@ -90,11 +91,35 @@ Omit empty sections. Do not list every internal refactor. If the user edits the 
 
 If release mechanics changed, update `docs/release.md` too.
 
-## 3. Commit release prep
+## 3. Prepare Pi paste npm package when included
+
+If `pi/pi-paste` has release-relevant changes, prepare its npm package before committing release prep.
+
+Bump the package version with npm's version writer, but do not let npm create a commit or tag:
+
+```sh
+cd pi/pi-paste
+npm version <patch|minor|major|X.Y.Z> --no-git-tag-version
+npm run check
+cd ../..
+```
+
+For an explicit version such as `0.3.0`, this is also valid:
+
+```sh
+cd pi/pi-paste
+npm version 0.3.0 --no-git-tag-version
+npm run check
+cd ../..
+```
+
+This should update `pi/pi-paste/package.json` and `pi/pi-paste/package-lock.json`. If the Pi paste package is not part of the release, do not bump it.
+
+## 4. Commit release prep
 
 Stage only release-relevant files and commit. Do not stage unrelated user or agent work.
 
-## 4. Push main and verify nightly artifacts
+## 5. Push main and verify nightly artifacts
 
 Push `main` first:
 
@@ -127,7 +152,36 @@ gh release list --exclude-drafts --limit 10 | rg '^nightly-'
 
 If the release needs hand-testing, stop here and ask the user to test before tagging.
 
-## 5. Create and push the stable tag
+## 6. Publish Pi paste to npm when included
+
+If `pi/pi-paste` was version-bumped for this stable release, publish it before creating the stable git tag.
+
+Confirm npm identity and package contents:
+
+```sh
+cd pi/pi-paste
+npm whoami
+npm publish --dry-run
+```
+
+Read the tarball contents. Make sure expected source files are included and obvious junk is absent.
+
+Ask the user to run the real publish:
+
+```sh
+npm publish
+```
+
+After publish, verify npm sees the new version:
+
+```sh
+npm view @thurstonsand/pi-paste version dist-tags --json
+cd ../..
+```
+
+Do not create the stable git tag until this verification shows the npm package is live. If npm publish fails, stop and report the blocker; do not tag a release whose npm package version has not published.
+
+## 7. Create and push the stable tag
 
 Create an annotated tag after the user approves stable publishing. Use the exact final `RELEASE.md` entry for that version as the tag notes.
 
@@ -140,7 +194,7 @@ git push origin "v${VERSION}"
 
 Do not force-push a stable tag. If a tag already exists, stop and inspect; do not overwrite it.
 
-## 6. Watch stable monorepo publishing
+## 8. Watch stable monorepo publishing
 
 The stable tag should trigger both monorepo workflows:
 
@@ -154,7 +208,7 @@ gh run watch <release-run-id> --exit-status
 
 `Release` should create the GitHub release archives using the `RELEASE.md` entry as the release body, then update the stable Homebrew formula.
 
-## 7. Watch LuaRocks publishing
+## 9. Watch LuaRocks publishing
 
 After the stable mirror tags exist, verify or watch the SDK LuaRocks workflow in the `ghosttykit.lua` mirror repo.
 
@@ -165,7 +219,7 @@ gh run list -R thurstonsand/ghosttykit.lua --limit 10
 gh run watch -R thurstonsand/ghosttykit.lua <run-id> --exit-status
 ```
 
-## 8. Final verification
+## 10. Final verification
 
 Verify release surfaces that were not already checked while watching workflows.
 
@@ -183,6 +237,7 @@ git ls-remote https://github.com/thurstonsand/ghosttykit.nvim.git refs/heads/mai
 
 gh api repos/thurstonsand/homebrew-ghosttykit/contents/Formula/ghosttykit.rb --jq .download_url
 luarocks search ghosttykit
+npm view @thurstonsand/pi-paste version dist-tags --json
 ```
 
 For Homebrew, inspect the formula if needed:
@@ -203,6 +258,7 @@ Report:
 - GitHub release URL
 - Homebrew formula status
 - Lua mirror tags and LuaRocks status
+- Pi paste npm package status, if included
 - workflows watched and whether they passed
 - any manual test evidence from the user
 - any follow-up work, such as improving this skill after the release

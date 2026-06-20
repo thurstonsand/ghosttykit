@@ -4,7 +4,16 @@
 
 ## Installation
 
-Load the plugin at startup. It coordinates focus state with Ghostty, so lazy loading is not recommended.
+Install GhosttyKit first. The Neovim plugin talks to the `ghosttykitd` daemon through the Lua SDK.
+
+Stable channel:
+
+```sh
+brew install thurstonsand/ghosttykit/ghosttykit
+open -a Ghostty
+brew services start thurstonsand/ghosttykit/ghosttykit
+gty doctor
+```
 
 With lazy.nvim:
 
@@ -15,6 +24,25 @@ With lazy.nvim:
   opts = {},
 }
 ```
+
+Nightly channel. Pair `ghosttykit-nightly` with the plugin mirror's `main` branch:
+
+```sh
+brew install thurstonsand/ghosttykit/ghosttykit-nightly
+brew services start thurstonsand/ghosttykit/ghosttykit-nightly
+```
+
+```lua
+{
+  "thurstonsand/ghosttykit.nvim",
+  branch = "main",
+  opts = {},
+}
+```
+
+See the root [GhosttyKit README](../README.md#install) for the full install flow and Automation permission details.
+
+Load the plugin at startup. It coordinates focus state with Ghostty, so lazy loading is not recommended.
 
 The bundled lazy.nvim spec maps CTRL-h, CTRL-j, CTRL-k, and CTRL-l through lazy.nvim `keys`.
 
@@ -29,12 +57,31 @@ vim.keymap.set("n", "<C-k>", "<Plug>(GhosttyKitNavigateUp)")
 vim.keymap.set("n", "<C-l>", "<Plug>(GhosttyKitNavigateRight)")
 ```
 
+## Ghostty key table
+
+Add this fragment to your Ghostty config. It makes `Ctrl-h/j/k/l` move between Ghostty splits in shells, while passing those keys through to Neovim when `ghosttykit.nvim` activates the `nvim` key table.
+
+```ghostty
+# ctrl-hjkl navigates Ghostty splits unless this surface is in the nvim key table
+keybind = ctrl+h=goto_split:left
+keybind = ctrl+j=goto_split:down
+keybind = ctrl+k=goto_split:up
+keybind = ctrl+l=goto_split:right
+keybind = nvim/
+keybind = nvim/ctrl+h=text:\x08
+keybind = nvim/ctrl+j=text:\x0a
+keybind = nvim/ctrl+k=text:\x0b
+keybind = nvim/ctrl+l=text:\x0c
+```
+
+The key table must be named `nvim`. GhosttyKit does not edit your Ghostty config automatically.
+
 ## Options
 
 ```lua
 {
   "thurstonsand/ghosttykit.nvim",
-  version = "*",
+  version = "*", -- use branch = "main" with ghosttykit-nightly
   opts = {
     focused = true,
     key_table = "nvim",

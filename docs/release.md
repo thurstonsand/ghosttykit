@@ -31,7 +31,17 @@ The `Publish Lua Mirrors` workflow splits monorepo subdirectories into standalon
 
 Every push to `main` force-pushes each mirror repo's `main` branch and force-updates its `nightly` tag. Pushes of `v*` tags push matching stable mirror tags without force so an already-published stable package version cannot be replaced.
 
+The Neovim plugin does not publish separate binary nightly artifacts. Pair the Homebrew `ghosttykit-nightly` formula with the `ghosttykit.nvim` mirror's `main` branch.
+
 Local development and dogfooding can track mirror `main` instead.
+
+### Pi paste npm package
+
+The `Publish Pi Paste` workflow publishes `pi/pi-paste` to npm as `@thurstonsand/pi-paste`. It uses npm Trusted Publishing through GitHub Actions OIDC, so the repository does not store an npm token.
+
+Stable `v*` tags publish the matching package version on the default `latest` dist-tag. Pushes to `main` publish unique prerelease versions like `X.Y.Z-nightly.<run-id>.<attempt>.<short-sha>` on the `nightly` dist-tag, leaving `latest` untouched.
+
+The workflow runs the shared CI workflow, installs package dependencies with `npm ci`, runs `npm run check`, sets the package version from the git ref, performs `npm pack --dry-run`, and publishes with `npm publish --access public --tag <latest|nightly>`.
 
 ## Repository secrets
 

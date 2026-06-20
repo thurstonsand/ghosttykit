@@ -1,0 +1,75 @@
+name: Publish Pi Paste
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    name: CI
+    uses: ./.github/workflows/ci.yml
+
+  publish:
+    name: Publish npm package
+    needs: ci
+    runs-on: ubuntu-latest
+    environment: npm
+    defaults:
+      run:
+        working-directory: pi/pi-paste
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check package
+        run: npm run check
+
+      - name: Resolve package version and dist-tag
+        id: npm-release
+        run: |
+          set -euo pipefail
+
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            version="${GITHUB_REF_NAME#v}"
+            dist_tag="latest"
+          else
+            base_tag="$(git describe --tags --abbrev=0 --match 'v[0-9]*' 2>/dev/null || true)"
+            if [[ -z "${base_tag}" ]]; then
+              base_version="0.0.0"
+            else
+              base_version="${base_tag#v}"
+            fi
+            version="${base_version}-nightly.${GITHUB_RUN_ID}.${GITHUB_RUN_ATTEMPT}.${GITHUB_SHA::7}"
+            dist_tag="nightly"
+          fi
+
+          npm version "${version}" --no-git-tag-version
+          echo "version=${version}" >> "${GITHUB_OUTPUT}"
+          echo "dist_tag=${dist_tag}" >> "${GITHUB_OUTPUT}"
+
+      - name: Pack dry run
+        run: npm pack --dry-run
+
+      - name: Publish to npm
+        run: npm publish --access public --tag "${{ steps.npm-release.outputs.dist_tag }}"

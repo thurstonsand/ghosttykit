@@ -1,37 +1,49 @@
 {
-	"name": "@ghosttykit/pi-paste",
-	"private": true,
-	"version": "0.0.0",
-	"type": "module",
-	"description": "Pi extension for pasting local or SSH-bridged GhosttyKit clipboard content",
-	"keywords": [
-		"pi-package",
-		"ghosttykit",
-		"paste",
-		"ghostty"
-	],
-	"pi": {
-		"extensions": [
-			"./index.ts"
-		]
-	},
-	"files": [
-		"index.ts",
-		"README.md"
-	],
-	"scripts": {
-		"fmt": "biome format --write .",
-		"lint": "biome check .",
-		"typecheck": "tsc --noEmit",
-		"check": "npm run fmt && npm run lint && npm run typecheck"
-	},
-	"peerDependencies": {
-		"@earendil-works/pi-coding-agent": ">=0.74.0"
-	},
-	"devDependencies": {
-		"@biomejs/biome": "^2.4.14",
-		"@earendil-works/pi-coding-agent": "^0.74.0",
-		"@types/node": "^25.6.2",
-		"typescript": "^6.0.3"
-	}
+  "name": "@thurstonsand/pi-paste",
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Pi extension for pasting your local Mac clipboard into remote gty ssh sessions",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/thurstonsand/ghosttykit.git",
+    "directory": "pi/pi-paste"
+  },
+  "keywords": [
+    "pi-package",
+    "ghosttykit",
+    "paste",
+    "ghostty"
+  ],
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  },
+  "files": [
+    "gty.ts",
+    "index.ts",
+    "settings.ts",
+    "typebox.ts",
+    "README.md"
+  ],
+  "scripts": {
+    "fmt": "biome format --write .",
+    "lint": "biome check .",
+    "typecheck": "tsc --noEmit",
+    "check": "npm run fmt && npm run lint && npm run typecheck"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*",
+    "typebox": "*"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.14",
+    "@earendil-works/pi-coding-agent": "^0.74.0",
+    "@types/node": "^25.6.2",
+    "typescript": "^6.0.3"
+  }
 }
