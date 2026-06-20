@@ -2,7 +2,7 @@
 
 GhosttyKit publishes release artifacts from GitHub Actions.
 
-Pushes to `main` publish nightly artifacts. Pushes of `v*` tags publish stable artifacts. The release workflows keep stable tags immutable for package consumers while allowing nightly refs to move with `main`.
+Pushes to `main` publish nightly artifacts. Pushes of `v*` tags publish stable artifacts. The release workflows keep stable tags immutable for package consumers and publish each binary nightly as its own prerelease.
 
 ## Release channels
 
@@ -10,7 +10,7 @@ Pushes to `main` publish nightly artifacts. Pushes of `v*` tags publish stable a
 
 The `Release` workflow builds Darwin archives for Apple Silicon and Intel Macs.
 
-Pushes to `main` update the moving `nightly` prerelease. Nightly archive versions use `<latest-tag>-dev-<github-run-id>-<short-sha>` so package managers can reliably detect newer builds. Old nightly assets remain attached to the `nightly` release so stale Homebrew tap checkouts can still download the formula version they reference.
+Pushes to `main` create a prerelease named `nightly-<latest-tag>-dev-<github-run-id>-<short-sha>`. Nightly archive versions use `<latest-tag>-dev-<github-run-id>-<short-sha>` so package managers can reliably detect newer builds. Each nightly gets its own release tag, so Homebrew formula URLs remain stable even after later nightlies publish.
 
 Stable releases are tag-driven. Create and push an annotated `v*` git tag; the workflow then creates the GitHub release with the `RELEASE.md` entry as the release body.
 
@@ -18,7 +18,7 @@ Stable releases are tag-driven. Create and push an annotated `v*` git tag; the w
 
 The `Release` workflow also updates `thurstonsand/homebrew-ghosttykit` after publishing GitHub release archives.
 
-Pushes to `main` update `Formula/ghosttykit-nightly.rb`. Pushes of `v*` tags update `Formula/ghosttykit.rb`. The Homebrew formula version matches the GitHub release archive version.
+Pushes to `main` update `Formula/ghosttykit-nightly.rb` to point at the newest nightly prerelease. Pushes of `v*` tags update `Formula/ghosttykit.rb`. The Homebrew formula version matches the GitHub release archive version.
 
 ### Lua SDK and Neovim plugin mirrors
 

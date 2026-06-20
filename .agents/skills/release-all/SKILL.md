@@ -17,7 +17,7 @@ Use this skill when preparing or publishing a GhosttyKit release.
 - Use the exact same release-note text from `RELEASE.md` for the annotated git tag body.
 - Stable releases are `vX.Y.Z` tags.
 - Stable package tags are immutable. Never force-push a stable release tag or stable mirror tag.
-- Nightly refs move with `main` and may be force-updated by automation. Do not delete the nightly GitHub release; stale Homebrew formulas still need old nightly assets to remain downloadable.
+- Binary nightly releases are unique prereleases named `nightly-<version>`. Mirror nightly refs move with `main` and may be force-updated by automation.
 
 ## Release channels
 
@@ -25,7 +25,7 @@ One stable tag fans out into several release surfaces:
 
 | Surface                 | Source workflow                                        | Result                                                         |
 | ----------------------- | ------------------------------------------------------ | -------------------------------------------------------------- |
-| GitHub release archives | `.github/workflows/release.yml`                        | Signed/notarized Darwin archives on the `vX.Y.Z` release       |
+| GitHub release archives | `.github/workflows/release.yml`                        | Signed/notarized Darwin archives on `vX.Y.Z` or `nightly-*`    |
 | Homebrew tap            | `.github/workflows/release.yml`                        | `thurstonsand/homebrew-ghosttykit/Formula/ghosttykit.rb`       |
 | Lua SDK mirror          | `.github/workflows/publish-lua.yml`                    | `thurstonsand/ghosttykit.lua` `main`, `nightly`, and `vX.Y.Z`  |
 | Neovim plugin mirror    | `.github/workflows/publish-lua.yml`                    | `thurstonsand/ghosttykit.nvim` `main`, `nightly`, and `vX.Y.Z` |
@@ -119,6 +119,12 @@ git ls-remote https://github.com/thurstonsand/ghosttykit.lua.git refs/heads/main
 git ls-remote https://github.com/thurstonsand/ghosttykit.nvim.git refs/heads/main refs/tags/nightly
 ```
 
+For binary nightlies, find the newest `nightly-*` prerelease instead of the legacy moving `nightly` release:
+
+```sh
+gh release list --exclude-drafts --limit 10 | rg '^nightly-'
+```
+
 If the release needs hand-testing, stop here and ask the user to test before tagging.
 
 ## 5. Create and push the stable tag
@@ -170,7 +176,7 @@ git status --short
 git ls-remote --tags origin "v${VERSION}"
 
 gh release view "v${VERSION}" --json tagName,isDraft,isPrerelease,publishedAt,url
-gh release view nightly --json tagName,targetCommitish,isPrerelease,url
+gh release list --exclude-drafts --limit 10 | rg '^nightly-'
 
 git ls-remote https://github.com/thurstonsand/ghosttykit.lua.git refs/heads/main "refs/tags/v${VERSION}" refs/tags/nightly
 git ls-remote https://github.com/thurstonsand/ghosttykit.nvim.git refs/heads/main "refs/tags/v${VERSION}" refs/tags/nightly

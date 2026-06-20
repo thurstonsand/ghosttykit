@@ -144,22 +144,36 @@ jobs:
         if: github.ref_type == 'branch'
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: nightly
         run: |
-          git tag --force "$TAG" "$GITHUB_SHA"
-          git push --force origin "refs/tags/$TAG"
+          base_tag="$(git describe --tags --abbrev=0 --match 'v[0-9]*' 2>/dev/null || true)"
+          if [[ -z "${base_tag}" ]]; then
+            base_version="0.0.0"
+          else
+            base_version="${base_tag#v}"
+          fi
+          release_version="${base_version}-dev-${GITHUB_RUN_ID}-${GITHUB_SHA::7}"
+          TAG="nightly-${release_version}"
+
+          if ! git ls-remote --exit-code --tags origin "refs/tags/${TAG}" >/dev/null 2>&1; then
+            git tag "$TAG" "$GITHUB_SHA"
+            git push origin "refs/tags/$TAG"
+          fi
+
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release edit "$TAG" \
               --target "$GITHUB_SHA" \
-              --title "Nightly" \
+              --title "$TAG" \
               --prerelease \
+              --latest=false \
               --notes "Automated release for ${GITHUB_SHA}."
             gh release upload "$TAG" dist/* --clobber
           else
             gh release create "$TAG" dist/* \
+              --verify-tag \
               --target "$GITHUB_SHA" \
-              --title "Nightly" \
+              --title "$TAG" \
               --prerelease \
+              --latest=false \
               --notes "Automated release for ${GITHUB_SHA}."
           fi
 
@@ -212,7 +226,6 @@ jobs:
           else
             formula="homebrew-tap/Formula/ghosttykit-nightly.rb"
             class_name="GhosttykitNightly"
-            release_tag="nightly"
             base_tag="$(git describe --tags --abbrev=0 --match 'v[0-9]*' 2>/dev/null || true)"
             if [[ -z "${base_tag}" ]]; then
               base_version="0.0.0"
@@ -220,6 +233,7 @@ jobs:
               base_version="${base_tag#v}"
             fi
             asset_version="${base_version}-dev-${RELEASE_RUN_ID}-${short_sha}"
+            release_tag="nightly-${asset_version}"
             formula_version="${asset_version}"
             conflict_formula="ghosttykit"
             nightly_notice="      This formula tracks nightly builds from GhosttyKit main and may break."
