@@ -1,0 +1,40 @@
+{
+  "name": "@thurstonsand/ghosttykit",
+  "version": "0.0.0",
+  "type": "module",
+  "description": "TypeScript SDK for GhosttyKit daemon clients",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "homepage": "https://github.com/thurstonsand/ghosttykit",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/thurstonsand/ghosttykit.git",
+    "directory": "sdk/ts"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "fmt": "biome format --write .",
+    "lint": "biome check .",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc",
+    "test": "npm run build && node --test dist/test/*.test.js",
+    "check": "npm run fmt && npm run lint && npm run typecheck && npm run test",
+    "prepare": "npm run build"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.4.15",
+    "@types/node": "^25.6.2",
+    "typescript": "^6.0.3"
+  }
+}

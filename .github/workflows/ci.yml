@@ -20,13 +20,8 @@ jobs:
           install: true
           cache: true
 
-      - name: Install Pi package dependencies
-        run: just install-deps-pi
-
-      - name: Install Lua package dependencies
-        run: |
-          just install-deps-lua
-          just install-deps-nvim
+      - name: Ensure package dependencies
+        run: just ensure-deps
 
       - name: Run checks
         run: just check

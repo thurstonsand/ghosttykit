@@ -35,13 +35,13 @@ The Neovim plugin does not publish separate binary nightly artifacts. Pair the H
 
 Local development and dogfooding can track mirror `main` instead.
 
-### Pi paste npm package
+### npm packages
 
-The `Publish Pi Paste` workflow publishes `pi/pi-paste` to npm as `@thurstonsand/pi-paste`. It uses npm Trusted Publishing through GitHub Actions OIDC, so the repository does not store an npm token.
+The `Publish TypeScript Packages` workflow publishes the TypeScript SDK from `sdk/ts` as `@thurstonsand/ghosttykit` and the Pi extension from `pi/pi-paste` as `@thurstonsand/pi-paste`. It uses npm Trusted Publishing through GitHub Actions OIDC, so the repository does not store an npm token.
 
-Stable `v*` tags publish the matching package version on the default `latest` dist-tag. Pushes to `main` publish unique prerelease versions like `X.Y.Z-nightly.<run-id>.<attempt>.<short-sha>` on the `nightly` dist-tag, leaving `latest` untouched.
+Stable `v*` tags publish matching package versions on the default `latest` dist-tag. Pushes to `main` publish unique prerelease versions like `X.Y.Z-nightly.<run-id>.<attempt>.<short-sha>` on the `nightly` dist-tag, leaving `latest` untouched.
 
-The workflow runs the shared CI workflow, installs package dependencies with `npm ci`, runs `npm run check`, sets the package version from the git ref, performs `npm pack --dry-run`, and publishes with `npm publish --access public --tag <latest|nightly>`.
+The workflow runs the shared CI workflow, publishes the TypeScript SDK first, then rewrites Pi paste's `@thurstonsand/ghosttykit` dependency to the exact SDK version from the same run before packing and publishing Pi paste. This keeps stable and nightly Pi paste packages paired with the matching SDK package.
 
 ## Repository secrets
 

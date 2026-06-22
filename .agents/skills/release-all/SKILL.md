@@ -23,16 +23,17 @@ Use this skill when preparing or publishing a GhosttyKit release.
 
 One stable tag fans out into several release surfaces:
 
-| Surface                 | Source workflow                                        | Result                                                         |
-| ----------------------- | ------------------------------------------------------ | -------------------------------------------------------------- |
-| GitHub release archives | `.github/workflows/release.yml`                        | Signed/notarized Darwin archives on `vX.Y.Z` or `nightly-*`    |
-| Homebrew tap            | `.github/workflows/release.yml`                        | `thurstonsand/homebrew-ghosttykit/Formula/ghosttykit.rb`       |
-| Lua SDK mirror          | `.github/workflows/publish-lua.yml`                    | `thurstonsand/ghosttykit.lua` `main`, `nightly`, and `vX.Y.Z`  |
-| Neovim plugin mirror    | `.github/workflows/publish-lua.yml`                    | `thurstonsand/ghosttykit.nvim` `main`, `nightly`, and `vX.Y.Z` |
-| Lua SDK LuaRock         | `sdk/lua/.github/workflows/luarocks.yml` in the mirror | `ghosttykit` on LuaRocks                                       |
-| Pi paste npm package    | manual npm publish from `pi/pi-paste`                  | `@thurstonsand/pi-paste` on npm                                |
+| Surface                    | Source workflow                                        | Result                                                         |
+| -------------------------- | ------------------------------------------------------ | -------------------------------------------------------------- |
+| GitHub release archives    | `.github/workflows/release.yml`                        | Signed/notarized Darwin archives on `vX.Y.Z` or `nightly-*`    |
+| Homebrew tap               | `.github/workflows/release.yml`                        | `thurstonsand/homebrew-ghosttykit/Formula/ghosttykit.rb`       |
+| Lua SDK mirror             | `.github/workflows/publish-lua.yml`                    | `thurstonsand/ghosttykit.lua` `main`, `nightly`, and `vX.Y.Z`  |
+| Neovim plugin mirror       | `.github/workflows/publish-lua.yml`                    | `thurstonsand/ghosttykit.nvim` `main`, `nightly`, and `vX.Y.Z` |
+| Lua SDK LuaRock            | `sdk/lua/.github/workflows/luarocks.yml` in the mirror | `ghosttykit` on LuaRocks                                       |
+| TypeScript SDK npm package | `.github/workflows/publish-npm.yml`                    | `@thurstonsand/ghosttykit` on npm                              |
+| Pi paste npm package       | `.github/workflows/publish-npm.yml`                    | `@thurstonsand/pi-paste` on npm                                |
 
-The SDK rock is part of the default release path because it is a library dependency. Neovim plugin releases are Git-based through the `ghosttykit.nvim` mirror. The Pi paste package is published manually to npm during stable releases only; do not publish npm nightlies unless the user explicitly asks for an npm prerelease flow.
+The SDK rock is part of the default release path because it is a library dependency. Neovim plugin releases are Git-based through the `ghosttykit.nvim` mirror. npm packages publish automatically for both stable and nightly releases. The TypeScript SDK publishes before Pi paste; the workflow rewrites Pi paste's SDK dependency to the exact SDK version published by the same run.
 
 ## 1. Inspect release state
 
@@ -91,29 +92,25 @@ Omit empty sections. Do not list every internal refactor. If the user edits the 
 
 If release mechanics changed, update `docs/release.md` too.
 
-## 3. Prepare Pi paste npm package when included
+## 3. Prepare npm packages when included
 
-If `pi/pi-paste` has release-relevant changes, prepare its npm package before committing release prep.
+The npm workflow sets package versions during publication, so normal release prep should leave npm package versions at their checked-in development value unless the user explicitly wants to change that policy.
 
-Bump the package version with npm's version writer, but do not let npm create a commit or tag:
+If `sdk/ts` or `pi/pi-paste` has release-relevant changes, verify the package before committing release prep:
 
 ```sh
+cd sdk/ts
+npm ci
+npm run check
+cd ../..
+
 cd pi/pi-paste
-npm version <patch|minor|major|X.Y.Z> --no-git-tag-version
+npm ci
 npm run check
 cd ../..
 ```
 
-For an explicit version such as `0.3.0`, this is also valid:
-
-```sh
-cd pi/pi-paste
-npm version 0.3.0 --no-git-tag-version
-npm run check
-cd ../..
-```
-
-This should update `pi/pi-paste/package.json` and `pi/pi-paste/package-lock.json`. If the Pi paste package is not part of the release, do not bump it.
+Do not manually bump the dependency during release prep. The publish workflow rewrites it to the exact SDK version from the same stable or nightly run before packing Pi paste.
 
 ## 4. Commit release prep
 
@@ -152,34 +149,25 @@ gh release list --exclude-drafts --limit 10 | rg '^nightly-'
 
 If the release needs hand-testing, stop here and ask the user to test before tagging.
 
-## 6. Publish Pi paste to npm when included
+## 6. Verify npm package nightlies when included
 
-If `pi/pi-paste` was version-bumped for this stable release, publish it before creating the stable git tag.
+After pushing `main`, the `Publish TypeScript Packages` workflow should publish the TypeScript SDK first and Pi paste second.
 
-Confirm npm identity and package contents:
+Watch the workflow:
 
 ```sh
-cd pi/pi-paste
-npm whoami
-npm publish --dry-run
+gh run list --workflow "Publish TypeScript Packages" --branch main --limit 5
+gh run watch <publish-npm-run-id> --exit-status
 ```
 
-Read the tarball contents. Make sure expected source files are included and obvious junk is absent.
-
-Ask the user to run the real publish:
+Verify nightly npm dist-tags when the workflow completes:
 
 ```sh
-npm publish
-```
-
-After publish, verify npm sees the new version:
-
-```sh
+npm view @thurstonsand/ghosttykit version dist-tags --json
 npm view @thurstonsand/pi-paste version dist-tags --json
-cd ../..
 ```
 
-Do not create the stable git tag until this verification shows the npm package is live. If npm publish fails, stop and report the blocker; do not tag a release whose npm package version has not published.
+Inspect the packed Pi paste package or npm metadata to confirm its `@thurstonsand/ghosttykit` dependency points at the exact SDK version from the same run.
 
 ## 7. Create and push the stable tag
 
@@ -237,6 +225,7 @@ git ls-remote https://github.com/thurstonsand/ghosttykit.nvim.git refs/heads/mai
 
 gh api repos/thurstonsand/homebrew-ghosttykit/contents/Formula/ghosttykit.rb --jq .download_url
 luarocks search ghosttykit
+npm view @thurstonsand/ghosttykit version dist-tags --json
 npm view @thurstonsand/pi-paste version dist-tags --json
 ```
 
@@ -258,7 +247,7 @@ Report:
 - GitHub release URL
 - Homebrew formula status
 - Lua mirror tags and LuaRocks status
-- Pi paste npm package status, if included
+- TypeScript SDK and Pi paste npm package status, if included
 - workflows watched and whether they passed
 - any manual test evidence from the user
 - any follow-up work, such as improving this skill after the release

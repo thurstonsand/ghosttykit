@@ -1,0 +1,65 @@
+export type { ClientOptions, HoldResult, PasteStream } from "./client.js";
+export { client, GhosttyKitClient } from "./client.js";
+export type { ProtocolCode } from "./codes.js";
+export { protocolCodes } from "./codes.js";
+export {
+  errorFromReply,
+  GhosttyKitError,
+  GhosttyUnavailableError,
+  InternalError,
+  InvalidReplyError,
+  InvalidReplyModeError,
+  InvalidRequestError,
+  PasteEmptyError,
+  PasteUnsupportedError,
+  ProtocolVersionMismatchError,
+  ReplyError,
+  StreamFailedError,
+  TerminalNotFoundError,
+  TransportError,
+  throwIfReplyError,
+  UnknownCommandError,
+} from "./errors.js";
+export type {
+  AckOptions,
+  BridgeCreateReply,
+  Direction,
+  DirectionOptions,
+  DoctorCheck,
+  DoctorReply,
+  FocusTarget,
+  FrameReply,
+  KeyTableActivateOptions,
+  PasteFrameFile,
+  PasteOptions,
+  PasteStreamFrameHeader,
+  PasteStreamHeader,
+  ReplyMode,
+  Request,
+  RequestEnvelope,
+  ResizeAmount,
+  ResizeOptions,
+  SplitOptions,
+  TerminalIdOptions,
+  TerminalTargetOptions,
+} from "./protocol.js";
+export {
+  bridgeCreateRequest,
+  bridgeLeaseRequest,
+  clearCacheRequest,
+  doctorRequest,
+  encodeRequest,
+  focusRequest,
+  keyTableActivateRequest,
+  keyTableDeactivateRequest,
+  pasteRequest,
+  protocolVersion,
+  replyModeOf,
+  resizeRequest,
+  splitRequest,
+  tabTerminalCountRequest,
+  terminalIdRequest,
+  zoomRequest,
+} from "./protocol.js";
+
+export { defaultSocketPath, dial, socketPath } from "./socket.js";

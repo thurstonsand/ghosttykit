@@ -5,9 +5,10 @@ GhosttyKit is a Ghostty companion toolkit for macOS-local terminal control, edit
 - CLI: `gty`
 - Daemon: `ghosttykitd`
 - Neovim plugin: `nvim/`
+- TypeScript SDK: `sdk/ts/`
 - Pi paste extension: `pi/pi-paste/`
 
-Status: extraction in progress. The Go `gty` CLI, Go SDK, Swift daemon, SSH bridge flow, Homebrew packaging, Neovim plugin, Pi paste extension, and release workflow are present; repository migration work continues under `docs/designs/01-ghosttykit-standalone.md`.
+Status: extraction in progress. The Go `gty` CLI, Go SDK, TypeScript SDK, Swift daemon, SSH bridge flow, Homebrew packaging, Neovim plugin, Pi paste extension, and release workflow are present; repository migration work continues under `docs/designs/01-ghosttykit-standalone.md`.
 
 ## Install
 
@@ -77,4 +78,4 @@ just check      # format, lint, typecheck, test, build, and validate packaging/C
 just --list
 ```
 
-Component recipes are available as `*-go`, `*-swift`, `*-pi`, and `*-nvim` variants.
+Component recipes are available as `*-go`, `*-swift`, `*-ts`, `*-pi`, and `*-nvim` variants.
