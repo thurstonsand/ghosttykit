@@ -157,11 +157,11 @@ ensure-deps: ensure-deps-lua ensure-deps-nvim ensure-deps-ts
 
 ensure-deps-lua:
     @if [ ! -d .luals/addons/busted ] || [ ! -d .luals/addons/luassert ] || [ ! -e .luals/nvim-runtime ]; then rm -f .luarocks/.ghosttykit-lua-deps.sha; fi
-    @scripts/ensure-lua-deps.sh .luarocks/.ghosttykit-lua-deps.sha install-deps-lua sdk/lua/ghosttykit-scm-1.rockspec sdk/lua/justfile
+    @scripts/ensure-lua-deps.sh .luarocks/.ghosttykit-lua-deps.sha install-deps-lua mise.toml sdk/lua/ghosttykit-scm-1.rockspec sdk/lua/justfile
 
 ensure-deps-nvim: ensure-deps-lua
     @if [ ! -d .luarocks/lib/luarocks/rocks-5.1/ghosttykit.nvim ]; then rm -f .luarocks/.ghosttykit-nvim-deps.sha; fi
-    @scripts/ensure-lua-deps.sh .luarocks/.ghosttykit-nvim-deps.sha install-deps-nvim nvim/ghosttykit.nvim-scm-1.rockspec nvim/justfile
+    @scripts/ensure-lua-deps.sh .luarocks/.ghosttykit-nvim-deps.sha install-deps-nvim mise.toml nvim/ghosttykit.nvim-scm-1.rockspec nvim/justfile
 
 ensure-deps-ts:
     @scripts/ensure-node-deps.sh sdk/ts _install-deps-ts-sdk
@@ -187,7 +187,7 @@ _install-deps-ts-pi:
 update-deps: update-deps-mise update-deps-go
 
 update-deps-mise:
-    mise upgrade --bump --local --exclude lua
+    mise upgrade --bump --local
 
 update-deps-go:
     just -f sdk/go/justfile update-deps

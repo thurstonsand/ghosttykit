@@ -1,9 +1,10 @@
 [tools]
 actionlint = "1.7.12"
 go = "1.26.4"
-lua = "5.1.5"
 lua-language-server = "3.18.2"
-luajit = "2.1.1744318430"
+# TODO: remove the LuaRocks pin once LuaRocks publishes a fixed release after 3.13.0.
+# The 3.13.0 tarball currently ships an invalid rockspec
+"asdf:mise-plugins/mise-luaJIT" = { version = "2.1.ROLLING", install_env = { LUAROCKS_VERSION = "3.12.2" } }
 node = "26.4.0"
 neovim = "0.12.3"
 just = "1.54.0"

@@ -7,11 +7,6 @@
   "schedule": ["before 6am on Monday"],
   "packageRules": [
     {
-      "matchManagers": ["mise"],
-      "matchPackageNames": ["lua"],
-      "enabled": false
-    },
-    {
       "matchManagers": ["github-actions"],
       "groupName": "GitHub Actions"
     },
