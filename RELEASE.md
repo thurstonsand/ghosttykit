@@ -1,5 +1,23 @@
 # Release notes
 
+## 0.3.0
+
+SDK and Pi paste expansion.
+
+### Added
+
+- Added the `@thurstonsand/ghosttykit` TypeScript SDK for JavaScript and TypeScript integrations.
+- Added `@thurstonsand/pi-paste`, a Pi extension that pastes local Mac clipboard text and files into remote Pi sessions running through `gty ssh`.
+- Added higher-level domain clients for Go, Lua, and TypeScript callers, including terminal, layout, key-table, bridge, and paste operations.
+
+### Changed
+
+- Reworked SDK APIs around the new domain clients.
+
+### Fixed
+
+- Lua paste bodies now stream correctly through the transport instead of being buffered in memory first.
+
 ## 0.2.1
 
 Release process hardening.
