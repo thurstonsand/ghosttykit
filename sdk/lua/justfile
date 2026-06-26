@@ -10,9 +10,11 @@ _default:
     just --list
 
 install-deps:
+    rm -rf {{rock_tree}}
     luarocks install --tree {{rock_tree}} --lua-version 5.1 --only-deps {{rockspec}}
     luarocks install --tree {{rock_tree}} --lua-version 5.1 busted
     luarocks install --tree {{rock_tree}} --lua-version 5.1 luacheck
+    luarocks install --tree {{rock_tree}} --lua-version 5.1 nlua
     just -f {{justfile()}} install-luals-types
 
 install-luals-types:
@@ -41,7 +43,7 @@ test:
     eval "$(luarocks path --tree {{rock_tree}} --lua-version 5.1 --bin)" && busted spec/protocol_spec.lua spec/error_spec.lua spec/socket_spec.lua spec/client_spec.lua spec/transport_luv_spec.lua
 
 test-nvim:
-    eval "$(luarocks path --tree {{rock_tree}} --lua-version 5.1 --bin)" && nvim --headless -u NONE -c 'set rtp+=.' -c 'lua package.path = "lua/?.lua;lua/?/init.lua;spec/?.lua;spec/?/init.lua;" .. package.path; arg = { "spec/transport_nvim_spec.lua" }; require("busted.runner")({ standalone = false })' -c qall
+    eval "$(luarocks path --tree {{rock_tree}} --lua-version 5.1 --bin)" && busted --run=nvim spec/transport_nvim_spec.lua
 
 test-all: test test-nvim
 
