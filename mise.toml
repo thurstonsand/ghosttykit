@@ -1,7 +1,7 @@
 [tools]
 actionlint = "1.7.12"
 go = "1.26.4"
-lua = "5.1.5"
+lua = "5.5.0"
 lua-language-server = "3.18.2"
 luajit = "2.1.1744318430"
 node = "26.4.0"
