@@ -37,9 +37,9 @@ Create a client and call GhosttyKit commands:
 import { client } from "@thurstonsand/ghosttykit";
 
 const gty = client();
-const reply = await gty.doctor();
+const status = await gty.doctor();
 
-console.log(reply.healthy);
+console.log(status.healthy);
 ```
 
 By default, the client connects to `GTY_SOCK` when set, otherwise the standard local daemon socket. Pass `socketPath` to target another daemon or bridge socket:
@@ -51,66 +51,117 @@ const gty = client({ socketPath: "/path/to/ghosttykit.sock" });
 ## Commands
 
 ```ts
-await gty.doctor();
-await gty.terminalId({ focused: true });
-await gty.tabTerminalCount({ focused: true });
-await gty.keyTableActivate({ table: "nvim", focused: true, ack: true });
-await gty.keyTableDeactivate({ focused: true, ack: true });
-await gty.focus({ direction: "left", focused: true, ack: true });
-await gty.split({
-  direction: "right",
+await gty.doctor(); // DoctorStatus
+await gty.terminalId({ focused: true }); // string
+await gty.tabTerminalCount({ focused: true }); // number
+const tty = process.env.GTY_TTY ?? "/dev/ttys001";
+
+await gty.keyTableActivate("nvim", { tty, focused: true, ack: true });
+await gty.keyTableDeactivate({ tty, focused: true, ack: true });
+await gty.focus("left", { tty, focused: true, ack: true });
+await gty.split("right", {
+  tty,
   cwd: process.cwd(),
   focus: "new",
   ack: true,
 });
-await gty.resize({ direction: "right", amount: { pixels: 40 }, ack: true });
-await gty.zoom({ ack: true });
+await gty.resize("right", { pixels: 40 }, { tty, ack: true });
+await gty.zoom({ tty, ack: true });
 await gty.clearCache({ ack: true });
-await gty.bridgeCreate({ focused: true });
-await gty.bridgeLease(token);
 ```
 
-Paste returns the daemon's streamed paste body. Consumers decide whether to insert text, write files, or perform another action:
+Create a bridge lease:
 
 ```ts
-const paste = await gty.paste();
-
+const bridge = await gty.bridge({ tty, focused: true });
 try {
-  if (paste.header.kind === "text") {
-    // Read exactly paste.header.bytes from paste.body.
-  } else {
-    // Read each file payload from paste.body in paste.header.files order.
-  }
+  console.log(bridge.socketPath);
 } finally {
-  paste.close();
+  bridge.close();
 }
 ```
 
-For lower-level integrations, request builders are exported:
+## Paste
+
+`paste()` returns a consumable discriminated union. Use `Paste.match` for exhaustive handling, or switch on `paste.kind` directly.
 
 ```ts
-import { client, focusRequest } from "@thurstonsand/ghosttykit";
+import { Paste, client } from "@thurstonsand/ghosttykit";
 
-await client().call(focusRequest({ direction: "left", ack: true }));
+const paste = await client().paste();
+
+const editorText = await Paste.match(paste, {
+  text: (paste) => paste.text(),
+  files: async (paste) => {
+    const files = await paste.save("/tmp/pi-paste-file");
+    return files.map((file) => `@${file.path}`).join(" ");
+  },
+});
 ```
+
+Paste payloads are streams. Calling `text()`, `raw()`, `contents()`, or `save()` consumes the paste. `paste.state` reports `"pending"`, `"consuming"`, or `"consumed"`; a second consume attempt throws `PasteConsumedError`.
+
+Text paste methods:
+
+```ts
+if (paste.kind === "text") {
+  await paste.text(); // string
+  await paste.raw(); // Uint8Array
+  await paste.save("/tmp/paste-output"); // pasted-text-<uuid>.txt
+}
+```
+
+File paste methods:
+
+```ts
+if (paste.kind === "files") {
+  paste.files; // metadata
+  await paste.contents(); // metadata plus actual files as Uint8Array
+  await paste.save("/tmp/paste-output"); // metadata plus saved path
+}
+```
+
+## Protocol escape hatch
+
+Low-level protocol requests are available through the `protocol` namespace when you need direct control:
+
+```ts
+import { client, protocol } from "@thurstonsand/ghosttykit";
+
+const gty = client();
+const stream = await gty.stream<protocol.PasteStreamFrameHeader>(
+  protocol.pasteRequest(),
+);
+try {
+  if (stream.header.kind === "files") {
+    for (const file of stream.header.files ?? []) {
+      // Read exactly file.bytes from stream.body.
+    }
+  }
+} finally {
+  stream.close();
+}
+```
+
+Raw methods are `call`, `notify`, `stream`, and `hold`. They work with request builders from `protocol` and return protocol frames.
 
 ## Errors
 
 Failed daemon replies throw typed errors based on the protocol code:
 
 ```ts
-import { PasteEmptyError } from "@thurstonsand/ghosttykit";
+import { PasteEmptyError, client } from "@thurstonsand/ghosttykit";
 
 try {
   await client().paste();
 } catch (error) {
   if (error instanceof PasteEmptyError) {
-    // Clipboard has no supported paste content.
+    // Clipboard has no supported content.
   }
 }
 ```
 
-Transport and client-shape failures throw non-protocol errors such as `TransportError`, `InvalidReplyModeError`, and `InvalidReplyError`.
+Transport and client-shape failures throw non-protocol errors such as `TransportError`, `InvalidReplyModeError`, `InvalidReplyError`, and `PasteConsumedError`.
 
 ## Development
 

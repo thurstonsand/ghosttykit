@@ -7,12 +7,9 @@ import { parseTypeBoxValue } from "./typebox.js";
 
 const DEFAULT_SHORTCUT = "alt+v";
 const DEFAULT_OUTPUT_DIR = "/tmp/pi-paste-file";
-const DEFAULT_GTY_BIN = "gty";
-
 const PI_PASTE_SETTINGS_SCHEMA = Type.Object({
   shortcut: Type.Optional(Type.String()),
   outputDir: Type.Optional(Type.String()),
-  gtyBin: Type.Optional(Type.String()),
 });
 
 const ROOT_SETTINGS_SCHEMA = Type.Object({
@@ -24,7 +21,6 @@ type PiPasteRawSettings = Static<typeof PI_PASTE_SETTINGS_SCHEMA>;
 export interface PiPasteSettings {
   shortcut: KeyId;
   outputDir: string;
-  gtyBin: string;
 }
 
 export function loadSettings(): PiPasteSettings {
@@ -37,7 +33,6 @@ function resolveSettings(settings: PiPasteRawSettings): PiPasteSettings {
   return {
     shortcut: normalizeShortcut(settings.shortcut),
     outputDir: normalizeOutputDir(settings.outputDir),
-    gtyBin: normalizeGtyBin(settings.gtyBin),
   };
 }
 
@@ -58,15 +53,6 @@ function normalizeOutputDir(value: string | undefined): string {
   }
 
   return path.normalize(expanded);
-}
-
-function normalizeGtyBin(value: string | undefined): string {
-  const trimmed = value?.trim();
-  if (!trimmed) {
-    return DEFAULT_GTY_BIN;
-  }
-
-  return expandHome(trimmed);
 }
 
 function expandHome(rawPath: string): string {

@@ -43,6 +43,13 @@ export class InvalidReplyError extends Error {
   }
 }
 
+export class PasteConsumedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "PasteConsumedError";
+  }
+}
+
 export function errorFromReply(reply: FrameReply): GhosttyKitError | undefined {
   if (reply.code === protocolCodes.ok) {
     return undefined;

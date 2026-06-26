@@ -16,12 +16,16 @@ local function setup_autocmds()
 
   vim.api.nvim_create_autocmd({ "VimEnter", "VimResume", "FocusGained" }, {
     group = group,
-    callback = client.activate_key_table,
+    callback = function()
+      client.activate_key_table()
+    end,
   })
 
   vim.api.nvim_create_autocmd({ "VimSuspend", "VimLeavePre" }, {
     group = group,
-    callback = client.deactivate_key_table,
+    callback = function()
+      client.deactivate_key_table()
+    end,
   })
 
   return true

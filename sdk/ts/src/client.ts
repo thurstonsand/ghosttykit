@@ -6,16 +6,20 @@ import {
   TransportError,
   throwIfReplyError,
 } from "./errors.js";
+import type { Paste } from "./paste.js";
+import { pasteFromStream } from "./paste-internal.js";
 import {
   type AckOptions,
   type BridgeCreateReply,
   bridgeCreateRequest,
   bridgeLeaseRequest,
   clearCacheRequest,
-  type DirectionOptions,
+  type Direction,
+  type DoctorCheck,
   type DoctorReply,
   doctorRequest,
   encodeRequest,
+  type FocusTarget,
   type FrameReply,
   focusRequest,
   type KeyTableActivateOptions,
@@ -26,7 +30,7 @@ import {
   type PasteStreamHeader,
   pasteRequest,
   type Request,
-  type ResizeOptions,
+  type ResizeAmount,
   replyModeOf,
   resizeRequest,
   type SplitOptions,
@@ -43,8 +47,13 @@ export interface ClientOptions {
   socketPath?: string;
 }
 
-export interface PasteStream {
-  header: PasteStreamHeader;
+export interface DoctorStatus {
+  healthy: boolean;
+  checks: readonly DoctorCheck[];
+}
+
+export interface RawStream<T extends FrameReply = FrameReply> {
+  header: T;
   body: Readable;
   close(): void;
 }
@@ -52,6 +61,27 @@ export interface PasteStream {
 export interface HoldResult<T extends FrameReply = FrameReply> {
   reply: T;
   close(): void;
+}
+
+export interface Bridge {
+  readonly socketPath: string;
+  close(): void;
+}
+
+export interface CommandOptions extends AckOptions {}
+
+export interface TerminalOptions extends TerminalTargetOptions {
+  tty: string;
+}
+
+export interface TerminalCommandOptions extends TerminalOptions {
+  ack?: boolean;
+}
+
+export interface SplitCommandOptions extends TerminalCommandOptions {
+  cwd?: string;
+  commandText?: string;
+  focus?: FocusTarget;
 }
 
 export class GhosttyKitClient {
@@ -87,9 +117,7 @@ export class GhosttyKitClient {
     }
   }
 
-  async stream<T extends FrameReply = FrameReply>(
-    request: Request,
-  ): Promise<{ header: T; body: Readable; close(): void }> {
+  async stream<T extends FrameReply = FrameReply>(request: Request): Promise<RawStream<T>> {
     requireReplyMode(request, "stream");
     validateRequest(request);
     const socket = await dial(this.socketPath);
@@ -124,69 +152,84 @@ export class GhosttyKitClient {
     }
   }
 
-  async notifyAck(request: Request, ack?: boolean): Promise<FrameReply | undefined> {
+  async doctor(): Promise<DoctorStatus> {
+    const reply = await this.call<DoctorReply>(doctorRequest());
+    return { healthy: reply.healthy, checks: reply.checks ?? [] };
+  }
+
+  async terminalId(options: TerminalIdOptions = {}): Promise<string> {
+    const reply = await this.call(terminalIdRequest(options));
+    return requiredReplyValue(reply, "terminal-id reply missing terminal ID");
+  }
+
+  async tabTerminalCount(options: TerminalTargetOptions = {}): Promise<number> {
+    const reply = await this.call(tabTerminalCountRequest(options));
+    const value = Number.parseInt(
+      requiredReplyValue(reply, "tab-terminal-count reply missing count"),
+      10,
+    );
+    if (!Number.isSafeInteger(value)) {
+      throw new InvalidReplyError("tab-terminal-count reply has invalid count");
+    }
+    return value;
+  }
+
+  async clearCache(options: CommandOptions = {}): Promise<void> {
+    await this.send(clearCacheRequest(options), options.ack);
+  }
+
+  async keyTableActivate(table: string, options: TerminalCommandOptions): Promise<void> {
+    const requestOptions: KeyTableActivateOptions = { ...options, table };
+    await this.send(keyTableActivateRequest(requestOptions), options.ack);
+  }
+
+  async keyTableDeactivate(options: TerminalCommandOptions): Promise<void> {
+    await this.send(keyTableDeactivateRequest(options), options.ack);
+  }
+
+  async focus(direction: Direction, options: TerminalCommandOptions): Promise<void> {
+    await this.send(focusRequest({ ...options, direction }), options.ack);
+  }
+
+  async split(direction: Direction, options: SplitCommandOptions): Promise<void> {
+    const requestOptions: SplitOptions = { ...options, direction };
+    await this.send(splitRequest(requestOptions), options.ack);
+  }
+
+  async resize(
+    direction: Direction,
+    amount: ResizeAmount,
+    options: TerminalCommandOptions,
+  ): Promise<void> {
+    await this.send(resizeRequest({ ...options, direction, amount }), options.ack);
+  }
+
+  async zoom(options: CommandOptions = {}): Promise<void> {
+    await this.send(zoomRequest(options), options.ack);
+  }
+
+  async paste(options: PasteOptions = {}): Promise<Paste> {
+    const result = await this.stream<PasteStreamFrameHeader>(pasteRequest(options));
+    return pasteFromStream(normalizePasteHeader(result.header), result.body, result.close);
+  }
+
+  async bridge(options: TerminalOptions): Promise<Bridge> {
+    const reply = await this.call<BridgeCreateReply>(bridgeCreateRequest(options));
+    if (!reply.socketPath || !reply.leaseToken) {
+      throw new InvalidReplyError("bridge-create reply missing socket path or lease token");
+    }
+    const lease = await new GhosttyKitClient({ socketPath: reply.socketPath }).hold(
+      bridgeLeaseRequest(reply.leaseToken),
+    );
+    return { socketPath: reply.socketPath, close: lease.close };
+  }
+
+  private async send(request: Request, ack?: boolean): Promise<void> {
     if (ack) {
-      return this.call(request);
+      await this.call(request);
+      return;
     }
     await this.notify(request);
-    return undefined;
-  }
-
-  doctor(): Promise<DoctorReply> {
-    return this.call<DoctorReply>(doctorRequest());
-  }
-
-  terminalId(options: TerminalIdOptions = {}): Promise<FrameReply> {
-    return this.call(terminalIdRequest(options));
-  }
-
-  tabTerminalCount(options: TerminalTargetOptions = {}): Promise<FrameReply> {
-    return this.call(tabTerminalCountRequest(options));
-  }
-
-  clearCache(options: { tty?: string; ack?: boolean } = {}): Promise<FrameReply | undefined> {
-    return this.notifyAck(clearCacheRequest(options), options.ack);
-  }
-
-  keyTableActivate(options: KeyTableActivateOptions): Promise<FrameReply | undefined> {
-    return this.notifyAck(keyTableActivateRequest(options), options.ack);
-  }
-
-  keyTableDeactivate(options: AckOptions = {}): Promise<FrameReply | undefined> {
-    return this.notifyAck(keyTableDeactivateRequest(options), options.ack);
-  }
-
-  focus(options: DirectionOptions): Promise<FrameReply | undefined> {
-    return this.notifyAck(focusRequest(options), options.ack);
-  }
-
-  split(options: SplitOptions): Promise<FrameReply | undefined> {
-    return this.notifyAck(splitRequest(options), options.ack);
-  }
-
-  resize(options: ResizeOptions): Promise<FrameReply | undefined> {
-    return this.notifyAck(resizeRequest(options), options.ack);
-  }
-
-  zoom(options: AckOptions = {}): Promise<FrameReply | undefined> {
-    return this.notifyAck(zoomRequest(options), options.ack);
-  }
-
-  async paste(options: PasteOptions = {}): Promise<PasteStream> {
-    const result = await this.stream<PasteStreamFrameHeader>(pasteRequest(options));
-    return {
-      header: normalizePasteHeader(result.header),
-      body: result.body,
-      close: result.close,
-    };
-  }
-
-  bridgeCreate(options: TerminalTargetOptions = {}): Promise<BridgeCreateReply> {
-    return this.call<BridgeCreateReply>(bridgeCreateRequest(options));
-  }
-
-  bridgeLease(token: string): Promise<HoldResult> {
-    return this.hold(bridgeLeaseRequest(token));
   }
 }
 
@@ -235,6 +278,13 @@ function normalizePasteHeader(header: PasteStreamFrameHeader): PasteStreamHeader
     return header as PasteStreamHeader;
   }
   throw new InvalidReplyError("invalid paste stream header");
+}
+
+function requiredReplyValue(reply: FrameReply, message: string): string {
+  if (typeof reply.value !== "string" || reply.value === "") {
+    throw new InvalidReplyError(message);
+  }
+  return reply.value;
 }
 
 function writeRequest(socket: net.Socket, request: Request): Promise<void> {

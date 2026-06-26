@@ -15,8 +15,8 @@
   },
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "types": "./dist/src/index.d.ts",
+      "import": "./dist/src/index.js"
     }
   },
   "files": [
@@ -34,7 +34,13 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.15",
+    "@types/mime-types": "^3.0.1",
     "@types/node": "^25.6.2",
+    "@types/sanitize-filename": "^1.1.28",
     "typescript": "^6.0.3"
+  },
+  "dependencies": {
+    "mime-types": "^3.0.2",
+    "sanitize-filename": "^1.6.4"
   }
 }

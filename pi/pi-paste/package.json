@@ -23,7 +23,7 @@
     ]
   },
   "files": [
-    "gty.ts",
+    "paste.ts",
     "index.ts",
     "settings.ts",
     "typebox.ts",

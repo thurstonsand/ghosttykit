@@ -60,7 +60,7 @@ Use the nightly dist-tag when pairing with `ghosttykit-nightly`:
 pi install npm:@thurstonsand/pi-paste@nightly
 ```
 
-The extension enables paste even over ssh when combined with `gty ssh`.
+The extension enables paste over ssh when combined with `gty ssh`.
 
 Optional settings, in `~/.pi/agent/settings.json`:
 
@@ -68,8 +68,7 @@ Optional settings, in `~/.pi/agent/settings.json`:
 {
   "paste": {
     "shortcut": "alt+v",
-    "outputDir": "/tmp/pi-paste-file",
-    "gtyBin": "gty"
+    "outputDir": "/tmp/pi-paste-file"
   }
 }
 ```

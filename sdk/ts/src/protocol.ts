@@ -35,7 +35,7 @@ export interface BridgeCreateReply extends FrameReply {
 }
 
 export type Direction = "left" | "down" | "up" | "right";
-export type FocusTarget = "new" | "current";
+export type FocusTarget = "new" | "original";
 
 export type ResizeAmount = { pixels: number } | { percent: number };
 
