@@ -9,13 +9,14 @@ _default:
 fmt:
     golangci-lint fmt
 
+fmt-check:
+    diff="$(golangci-lint fmt --diff)"; printf '%s' "$diff"; test -z "$diff"
+
 lint:
     golangci-lint run ./...
 
 test:
     go test ./...
-
-typecheck: test
 
 check: fmt lint test
 

@@ -6,6 +6,9 @@ _default:
 fmt:
     npm run fmt
 
+fmt-check:
+    npx --no-install biome format .
+
 lint:
     npm run lint
 

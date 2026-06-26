@@ -27,11 +27,11 @@ One stable tag fans out into several release surfaces:
 | -------------------------- | ------------------------------------------------------ | -------------------------------------------------------------- |
 | GitHub release archives    | `.github/workflows/release.yml`                        | Signed/notarized Darwin archives on `vX.Y.Z` or `nightly-*`    |
 | Homebrew tap               | `.github/workflows/release.yml`                        | `thurstonsand/homebrew-ghosttykit/Formula/ghosttykit.rb`       |
-| Lua SDK mirror             | `.github/workflows/publish-lua.yml`                    | `thurstonsand/ghosttykit.lua` `main`, `nightly`, and `vX.Y.Z`  |
-| Neovim plugin mirror       | `.github/workflows/publish-lua.yml`                    | `thurstonsand/ghosttykit.nvim` `main`, `nightly`, and `vX.Y.Z` |
+| Lua SDK mirror             | `.github/workflows/release.yml`                        | `thurstonsand/ghosttykit.lua` `main`, `nightly`, and `vX.Y.Z`  |
+| Neovim plugin mirror       | `.github/workflows/release.yml`                        | `thurstonsand/ghosttykit.nvim` `main`, `nightly`, and `vX.Y.Z` |
 | Lua SDK LuaRock            | `sdk/lua/.github/workflows/luarocks.yml` in the mirror | `ghosttykit` on LuaRocks                                       |
-| TypeScript SDK npm package | `.github/workflows/publish-npm.yml`                    | `@thurstonsand/ghosttykit` on npm                              |
-| Pi paste npm package       | `.github/workflows/publish-npm.yml`                    | `@thurstonsand/pi-paste` on npm                                |
+| TypeScript SDK npm package | `.github/workflows/release.yml`                        | `@thurstonsand/ghosttykit` on npm                              |
+| Pi paste npm package       | `.github/workflows/release.yml`                        | `@thurstonsand/pi-paste` on npm                                |
 
 The SDK rock is part of the default release path because it is a library dependency. Neovim plugin releases are Git-based through the `ghosttykit.nvim` mirror. npm packages publish automatically for both stable and nightly releases. The TypeScript SDK publishes before Pi paste; the workflow rewrites Pi paste's SDK dependency to the exact SDK version published by the same run.
 
@@ -124,11 +124,10 @@ Push `main` first:
 git push origin main
 ```
 
-Watch both monorepo workflows for the pushed commit:
+Watch the monorepo release workflow for the pushed commit:
 
 ```sh
-gh run list --branch main --limit 6
-gh run watch <publish-lua-run-id> --exit-status
+gh run list --workflow Release --branch main --limit 6
 gh run watch <release-run-id> --exit-status
 ```
 
@@ -151,13 +150,13 @@ If the release needs hand-testing, stop here and ask the user to test before tag
 
 ## 6. Verify npm package nightlies when included
 
-After pushing `main`, the `Publish TypeScript Packages` workflow should publish the TypeScript SDK first and Pi paste second.
+After pushing `main`, the `Release` workflow should publish the TypeScript SDK first and Pi paste second.
 
 Watch the workflow:
 
 ```sh
-gh run list --workflow "Publish TypeScript Packages" --branch main --limit 5
-gh run watch <publish-npm-run-id> --exit-status
+gh run list --workflow Release --branch main --limit 5
+gh run watch <release-run-id> --exit-status
 ```
 
 Verify nightly npm dist-tags when the workflow completes:
@@ -184,15 +183,14 @@ Do not force-push a stable tag. If a tag already exists, stop and inspect; do no
 
 ## 8. Watch stable monorepo publishing
 
-The stable tag should trigger both monorepo workflows:
+The stable tag should trigger the monorepo release workflow:
 
 ```sh
-gh run list --limit 10 --json databaseId,workflowName,headBranch,headSha,status,conclusion,event
-gh run watch <publish-lua-run-id> --exit-status
+gh run list --workflow Release --limit 10 --json databaseId,workflowName,headBranch,headSha,status,conclusion,event
 gh run watch <release-run-id> --exit-status
 ```
 
-`Publish Lua Mirrors` should push stable mirror tags without force. If it fails because a stable mirror tag already exists, treat that as a real release immutability violation and stop.
+`Release` should push stable mirror tags without force. If it fails because a stable mirror tag already exists, treat that as a real release immutability violation and stop.
 
 `Release` should create the GitHub release archives using the `RELEASE.md` entry as the release body, then update the stable Homebrew formula.
 

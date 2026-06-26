@@ -1,0 +1,14 @@
+# TODO: Delete this file once actionlint supports GitHub Actions parallel/background steps.
+# actionlint v1.7.12 predates the 2026-06-25 workflow syntax additions.
+self-hosted-runner:
+  labels: []
+
+config-variables: null
+
+paths:
+  .github/workflows/ci.yml:
+    ignore:
+      - 'step must run script with "run" section or run action with "uses" section'
+  .github/workflows/release.yml:
+    ignore:
+      - 'step must run script with "run" section or run action with "uses" section'

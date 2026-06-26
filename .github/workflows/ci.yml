@@ -7,8 +7,53 @@ permissions:
   contents: read
 
 jobs:
-  check:
-    name: Check
+  go:
+    name: Go (${{ matrix.name }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: darwin-arm64
+            runner: macos-26
+          - name: darwin-amd64
+            runner: macos-26-intel
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up mise
+        uses: jdx/mise-action@v4
+        with:
+          install: true
+          cache: true
+
+      - name: Cache Go dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: go-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('sdk/go/go.sum', 'cli/gty/go.sum') }}
+          restore-keys: |
+            go-${{ runner.os }}-${{ runner.arch }}-
+
+      - parallel:
+          - name: Check Go SDK
+            run: |
+              just -f sdk/go/justfile fmt-check
+              just -f sdk/go/justfile lint
+              just -f sdk/go/justfile test
+
+          - name: Check gty CLI
+            run: |
+              just -f cli/gty/justfile fmt-check
+              just -f cli/gty/justfile lint
+              just -f cli/gty/justfile test
+              just -f cli/gty/justfile build
+
+  swift:
+    name: Swift
     runs-on: macos-26
     steps:
       - name: Checkout repository
@@ -20,8 +65,121 @@ jobs:
           install: true
           cache: true
 
-      - name: Ensure package dependencies
-        run: just ensure-deps
+      - name: Cache Swift build products
+        uses: actions/cache@v4
+        with:
+          path: daemon/ghosttykitd/.build
+          key: swift-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('daemon/ghosttykitd/Package.swift', 'daemon/ghosttykitd/Package.resolved') }}
+          restore-keys: |
+            swift-${{ runner.os }}-${{ runner.arch }}-
 
-      - name: Run checks
-        run: just check
+      - parallel:
+          - name: Check Swift formatting
+            run: just -f daemon/ghosttykitd/justfile fmt-check
+
+          - name: Lint Swift package
+            run: just -f daemon/ghosttykitd/justfile lint
+
+      - name: Test Swift package
+        run: just -f daemon/ghosttykitd/justfile test
+
+      - name: Build Swift package
+        run: just -f daemon/ghosttykitd/justfile build
+
+  lua-nvim:
+    name: Lua / Neovim
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up mise
+        uses: jdx/mise-action@v4
+        with:
+          install: true
+          cache: true
+
+      - name: Cache Lua dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            .luarocks
+            .luals
+          key: lua-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('sdk/lua/ghosttykit-scm-1.rockspec', 'sdk/lua/justfile', 'nvim/ghosttykit.nvim-scm-1.rockspec', 'nvim/justfile') }}
+          restore-keys: |
+            lua-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Ensure Lua and Neovim dependencies
+        run: just ensure-deps-nvim
+
+      - name: Check Lua and Neovim packages
+        run: |
+          just -f sdk/lua/justfile fmt-check
+          just -f sdk/lua/justfile lint
+          just -f sdk/lua/justfile typecheck
+          just -f sdk/lua/justfile test-all
+          just -f sdk/lua/justfile build
+          just -f nvim/justfile fmt-check
+          just -f nvim/justfile lint
+          just -f nvim/justfile typecheck
+          just -f nvim/justfile test
+          just -f nvim/justfile build
+
+  typescript-pi:
+    name: TypeScript / Pi
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up mise
+        uses: jdx/mise-action@v4
+        with:
+          install: true
+          cache: true
+
+      - name: Cache npm packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: npm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('sdk/ts/package-lock.json', 'pi/pi-paste/package-lock.json') }}
+          restore-keys: |
+            npm-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Ensure Node dependencies
+        run: just ensure-deps-ts
+
+      - parallel:
+          - name: Check TypeScript SDK
+            run: |
+              just -f sdk/ts/justfile fmt-check
+              just -f sdk/ts/justfile lint
+              just -f sdk/ts/justfile typecheck
+              just -f sdk/ts/justfile test
+
+          - name: Check Pi paste
+            run: |
+              just -f pi/pi-paste/justfile fmt-check
+              just -f pi/pi-paste/justfile lint
+              just -f pi/pi-paste/justfile typecheck
+              just -f pi/pi-paste/justfile build
+
+  docs-actions:
+    name: Docs / Actions
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up mise
+        uses: jdx/mise-action@v4
+        with:
+          install: true
+          cache: true
+
+      - name: Check docs and automation config
+        run: |
+          just fmt-check-docs
+          just lint-docs
+          just check-github-actions
+          just check-renovate

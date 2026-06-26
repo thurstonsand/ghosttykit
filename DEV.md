@@ -15,6 +15,7 @@
 ```sh
 just --list
 just fmt # prefer this over language-native formatter binaries
+just fmt-check
 just lint
 just typecheck
 just test
@@ -27,35 +28,17 @@ just smoke-real-daemon --bridge  # same checks through a daemon-owned bridge soc
 - Component commands:
 
 ```sh
-just fmt-go
-just fmt-swift
-just fmt-pi
-just fmt-nvim
-just fmt-docs
-just lint-go
-just lint-swift
-just lint-pi
-just lint-lua
-just lint-nvim
-just lint-docs
-just typecheck-go
-just typecheck-swift
-just typecheck-lua
-just typecheck-pi
-just typecheck-nvim
-just test-go
-just test-swift
-just test-lua
-just test-nvim
-just build-go
-just build-swift
-just build-lua
-just build-pi
-just build-nvim
+just fmt-{go,swift,lua,pi,ts,nvim,docs}
+just fmt-check-{go,swift,lua,pi,ts,nvim,docs}
+just lint-{go,swift,lua,pi,ts,nvim,docs}
+just typecheck-{swift,lua,pi,ts,nvim}
+just test-{go,swift,lua,ts,nvim}
+just build-{go,swift,lua,pi,ts,nvim}
 ```
 
-- `pi/pi-paste` checks require `node_modules`. Use this if dependency issues arise:
+- Lua and Node checks require local package dependencies. Use these if dependency issues arise:
 
 ```sh
-just install-deps-pi
+just install-deps-lua # Lua SDK and Neovim plugin dependencies
+just install-deps-ts  # TypeScript SDK plus Pi paste dependencies
 ```
