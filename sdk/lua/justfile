@@ -28,6 +28,9 @@ install-luals-types:
 fmt:
     stylua --config-path stylua.toml lua spec
 
+fmt-check:
+    stylua --check --config-path stylua.toml lua spec
+
 lint:
     eval "$(luarocks path --tree {{rock_tree}} --lua-version 5.1 --bin)" && luacheck lua spec
 

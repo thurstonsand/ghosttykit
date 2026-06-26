@@ -16,6 +16,9 @@ install-deps:
 fmt:
     stylua --config-path stylua.toml lua plugin spec lazy.lua
 
+fmt-check:
+    stylua --check --config-path stylua.toml lua plugin spec lazy.lua
+
 lint:
     eval "$(luarocks path --tree {{rock_tree}} --lua-version 5.1 --bin)" && luacheck lua plugin spec lazy.lua
 

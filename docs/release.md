@@ -22,7 +22,7 @@ Pushes to `main` update `Formula/ghosttykit-nightly.rb` to point at the newest n
 
 ### Lua SDK and Neovim plugin mirrors
 
-The `Publish Lua Mirrors` workflow splits monorepo subdirectories into standalone repositories:
+The `Release` workflow splits monorepo subdirectories into standalone repositories:
 
 | Monorepo path | Mirror repo                    |
 | ------------- | ------------------------------ |
@@ -37,11 +37,11 @@ Local development and dogfooding can track mirror `main` instead.
 
 ### npm packages
 
-The `Publish TypeScript Packages` workflow publishes the TypeScript SDK from `sdk/ts` as `@thurstonsand/ghosttykit` and the Pi extension from `pi/pi-paste` as `@thurstonsand/pi-paste`. It uses npm Trusted Publishing through GitHub Actions OIDC, so the repository does not store an npm token.
+The `Release` workflow publishes the TypeScript SDK from `sdk/ts` as `@thurstonsand/ghosttykit` and the Pi extension from `pi/pi-paste` as `@thurstonsand/pi-paste`. It uses npm Trusted Publishing through GitHub Actions OIDC, so the repository does not store an npm token.
 
 Stable `v*` tags publish matching package versions on the default `latest` dist-tag. Pushes to `main` publish unique prerelease versions like `X.Y.Z-nightly.<run-id>.<attempt>.<short-sha>` on the `nightly` dist-tag, leaving `latest` untouched.
 
-The workflow runs the shared CI workflow, publishes the TypeScript SDK first, then rewrites Pi paste's `@thurstonsand/ghosttykit` dependency to the exact SDK version from the same run before packing and publishing Pi paste. This keeps stable and nightly Pi paste packages paired with the matching SDK package.
+The workflow runs shared CI once, publishes the TypeScript SDK first, then rewrites Pi paste's `@thurstonsand/ghosttykit` dependency to the exact SDK version from the same run before packing and publishing Pi paste. This keeps stable and nightly Pi paste packages paired with the matching SDK package.
 
 ## Repository secrets
 

@@ -12,6 +12,9 @@ _default:
 fmt:
     swiftformat Sources Package.swift
 
+fmt-check:
+    swiftformat Sources Package.swift --lint
+
 lint:
     swiftlint lint --strict Sources
 
@@ -24,7 +27,7 @@ typecheck:
 test:
     swift test --quiet
 
-check: fmt lint typecheck test build
+check: fmt lint test build
 
 build:
     swift build -c release
