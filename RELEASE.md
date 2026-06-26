@@ -1,3 +1,5 @@
+<!-- markdownlint-disable MD024 -->
+
 # Release notes
 
 ## 0.3.0
