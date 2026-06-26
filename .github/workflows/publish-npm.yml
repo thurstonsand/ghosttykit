@@ -105,14 +105,14 @@ jobs:
           registry-url: https://registry.npmjs.org
           package-manager-cache: false
 
-      - name: Install dependencies
-        run: npm ci
-
       - name: Set package version
         run: npm version "${{ needs.release.outputs.version }}" --no-git-tag-version
 
       - name: Use matching GhosttyKit SDK
-        run: npm install "@thurstonsand/ghosttykit@${{ needs.release.outputs.version }}" --save-exact
+        run: npm install "@thurstonsand/ghosttykit@${{ needs.release.outputs.version }}" --save-exact --package-lock-only
+
+      - name: Install dependencies
+        run: npm ci
 
       - name: Check package
         run: npm run check
