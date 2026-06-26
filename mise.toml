@@ -1,17 +1,18 @@
 [tools]
 actionlint = "1.7.12"
 go = "1.26.4"
-lua = "5.1.5"
 lua-language-server = "3.18.2"
-luajit = "2.1.1744318430"
-node = "26.3.1"
+# TODO: remove the LuaRocks pin once LuaRocks publishes a fixed release after 3.13.0.
+# The 3.13.0 tarball currently ships an invalid rockspec
+"asdf:mise-plugins/mise-luaJIT" = { version = "2.1.ROLLING", install_env = { LUAROCKS_VERSION = "3.12.2" } }
+node = "26.4.0"
 neovim = "0.12.3"
-just = "1.53.0"
+just = "1.54.0"
 golangci-lint = "2.12.2"
 gofumpt = "0.10.0"
 markdownlint-cli2 = "0.22.1"
 "npm:prettier" = "3.8.4"
-"npm:renovate" = "43.229.1"
+"npm:renovate" = "43.243.2"
 stylua = "2.5.2"
 swiftformat = "0.61.1"
-swiftlint = "0.63.3"
+swiftlint = "0.64.1"

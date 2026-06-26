@@ -1,6 +1,7 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": ["config:recommended"],
+  "ignorePaths": ["sdk/lua/.github/workflows/**", "nvim/.github/workflows/**"],
   "dependencyDashboard": true,
   "labels": ["dependencies"],
   "schedule": ["before 6am on Monday"],

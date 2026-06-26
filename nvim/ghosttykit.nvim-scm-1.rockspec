@@ -18,6 +18,7 @@ dependencies = {
 test_dependencies = {
   "busted >= 2.2.0",
   "luacheck >= 1.2.0",
+  "nlua >= 0.3.2",
 }
 build = {
   type = "builtin",
