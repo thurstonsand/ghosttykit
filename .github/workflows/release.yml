@@ -491,7 +491,19 @@ jobs:
         run: npm version "${{ needs.resolve.outputs.npm_version }}" --no-git-tag-version
 
       - name: Use matching GhosttyKit SDK
-        run: npm install "@thurstonsand/ghosttykit@${{ needs.resolve.outputs.npm_version }}" --save-exact --package-lock-only
+        env:
+          SDK_VERSION: ${{ needs.resolve.outputs.npm_version }}
+        run: |
+          for _ in {1..24}; do
+            if npm view "@thurstonsand/ghosttykit@${SDK_VERSION}" version >/dev/null 2>&1; then
+              npm install "@thurstonsand/ghosttykit@${SDK_VERSION}" --save-exact --package-lock-only
+              exit 0
+            fi
+            sleep 5
+          done
+
+          npm view "@thurstonsand/ghosttykit@${SDK_VERSION}" version
+
 
       - name: Install dependencies
         run: npm ci
