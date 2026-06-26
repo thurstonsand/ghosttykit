@@ -496,29 +496,3 @@ type PasteStreamFrameHeader struct {
 	Files []PasteFile `json:"files,omitempty"`
 	Bytes int64       `json:"bytes,omitempty"`
 }
-
-// PasteResult is a validated paste result returned by the client after file materialization.
-type PasteResult interface {
-	PasteKind() PasteKind
-}
-
-// PasteTextResult is a text paste result.
-type PasteTextResult struct {
-	Text string
-}
-
-// PasteKind reports the result variant.
-func (PasteTextResult) PasteKind() PasteKind {
-	return PasteKindText
-}
-
-// PasteFilesResult is a file paste result.
-type PasteFilesResult struct {
-	Files []PasteFile
-	Bytes int64
-}
-
-// PasteKind reports the result variant.
-func (PasteFilesResult) PasteKind() PasteKind {
-	return PasteKindFiles
-}

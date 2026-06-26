@@ -19,13 +19,13 @@ Create a client and call GhosttyKit commands:
 local ghosttykit = require("ghosttykit")
 
 local client = ghosttykit.client()
-local reply, err = client:doctor()
+local status, err = client:doctor()
 
 if err then
   error(tostring(err))
 end
 
-print(reply.healthy)
+print(status.healthy)
 ```
 
 By default, the client connects to the standard GhosttyKit socket. Pass `socket_path` to target another daemon or bridge socket:
@@ -38,28 +38,41 @@ local client = ghosttykit.client({
 
 ## Commands
 
-Most methods return `reply, err`. Methods that only need acknowledgement return `ok, err` when `ack = true`, or send a notification without waiting when `ack` is omitted.
+Commands are grouped by domain. Most methods return `value, err`; methods that only need acknowledgement return `ok, err` when `ack = true`, or send a notification without waiting when `ack` is omitted.
 
 ```lua
 client:doctor()
-client:terminal_id({ focused = true })
-client:tab_terminal_count({ focused = true })
-client:key_table_activate({ table = "nvim", focused = true, ack = true })
-client:key_table_deactivate({ focused = true, ack = true })
-client:focus({ direction = "left", focused = true, ack = true })
-client:split({ direction = "right", cwd = vim.fn.getcwd(), focus = true, ack = true })
-client:resize({ direction = "right", amount = 10, ack = true })
-client:zoom({ ack = true })
-client:paste({ focused = true })
-client:bridge_create({ focused = true })
-client:bridge_lease(token)
+client.terminal:id({ focused = true })
+client.terminal:count({ focused = true })
+client.terminal:clear_cache({ ack = true })
+client.key_table:activate({ name = "nvim", focused = true, ack = true })
+client.key_table:deactivate({ focused = true, ack = true })
+client.layout:focus({ direction = "left", focused = true, ack = true })
+client.layout:split({ direction = "right", cwd = vim.fn.getcwd(), focus = true, ack = true })
+client.layout:resize({ direction = "right", pixels = 10, ack = true })
+client.layout:zoom({ ack = true })
+client.paste:get()
+client.bridge:create({ focused = true })
 ```
 
-For lower-level integrations, request builders are available through `ghosttykit.protocol`:
+Paste handles can read text, read file contents, or save pasted content to disk:
+
+```lua
+local paste = assert(client.paste:get())
+local saved = assert(paste:save({ dir = "/tmp/ghosttykit-paste" }))
+print(saved[1].path)
+```
+
+## Low-level protocol escape hatches
+
+Raw request builders are available through `ghosttykit.protocol`, and clients expose protocol reply modes through `client.raw`:
 
 ```lua
 local request = ghosttykit.protocol.focus({ direction = "left", ack = true })
-local reply, err = client:call(request)
+local reply, err = client.raw:call(request)
+
+local stream, stream_err = client.raw:stream(ghosttykit.protocol.paste())
+local held, hold_err = client.raw:hold(ghosttykit.protocol.bridge_lease(token))
 ```
 
 ## Errors
@@ -67,7 +80,7 @@ local reply, err = client:call(request)
 Errors are returned as values, not thrown:
 
 ```lua
-local ok, err = client:focus({ direction = "left", ack = true })
+local ok, err = client.layout:focus({ direction = "left", ack = true })
 if not ok then
   vim.notify(err.message or err.code, vim.log.levels.ERROR)
 end

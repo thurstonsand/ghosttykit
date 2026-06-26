@@ -9,7 +9,6 @@ import (
 
 	"github.com/thurstonsand/ghosttykit/cli/gty/internal/paste"
 	"github.com/thurstonsand/ghosttykit/sdk/go/client"
-	"github.com/thurstonsand/ghosttykit/sdk/go/protocol"
 )
 
 func pasteCmd(opts *options) *cobra.Command {
@@ -31,15 +30,19 @@ func runPaste(out io.Writer, opts *options, outputDir string, jsonOutput bool) e
 	if strings.TrimSpace(outputDir) == "" {
 		return usageError{err: errors.New("--output-dir is required")}
 	}
-	request := protocol.NewPasteRequest(optionalTTY(opts))
 	gtyClient := client.New()
+	pasteOpts := client.PasteOptions{TTY: optionalTTY(opts), OutputDir: outputDir}
 	if !jsonOutput {
-		return paste.Write(out, gtyClient, request, outputDir)
+		result, err := gtyClient.WritePasteText(out, pasteOpts)
+		if err != nil {
+			return paste.MapNoContentError(err)
+		}
+		return paste.PrintText(out, result)
 	}
 
-	result, err := paste.Receive(gtyClient, request, outputDir)
+	result, err := gtyClient.Paste(pasteOpts)
 	if err != nil {
-		return err
+		return paste.MapNoContentError(err)
 	}
 	return paste.PrintJSON(out, result)
 }

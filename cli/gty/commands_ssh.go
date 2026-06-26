@@ -1,15 +1,12 @@
 package main
 
 import (
-	"fmt"
 	"os"
-	"os/signal"
 
 	"github.com/spf13/cobra"
 
 	"github.com/thurstonsand/ghosttykit/cli/gty/internal/remote"
 	"github.com/thurstonsand/ghosttykit/sdk/go/client"
-	"github.com/thurstonsand/ghosttykit/sdk/go/protocol"
 )
 
 func sshCmd(opts *options) *cobra.Command {
@@ -25,7 +22,7 @@ func sshCmd(opts *options) *cobra.Command {
 	cmd.Flags().BoolVar(&sshOpts.RequireBridge, "require-bridge", false, "fail instead of continuing as plain SSH when the bridge is unavailable")
 	cmd.Flags().BoolVar(&sshOpts.UnmanagedSSH, "debug-unmanaged-ssh", false, "skip GhosttyKit managed OpenSSH options")
 	cmd.Flags().BoolVar(&sshOpts.NoBootstrap, "debug-no-bootstrap", false, "skip remote gty bootstrap")
-	cmd.AddCommand(sshRemoteInitCmd(), sshRemoteRunCmd(), sshBridgeCreateCmd(opts), sshBridgeLeaseCmd())
+	cmd.AddCommand(sshRemoteInitCmd(), sshRemoteRunCmd())
 	return cmd
 }
 
@@ -49,17 +46,11 @@ func createBridgeLease(opts *options) (remote.Bridge, error) {
 	if err != nil {
 		return remote.Bridge{}, err
 	}
-	request := protocol.NewBridgeCreateRequest(target.tty, target.focused)
-	reply, err := client.Call[protocol.BridgeCreateReply](client.New(), request)
+	bridge, err := client.New().Bridge(client.BridgeOptions{TerminalOptions: client.TerminalOptions{TTY: target.tty, Focused: target.focused}})
 	if err != nil {
 		return remote.Bridge{}, err
 	}
-	leaseRequest := protocol.NewBridgeLeaseRequest(reply.LeaseToken)
-	_, lease, err := client.Hold[protocol.FrameReply](client.ForSocket(reply.SocketPath), leaseRequest)
-	if err != nil {
-		return remote.Bridge{}, err
-	}
-	return remote.Bridge{SocketPath: reply.SocketPath, Lease: lease}, nil
+	return remote.Bridge{SocketPath: bridge.SocketPath, Lease: bridge}, nil
 }
 
 func sshRemoteInitCmd() *cobra.Command {
@@ -90,51 +81,6 @@ func sshRemoteRunCmd() *cobra.Command {
 				Stderr: os.Stderr,
 				Env:    os.Environ(),
 			})
-		},
-	}
-}
-
-func sshBridgeCreateCmd(opts *options) *cobra.Command {
-	return &cobra.Command{
-		Use:    "bridge-create",
-		Short:  "Create a local daemon-owned SSH bridge session",
-		Hidden: true,
-		Args:   cobra.NoArgs,
-		RunE: func(_ *cobra.Command, _ []string) error {
-			target, err := requestTerminalTarget(opts)
-			if err != nil {
-				return err
-			}
-			request := protocol.NewBridgeCreateRequest(target.tty, target.focused)
-			reply, err := client.Call[protocol.BridgeCreateReply](client.New(), request)
-			if err != nil {
-				return err
-			}
-			fmt.Printf("%s\t%s\n", reply.SocketPath, reply.LeaseToken)
-			return nil
-		},
-	}
-}
-
-func sshBridgeLeaseCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:    "bridge-lease SOCKET TOKEN",
-		Short:  "Hold a local bridge lease open until interrupted",
-		Hidden: true,
-		Args:   cobra.ExactArgs(2),
-		RunE: func(_ *cobra.Command, args []string) error {
-			request := protocol.NewBridgeLeaseRequest(args[1])
-			_, conn, err := client.Hold[protocol.FrameReply](client.ForSocket(args[0]), request)
-			if err != nil {
-				return err
-			}
-			defer func() { _ = conn.Close() }()
-
-			signals := make(chan os.Signal, 1)
-			signal.Notify(signals, os.Interrupt)
-			defer signal.Stop(signals)
-			<-signals
-			return nil
 		},
 	}
 }

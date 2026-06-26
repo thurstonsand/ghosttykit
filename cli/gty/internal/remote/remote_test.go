@@ -82,12 +82,14 @@ func TestPrepareRuntimeRemovesDeadSocketsAndPreservesLiveSockets(t *testing.T) {
 	defer func() { _ = os.RemoveAll(runtimeDir) }()
 	t.Setenv("XDG_RUNTIME_DIR", runtimeDir)
 	gtyDir := filepath.Join(runtimeDir, "gty")
-	if err := os.Mkdir(gtyDir, 0o700); err != nil {
+	err = os.Mkdir(gtyDir, 0o700)
+	if err != nil {
 		t.Fatalf("Mkdir() error = %v", err)
 	}
 
 	dead := filepath.Join(gtyDir, "bridge-dead.sock")
-	if err := os.WriteFile(dead, nil, 0o600); err != nil {
+	err = os.WriteFile(dead, nil, 0o600)
+	if err != nil {
 		t.Fatalf("WriteFile() error = %v", err)
 	}
 	live := filepath.Join(gtyDir, "bridge-live.sock")
@@ -97,13 +99,7 @@ func TestPrepareRuntimeRemovesDeadSocketsAndPreservesLiveSockets(t *testing.T) {
 	}
 	defer func() { _ = listener.Close() }()
 	accepted := make(chan struct{})
-	go func() {
-		conn, err := listener.Accept()
-		if err == nil {
-			_ = conn.Close()
-		}
-		close(accepted)
-	}()
+	go acceptAndClose(listener, accepted)
 
 	result, err := PrepareRuntime()
 	if err != nil {
@@ -122,6 +118,14 @@ func TestPrepareRuntimeRemovesDeadSocketsAndPreservesLiveSockets(t *testing.T) {
 		t.Fatalf("live socket stat error = %v, want preserved", err)
 	}
 	<-accepted
+}
+
+func acceptAndClose(listener net.Listener, accepted chan<- struct{}) {
+	conn, err := listener.Accept()
+	if err == nil {
+		_ = conn.Close()
+	}
+	close(accepted)
 }
 
 func TestRunCleansSocketAndPreservesExitStatus(t *testing.T) {

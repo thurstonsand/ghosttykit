@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"strconv"
 
 	"github.com/spf13/cobra"
 
@@ -15,12 +16,11 @@ func tabTerminalCountCmd(opts *options) *cobra.Command {
 		Args: cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			target := optionalTerminalTarget(opts)
-			request := protocol.NewTabTerminalCountRequest(target.tty, target.focused)
-			reply, err := client.Call[protocol.FrameReply](client.New(), request)
+			count, err := client.New().TabTerminalCount(client.TerminalOptions{TTY: target.tty, Focused: target.focused})
 			if err != nil {
 				return err
 			}
-			printReplyValue(reply)
+			printValue(strconv.Itoa(count))
 			return nil
 		},
 	}
@@ -36,8 +36,11 @@ func focusCmd(opts *options) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			request := protocol.NewFocusRequest(target.tty, args[0], target.focused, wait)
-			return client.NotifyAck(client.New(), request, wait)
+			return client.New().Focus(client.FocusOptions{
+				TerminalOptions: client.TerminalOptions{TTY: target.tty, Focused: target.focused},
+				AckOptions:      client.AckOptions{Wait: wait},
+				Direction:       args[0],
+			})
 		},
 	}
 	cmd.Flags().BoolVar(&wait, "wait", false, "wait for acknowledgement")
@@ -57,8 +60,14 @@ func splitCmd(opts *options) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			request := protocol.NewSplitRequest(target.tty, args[0], cwd, commandText, focus, target.focused, wait)
-			return client.NotifyAck(client.New(), request, wait)
+			return client.New().Split(client.SplitOptions{
+				TerminalOptions: client.TerminalOptions{TTY: target.tty, Focused: target.focused},
+				AckOptions:      client.AckOptions{Wait: wait},
+				Direction:       args[0],
+				CWD:             cwd,
+				CommandText:     commandText,
+				Focus:           focus,
+			})
 		},
 	}
 	cmd.Flags().StringVar(&cwd, "cwd", "", "initial working directory")
@@ -84,8 +93,12 @@ func resizeCmd(opts *options) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			request := protocol.NewResizeRequest(target.tty, args[0], amount, target.focused, wait)
-			return client.NotifyAck(client.New(), request, wait)
+			return client.New().Resize(client.ResizeOptions{
+				TerminalOptions: client.TerminalOptions{TTY: target.tty, Focused: target.focused},
+				AckOptions:      client.AckOptions{Wait: wait},
+				Direction:       args[0],
+				Amount:          amount,
+			})
 		},
 	}
 	cmd.Flags().IntVar(&pixels, "pixels", 0, "resize amount in pixels")
@@ -115,8 +128,10 @@ func zoomCmd(opts *options) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			request := protocol.NewZoomRequest(target.tty, target.focused, wait)
-			return client.NotifyAck(client.New(), request, wait)
+			return client.New().Zoom(client.ZoomOptions{
+				TerminalOptions: client.TerminalOptions{TTY: target.tty, Focused: target.focused},
+				AckOptions:      client.AckOptions{Wait: wait},
+			})
 		},
 	}
 	cmd.Flags().BoolVar(&wait, "wait", false, "wait for acknowledgement")

@@ -45,8 +45,7 @@ fi
 daemon_pid=""
 daemon_log=""
 daemon_socket=""
-lease_pid=""
-bridge_socket=""
+fake_ssh_dir=""
 
 start_local_daemon() {
   daemon_socket="$(mktemp -u /tmp/ghosttykit-smoke.XXXXXX).sock"
@@ -79,43 +78,70 @@ export GTY_TTY="$SMOKE_TTY"
 
 run() {
   printf '→ %s\n' "$*" >&2
+  if [[ "$bridge_mode" -eq 1 ]]; then
+    "$GTY_BIN" ssh --require-bridge --debug-no-bootstrap ghosttykit-smoke -- "$GTY_BIN" "$@"
+    return
+  fi
   "$GTY_BIN" "$@"
 }
 
-start_bridge() {
-  local main_socket="$GTY_SOCK"
-  local bridge_line lease_token
+setup_fake_ssh() {
+  fake_ssh_dir="$(mktemp -d /tmp/ghosttykit-smoke-ssh.XXXXXX)"
+  cat >"$fake_ssh_dir/ssh" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
 
-  printf '→ ssh bridge-create\n' >&2
-  bridge_line="$("$GTY_BIN" ssh bridge-create)"
-  bridge_socket="${bridge_line%%$'\t'*}"
-  lease_token="${bridge_line#*$'\t'}"
-  if [[ -z "$bridge_socket" || -z "$lease_token" || ! -S "$bridge_socket" ]]; then
-    echo "smoke-real-daemon: bridge-create returned invalid socket/token" >&2
-    exit 1
+remote_forward=""
+args=()
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -o)
+      shift 2
+      ;;
+    -R)
+      remote_forward="$2"
+      shift 2
+      ;;
+    -t)
+      shift
+      ;;
+    --)
+      shift
+      break
+      ;;
+    *)
+      args+=("$1")
+      shift
+      ;;
+  esac
+done
+
+if [[ $# -lt 1 ]]; then
+  exit 0
+fi
+host="$1"
+shift
+command="$*"
+: "$host"
+
+if [[ "$command" == "command -v gty"* ]]; then
+  printf '%s\n' "$GTY_BIN"
+  exit 0
+fi
+
+if [[ -n "$remote_forward" ]]; then
+  remote_socket="${remote_forward%%:*}"
+  local_socket="${remote_forward#*:}"
+  if [[ "$command" =~ ^GTY_SOCK=[^[:space:]]+[[:space:]](.*)$ ]]; then
+    command="GTY_SOCK=$(printf '%q' "$local_socket") ${BASH_REMATCH[1]}"
   fi
+fi
 
-  printf '→ ssh bridge-lease %s <token>\n' "$bridge_socket" >&2
-  "$GTY_BIN" ssh bridge-lease "$bridge_socket" "$lease_token" &
-  lease_pid="$!"
-  export GTY_SOCK="$bridge_socket"
-
-  for _ in {1..50}; do
-    if "$GTY_BIN" doctor >/dev/null 2>&1; then
-      printf 'bridge-socket: %s\n' "$bridge_socket" >&2
-      return
-    fi
-    if ! kill -0 "$lease_pid" 2>/dev/null; then
-      echo "smoke-real-daemon: bridge lease exited before bridge was ready" >&2
-      export GTY_SOCK="$main_socket"
-      exit 1
-    fi
-    sleep 0.1
-  done
-
-  echo "smoke-real-daemon: bridge did not accept requests" >&2
-  export GTY_SOCK="$main_socket"
-  exit 1
+exec /bin/sh -lc "$command"
+EOF
+  chmod 755 "$fake_ssh_dir/ssh"
+  export PATH="$fake_ssh_dir:$PATH"
+  export GTY_BIN
 }
 
 expect() {
@@ -156,9 +182,8 @@ restore_clipboard() {
 cleanup() {
   run key-table deactivate --wait >/dev/null 2>&1 || true
   restore_clipboard
-  if [[ -n "$lease_pid" ]]; then
-    kill "$lease_pid" 2>/dev/null || true
-    wait "$lease_pid" 2>/dev/null || true
+  if [[ -n "$fake_ssh_dir" ]]; then
+    rm -rf "$fake_ssh_dir"
   fi
   if [[ -n "$daemon_pid" ]]; then
     kill "$daemon_pid" 2>/dev/null || true
@@ -176,8 +201,8 @@ printf 'GTY_SOCK: %s\n' "${GTY_SOCK:-<default>}" >&2
 printf 'GTY_TTY: %s\n' "$GTY_TTY" >&2
 
 if [[ "$bridge_mode" -eq 1 ]]; then
-  start_bridge
-  printf 'GTY_SOCK: %s\n' "$GTY_SOCK" >&2
+  setup_fake_ssh
+  printf 'ssh: %s\n' "$fake_ssh_dir/ssh" >&2
 fi
 
 run doctor

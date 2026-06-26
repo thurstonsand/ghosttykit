@@ -35,7 +35,7 @@ typecheck:
     lua-language-server --check=. --configpath=.luarc.json --checklevel=Warning
 
 test:
-    eval "$(luarocks path --tree {{rock_tree}} --lua-version 5.1 --bin)" && busted spec/protocol_spec.lua spec/error_spec.lua spec/socket_spec.lua spec/transport_luv_spec.lua
+    eval "$(luarocks path --tree {{rock_tree}} --lua-version 5.1 --bin)" && busted spec/protocol_spec.lua spec/error_spec.lua spec/socket_spec.lua spec/client_spec.lua spec/transport_luv_spec.lua
 
 test-nvim:
     eval "$(luarocks path --tree {{rock_tree}} --lua-version 5.1 --bin)" && nvim --headless -u NONE -c 'set rtp+=.' -c 'lua package.path = "lua/?.lua;lua/?/init.lua;spec/?.lua;spec/?/init.lua;" .. package.path; arg = { "spec/transport_nvim_spec.lua" }; require("busted.runner")({ standalone = false })' -c qall

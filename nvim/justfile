@@ -23,7 +23,7 @@ typecheck:
     lua-language-server --check=. --configpath=.luarc.json --checklevel=Warning
 
 test:
-    eval "$(luarocks path --tree {{rock_tree}} --lua-version 5.1 --bin)" && nvim --headless -u NONE -c 'set rtp+=.' -c 'lua package.path = "{{nvim_package_path}}" .. package.path; arg = { "spec/config_spec.lua", "spec/keymaps_spec.lua", "spec/lazy_spec.lua", "spec/tty_spec.lua", "spec/navigation_spec.lua", "spec/autocmds_spec.lua" }; require("busted.runner")({ standalone = false })' -c qall
+    eval "$(luarocks path --tree {{rock_tree}} --lua-version 5.1 --bin)" && nvim --headless -u NONE -c 'set rtp+=.' -c 'lua package.path = "{{nvim_package_path}}" .. package.path; arg = { "spec/config_spec.lua", "spec/keymaps_spec.lua", "spec/lazy_spec.lua", "spec/tty_spec.lua", "spec/navigation_spec.lua", "spec/client_spec.lua", "spec/autocmds_spec.lua" }; require("busted.runner")({ standalone = false })' -c qall
 
 build:
     just -f {{sdk_just}} build

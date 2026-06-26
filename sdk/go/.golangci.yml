@@ -10,7 +10,12 @@ formatters:
         - github.com/thurstonsand/ghosttykit
 
 linters:
+  settings:
+    govet:
+      enable:
+        - shadow
   enable:
+    - govet
     - contextcheck
     - copyloopvar
     - errchkjson

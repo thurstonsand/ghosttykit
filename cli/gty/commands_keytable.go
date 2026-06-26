@@ -4,7 +4,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/thurstonsand/ghosttykit/sdk/go/client"
-	"github.com/thurstonsand/ghosttykit/sdk/go/protocol"
 )
 
 func keyTableCmd(opts *options) *cobra.Command {
@@ -22,8 +21,11 @@ func keyTableCmd(opts *options) *cobra.Command {
 				if err != nil {
 					return err
 				}
-				request := protocol.NewKeyTableActivateRequest(target.tty, args[0], target.focused, wait)
-				return client.NotifyAck(client.New(), request, wait)
+				return client.New().ActivateKeyTable(client.KeyTableOptions{
+					TerminalOptions: client.TerminalOptions{TTY: target.tty, Focused: target.focused},
+					AckOptions:      client.AckOptions{Wait: wait},
+					Table:           args[0],
+				})
 			},
 		},
 		&cobra.Command{
@@ -34,8 +36,10 @@ func keyTableCmd(opts *options) *cobra.Command {
 				if err != nil {
 					return err
 				}
-				request := protocol.NewKeyTableDeactivateRequest(target.tty, target.focused, wait)
-				return client.NotifyAck(client.New(), request, wait)
+				return client.New().DeactivateKeyTable(client.KeyTableOptions{
+					TerminalOptions: client.TerminalOptions{TTY: target.tty, Focused: target.focused},
+					AckOptions:      client.AckOptions{Wait: wait},
+				})
 			},
 		},
 	)

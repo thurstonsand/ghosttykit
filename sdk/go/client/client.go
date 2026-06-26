@@ -85,9 +85,9 @@ func Stream[T protocol.StreamFrameHeader](client Client, request protocol.Reques
 	if err != nil {
 		return header, nil, err
 	}
-	if err := conn.send(request); err != nil {
+	if sendErr := conn.send(request); sendErr != nil {
 		_ = conn.Close()
-		return header, nil, err
+		return header, nil, sendErr
 	}
 	header, err = readReply[T](conn.reader)
 	if err != nil {
@@ -107,9 +107,9 @@ func Hold[T protocol.FrameResponse](client Client, request protocol.Request) (T,
 	if err != nil {
 		return reply, nil, err
 	}
-	if err := conn.send(request); err != nil {
+	if sendErr := conn.send(request); sendErr != nil {
 		_ = conn.Close()
-		return reply, nil, err
+		return reply, nil, sendErr
 	}
 	reply, err = readReply[T](conn.reader)
 	if err != nil {

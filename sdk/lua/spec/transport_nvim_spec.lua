@@ -82,9 +82,12 @@ describe("ghosttykit nvim transport", function()
     end)
 
     local client = ghosttykit.client({ socket_path = socket_path, transport = require("ghosttykit.transport_nvim") })
-    local result, err = client:paste()
+    local result, err = client.raw:stream(ghosttykit.protocol.paste())
 
     assert.is_nil(err)
+    if not result then
+      error("expected paste result")
+    end
     assert.are.equal("text", result.header.kind)
     assert.are.equal(11, result.header.bytes)
     assert.is_false(sent_rest)

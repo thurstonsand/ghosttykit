@@ -23,9 +23,9 @@ end
 
 function M.activate_key_table()
   local opts = target()
-  opts.table = config.get().key_table
+  opts.name = config.get().key_table
   opts.ack = false
-  local ok, err = M.sdk():key_table_activate(opts)
+  local ok, err = M.sdk().key_table:activate(opts)
   notify(err)
   return ok, err
 end
@@ -33,7 +33,7 @@ end
 function M.deactivate_key_table()
   local opts = target()
   opts.ack = false
-  local ok, err = M.sdk():key_table_deactivate(opts)
+  local ok, err = M.sdk().key_table:deactivate(opts)
   notify(err)
   return ok, err
 end
@@ -42,7 +42,7 @@ function M.focus(direction)
   local opts = target()
   opts.direction = direction
   opts.ack = false
-  local ok, err = M.sdk():focus(opts)
+  local ok, err = M.sdk().layout:focus(opts)
   notify(err)
   return ok, err
 end

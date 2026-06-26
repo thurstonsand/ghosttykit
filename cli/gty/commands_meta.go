@@ -8,7 +8,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/thurstonsand/ghosttykit/sdk/go/client"
-	"github.com/thurstonsand/ghosttykit/sdk/go/protocol"
 )
 
 func doctorCmd() *cobra.Command {
@@ -17,7 +16,7 @@ func doctorCmd() *cobra.Command {
 		Use:  "doctor",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			reply, err := client.Call[protocol.DoctorReply](client.New(), protocol.NewDoctorRequest())
+			reply, err := client.New().Doctor()
 			if err != nil {
 				return err
 			}
@@ -74,12 +73,14 @@ func terminalIDCmd(opts *options) *cobra.Command {
 			} else {
 				target = optionalTerminalTarget(opts)
 			}
-			request := protocol.NewTerminalIDRequest(target.tty, target.focused, refresh)
-			reply, err := client.Call[protocol.FrameReply](client.New(), request)
+			terminalID, err := client.New().TerminalID(client.TerminalIDOptions{
+				TerminalOptions: client.TerminalOptions{TTY: target.tty, Focused: target.focused},
+				Refresh:         refresh,
+			})
 			if err != nil {
 				return err
 			}
-			printReplyValue(reply)
+			printValue(terminalID)
 			return nil
 		},
 	}
@@ -102,8 +103,7 @@ func clearCacheCmd(opts *options) *cobra.Command {
 				}
 				tty = value
 			}
-			request := protocol.NewClearCacheRequest(tty, wait)
-			return client.NotifyAck(client.New(), request, wait)
+			return client.New().ClearCache(client.ClearCacheOptions{TTY: tty, AckOptions: client.AckOptions{Wait: wait}})
 		},
 	}
 	cmd.Flags().BoolVar(&all, "all", false, "clear all cached terminal mappings")
@@ -111,8 +111,8 @@ func clearCacheCmd(opts *options) *cobra.Command {
 	return cmd
 }
 
-func printReplyValue(reply protocol.FrameReply) {
-	if reply.Value != "" {
-		fmt.Println(reply.Value)
+func printValue(value string) {
+	if value != "" {
+		fmt.Println(value)
 	}
 }

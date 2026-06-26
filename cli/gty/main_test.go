@@ -18,33 +18,14 @@ func TestWaitCommandUsesCall(t *testing.T) {
 	}
 	defer func() { _ = os.RemoveAll(testDir) }()
 	socketPath := filepath.Join(testDir, "d.sock")
-	listener, err := net.Listen("unix", socketPath)
-	if err != nil {
-		t.Fatalf("Listen() error = %v", err)
-	}
+	listener := testUnixListener(t, socketPath)
 	defer func() { _ = listener.Close() }()
 	t.Setenv("GTY_SOCK", socketPath)
 	t.Setenv("GTY_TTY", "/dev/ttys001")
 
 	requestCh := make(chan protocol.FocusRequest, 1)
 	errorCh := make(chan error, 1)
-	go func() {
-		conn, err := listener.Accept()
-		if err != nil {
-			errorCh <- err
-			return
-		}
-		defer func() { _ = conn.Close() }()
-
-		var request protocol.FocusRequest
-		if err := json.NewDecoder(conn).Decode(&request); err != nil {
-			errorCh <- err
-			return
-		}
-		requestCh <- request
-		_, err = conn.Write([]byte(`{"version":1,"code":"ok"}` + "\n"))
-		errorCh <- err
-	}()
+	go serveFocusRequest(listener, requestCh, errorCh)
 
 	cmd := newRootCmd()
 	cmd.SetArgs([]string{"focus", "left", "--wait"})
@@ -62,6 +43,34 @@ func TestWaitCommandUsesCall(t *testing.T) {
 	if err := <-errorCh; err != nil {
 		t.Fatalf("server error = %v", err)
 	}
+}
+
+func serveFocusRequest(listener net.Listener, requestCh chan<- protocol.FocusRequest, errorCh chan<- error) {
+	conn, err := listener.Accept()
+	if err != nil {
+		errorCh <- err
+		return
+	}
+	defer func() { _ = conn.Close() }()
+
+	var request protocol.FocusRequest
+	err = json.NewDecoder(conn).Decode(&request)
+	if err != nil {
+		errorCh <- err
+		return
+	}
+	requestCh <- request
+	_, err = conn.Write([]byte(`{"version":1,"code":"ok"}` + "\n"))
+	errorCh <- err
+}
+
+func testUnixListener(t *testing.T, socketPath string) net.Listener {
+	t.Helper()
+	listener, err := net.Listen("unix", socketPath)
+	if err != nil {
+		t.Fatalf("Listen() error = %v", err)
+	}
+	return listener
 }
 
 func TestArgumentErrorUsesUsageExitCode(t *testing.T) {

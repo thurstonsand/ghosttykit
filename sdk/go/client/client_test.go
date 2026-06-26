@@ -36,10 +36,7 @@ func TestStreamRejectsNoReplyRequest(t *testing.T) {
 
 func TestHoldKeepsConnectionOpenUntilCloserClosed(t *testing.T) {
 	socketPath := testUnixSocket(t)
-	listener, err := net.Listen("unix", socketPath)
-	if err != nil {
-		t.Fatalf("Listen() error = %v", err)
-	}
+	listener := testUnixListener(t, socketPath)
 	defer func() { _ = listener.Close() }()
 
 	heldOpen := make(chan error, 1)
@@ -53,16 +50,19 @@ func TestHoldKeepsConnectionOpenUntilCloserClosed(t *testing.T) {
 		defer func() { _ = conn.Close() }()
 
 		var request protocol.BridgeLeaseRequest
-		if err := json.NewDecoder(conn).Decode(&request); err != nil {
+		err = json.NewDecoder(conn).Decode(&request)
+		if err != nil {
 			serverDone <- err
 			return
 		}
-		if _, err := conn.Write([]byte(`{"version":1,"code":"ok"}` + "\n")); err != nil {
+		_, err = conn.Write([]byte(`{"version":1,"code":"ok"}` + "\n"))
+		if err != nil {
 			serverDone <- err
 			return
 		}
 
-		if err := conn.SetReadDeadline(time.Now().Add(100 * time.Millisecond)); err != nil {
+		err = conn.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
+		if err != nil {
 			serverDone <- err
 			return
 		}
@@ -80,7 +80,8 @@ func TestHoldKeepsConnectionOpenUntilCloserClosed(t *testing.T) {
 		}
 		heldOpen <- nil
 
-		if err := conn.SetReadDeadline(time.Now().Add(time.Second)); err != nil {
+		err = conn.SetReadDeadline(time.Now().Add(time.Second))
+		if err != nil {
 			serverDone <- err
 			return
 		}
@@ -112,10 +113,7 @@ func TestHoldKeepsConnectionOpenUntilCloserClosed(t *testing.T) {
 
 func TestStreamPreservesPayloadBufferedWithHeader(t *testing.T) {
 	socketPath := testUnixSocket(t)
-	listener, err := net.Listen("unix", socketPath)
-	if err != nil {
-		t.Fatalf("Listen() error = %v", err)
-	}
+	listener := testUnixListener(t, socketPath)
 	defer func() { _ = listener.Close() }()
 
 	go func() {
@@ -158,6 +156,15 @@ func testUnixSocket(t *testing.T) string {
 	}
 	t.Cleanup(func() { _ = os.RemoveAll(testDir) })
 	return filepath.Join(testDir, "d.sock")
+}
+
+func testUnixListener(t *testing.T, socketPath string) net.Listener {
+	t.Helper()
+	listener, err := net.Listen("unix", socketPath)
+	if err != nil {
+		t.Fatalf("Listen() error = %v", err)
+	}
+	return listener
 }
 
 func isTimeout(err error) bool {

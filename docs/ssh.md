@@ -86,13 +86,11 @@ It creates the directory with mode `0700`, removes dead GhosttyKit socket pathna
 
 When remote `gty` is missing or reports a different `gty version` line, the wrapper bootstraps/upgrades `~/.local/bin/gty` over SSH and makes it executable.
 
-## Hidden debug hooks
+## Hidden runtime hooks
 
-These commands are hidden and intended for tests or diagnosis:
+These commands are hidden and used by `gty ssh` on the remote host:
 
 ```sh
-gty ssh bridge-create                 # prints: SOCKET<TAB>TOKEN
-gty ssh bridge-lease SOCKET TOKEN     # holds the lease until interrupted
 gty ssh remote-init                   # prints remote runtime JSON
 GTY_SOCK=/path/to/socket gty ssh remote-run -- command args...
 ```

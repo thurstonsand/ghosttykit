@@ -41,11 +41,17 @@ local M = {
 ---@field socket_path string
 ---@field transport ghosttykit.Transport
 ---@field json ghosttykit.Json
+---@field raw table
+---@field terminal table
+---@field key_table table
+---@field layout table
+---@field paste table
+---@field bridge table
 local Client = {}
 Client.__index = Client
 
-local function validate_mode(request, want)
-  local got = protocol.reply_mode_of(request)
+local function validate_mode(req, want)
+  local got = protocol.reply_mode_of(req)
   if got == want then
     return nil
   end
@@ -92,94 +98,66 @@ local function request(client, req, mode)
   return result, nil
 end
 
----@param req ghosttykit.Request
----@return any reply
----@return ghosttykit.Error? err
-function Client:call(req)
-  return request(self, req, protocol.reply_mode.frame)
+local function call(client, req)
+  return request(client, req, protocol.reply_mode.frame)
 end
 
----@param req ghosttykit.Request
----@return boolean|nil ok
----@return ghosttykit.Error? err
-function Client:notify(req)
-  return request(self, req, protocol.reply_mode.none)
+local function notify(client, req)
+  return request(client, req, protocol.reply_mode.none)
 end
 
----@param req ghosttykit.Request
----@return any result
----@return ghosttykit.Error? err
-function Client:stream(req)
-  return request(self, req, protocol.reply_mode.stream)
+local function stream(client, req)
+  return request(client, req, protocol.reply_mode.stream)
 end
 
----@param req ghosttykit.Request
----@return any result
----@return ghosttykit.Error? err
-function Client:hold(req)
-  return request(self, req, protocol.reply_mode.hold)
+local function hold(client, req)
+  return request(client, req, protocol.reply_mode.hold)
 end
 
-function Client:notify_ack(req, ack)
+local function notify_ack(client, req, ack)
   if ack then
-    local _, err = self:call(req)
+    local _, err = call(client, req)
     return err == nil, err
   end
-  return self:notify(req)
+  return notify(client, req)
 end
+
+local ops = {
+  call = call,
+  notify = notify,
+  stream = stream,
+  hold = hold,
+  notify_ack = notify_ack,
+}
 
 function Client:doctor()
-  return self:call(protocol.doctor())
+  local reply, err = call(self, protocol.doctor())
+  if err then
+    return nil, err
+  end
+  if not reply then
+    return nil, errors.new("invalid_reply", "empty doctor reply")
+  end
+  return {
+    healthy = reply.healthy == true,
+    checks = reply.checks or {},
+  }, nil
 end
 
-function Client:terminal_id(opts)
-  return self:call(protocol.terminal_id(opts))
-end
+local domains = {
+  raw = require("ghosttykit.client.raw"),
+  terminal = require("ghosttykit.client.terminal"),
+  key_table = require("ghosttykit.client.key_table"),
+  layout = require("ghosttykit.client.layout"),
+  paste = require("ghosttykit.client.paste"),
+  bridge = require("ghosttykit.client.bridge"),
+}
 
-function Client:tab_terminal_count(opts)
-  return self:call(protocol.tab_terminal_count(opts))
-end
-
-function Client:key_table_activate(opts)
-  opts = opts or {}
-  return self:notify_ack(protocol.key_table_activate(opts), opts.ack)
-end
-
-function Client:key_table_deactivate(opts)
-  opts = opts or {}
-  return self:notify_ack(protocol.key_table_deactivate(opts), opts.ack)
-end
-
-function Client:focus(opts)
-  opts = opts or {}
-  return self:notify_ack(protocol.focus(opts), opts.ack)
-end
-
-function Client:split(opts)
-  opts = opts or {}
-  return self:notify_ack(protocol.split(opts), opts.ack)
-end
-
-function Client:resize(opts)
-  opts = opts or {}
-  return self:notify_ack(protocol.resize(opts), opts.ack)
-end
-
-function Client:zoom(opts)
-  opts = opts or {}
-  return self:notify_ack(protocol.zoom(opts), opts.ack)
-end
-
-function Client:paste(opts)
-  return self:stream(protocol.paste(opts))
-end
-
-function Client:bridge_create(opts)
-  return self:call(protocol.bridge_create(opts))
-end
-
-function Client:bridge_lease(token)
-  return self:hold(protocol.bridge_lease(token))
+local function attach_domains(client)
+  ops.new_client = M.client
+  for name, domain in pairs(domains) do
+    client[name] = domain.new(client, ops)
+  end
 end
 
 ---@class ghosttykit.ClientOptions
@@ -191,11 +169,13 @@ end
 ---@return ghosttykit.Client
 function M.client(opts)
   opts = opts or {}
-  return setmetatable({
+  local client = setmetatable({
     socket_path = opts.socket_path or socket.path(),
     transport = opts.transport or require("ghosttykit.transport").auto(),
     json = opts.json or json.auto(),
   }, Client)
+  attach_domains(client)
+  return client
 end
 
 M.new = M.client

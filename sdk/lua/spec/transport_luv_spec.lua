@@ -20,6 +20,9 @@ describe("ghosttykit luv transport", function()
     helpers.cleanup_dir(dir)
 
     assert.is_nil(err)
+    if not reply then
+      error("expected doctor reply")
+    end
     assert.is_true(reply.healthy)
     assert.are.equal("daemon", reply.checks[1].name)
   end)
@@ -34,7 +37,7 @@ describe("ghosttykit luv transport", function()
     end)
 
     local client = ghosttykit.client({ socket_path = socket_path, transport = require("ghosttykit.transport_luv") })
-    local ok, err = client:focus({ tty = "/dev/ttys001", direction = "left" })
+    local ok, err = client.layout:focus({ tty = "/dev/ttys001", direction = "left" })
 
     helpers.close(server)
     helpers.cleanup_dir(dir)
@@ -64,9 +67,12 @@ describe("ghosttykit luv transport", function()
     end)
 
     local client = ghosttykit.client({ socket_path = socket_path, transport = require("ghosttykit.transport_luv") })
-    local result, err = client:paste()
+    local result, err = client.raw:stream(ghosttykit.protocol.paste())
 
     assert.is_nil(err)
+    if not result then
+      error("expected paste result")
+    end
     assert.are.equal("text", result.header.kind)
     assert.are.equal(11, result.header.bytes)
     assert.is_false(sent_rest)
@@ -99,7 +105,7 @@ describe("ghosttykit luv transport", function()
     end)
 
     local client = ghosttykit.client({ socket_path = socket_path, transport = require("ghosttykit.transport_luv") })
-    local held, err = client:bridge_lease("token")
+    local held, err = client.raw:hold(ghosttykit.protocol.bridge_lease("token"))
 
     assert.is_nil(err)
     assert.are.equal("ok", held.reply.code)

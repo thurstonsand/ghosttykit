@@ -65,8 +65,8 @@ See [protocol/codes.md](protocol/codes.md) for defined codes.
 | `gty zoom`                       | `zoom`                 | responds when `ack` is true | `tty`, optional `focused`, optional `ack`                                    |
 | `gty paste`                      | `paste`                | always responds             | `tty` optional                                                               |
 | `gty clear-cache`                | `clear-cache`          | responds when `ack` is true | `tty` optional, optional `ack`                                               |
-| `gty ssh bridge-create`          | `bridge-create`        | always responds             | `tty`, optional `focused`                                                    |
-| `gty ssh bridge-lease`           | `bridge-lease`         | hold after initial response | `token`                                                                      |
+| `gty ssh` bridge setup           | `bridge-create`        | always responds             | `tty`, optional `focused`                                                    |
+| `gty ssh` bridge lease           | `bridge-lease`         | hold after initial response | `token`                                                                      |
 
 For `terminal-id`, `refresh: true` forces a refresh of the cached mapping. `refresh: true` when not in the focused window is invalid.
 
