@@ -20,7 +20,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up mise
         uses: jdx/mise-action@v4
@@ -29,7 +29,7 @@ jobs:
           cache: true
 
       - name: Cache Go dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ~/go/pkg/mod
@@ -53,7 +53,7 @@ jobs:
     runs-on: macos-26
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up mise
         uses: jdx/mise-action@v4
@@ -62,7 +62,7 @@ jobs:
           cache: true
 
       - name: Cache Swift build products
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: daemon/ghosttykitd/.build
           key: swift-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('daemon/ghosttykitd/Package.swift', 'daemon/ghosttykitd/Package.resolved') }}
@@ -87,7 +87,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Install system dependencies
         run: sudo apt-get update && sudo apt-get install -y libreadline-dev
@@ -99,7 +99,7 @@ jobs:
           cache: true
 
       - name: Cache Lua dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             .luarocks
@@ -129,7 +129,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Install system dependencies
         run: sudo apt-get update && sudo apt-get install -y libreadline-dev
@@ -141,7 +141,7 @@ jobs:
           cache: true
 
       - name: Cache npm packages
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.npm
           key: npm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('sdk/ts/package-lock.json', 'pi/pi-paste/package-lock.json') }}
@@ -171,7 +171,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Install system dependencies
         run: sudo apt-get update && sudo apt-get install -y libreadline-dev
