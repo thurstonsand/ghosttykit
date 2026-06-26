@@ -9,8 +9,8 @@ let package = Package(
         .executable(name: "ghosttykitd", targets: ["ghosttykitd"])
     ],
     dependencies: [
-        .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.3.0"),
-        .package(url: "https://github.com/apple/swift-nio.git", from: "2.65.0")
+        .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.8.2"),
+        .package(url: "https://github.com/apple/swift-nio.git", from: "2.101.2")
     ],
     targets: [
         .executableTarget(
