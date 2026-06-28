@@ -13,7 +13,7 @@ What's available:
   - TypeScript: `sdk/ts/`
   - Lua: `sdk/lua/`
 
-Status: extraction in progress. The Go `gty` CLI, Swift daemon, Go/TypeScript/Lua SDKs, SSH bridge flow, Homebrew packaging, Neovim plugin, Pi paste extension, and release workflow are present; work is tracked under `docs/designs/01-ghosttykit-standalone.md`.
+Status: stable. The Go `gty` CLI, Swift daemon, Go/TypeScript/Lua SDKs, SSH bridge flow, Homebrew packaging, Neovim plugin, Pi paste extension, and release workflow are present.
 
 ## Install
 

@@ -1,6 +1,6 @@
 # macOS Automation Permissions
 
-Status: in progress.
+Status: stable Homebrew releases use the bundled identity.
 
 `ghosttykitd` controls Ghostty through macOS Apple Events. Homebrew service packaging must prove that the daemon can request, retain, and diagnose Automation/TCC permissions when launched through `brew services`.
 

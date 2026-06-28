@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted, migration to occur from ../ansiblonomicon
+Accepted.
 
 ## Decision Summary
 
@@ -334,6 +334,12 @@ The Pi Alt-v paste flow belongs in the monorepo under `pi/pi-paste`. It should b
 
 The package should depend on `gty paste --json --output-dir ...` and support the same local/remote endpoint behavior as the CLI: if `GTY_SOCK` is set, it uses the forwarded bridge; otherwise it uses the local daemon.
 
+### 16. Evaluate direct AppleEvents as a possible AppleScript replacement
+
+GhosttyKit currently builds AppleScript source strings and executes them through `NSAppleScript`. Direct AppleEvents may improve argument passing and reduce control overhead, but the tradeoff needs proof against Ghostty's scripting terms before changing the daemon control path.
+
+The evaluation should compare correctness and timing for representative daemon operations before deciding whether to replace the current AppleScript controller.
+
 ## Edge Cases & Failure Modes
 
 - **Remote `gty` missing or bootstrap fails:** `gty ssh` warns and continues as plain SSH unless `--require-bridge` is set. Ghostty controls are unavailable in that session.
@@ -576,11 +582,11 @@ Rejected. Shelling out to `gty` is useful as a fallback or debugging path, but t
   - Goal: Make the extracted project reviewable and installable by other users.
   - Files: `README.md`, `docs/**`, release workflow files, package metadata.
   - Work:
-    - Add install docs for Homebrew, remote bootstrap, Neovim plugin, and Pi extension.
-    - Add troubleshooting docs for SSH forwarding, `GTY_SOCK`, remote bootstrap, stale sockets, and macOS TCC.
-    - Add minimum manual test matrix covering two Ghostty panes to the same host, forwarding disabled, daemon restart, stale remote socket cleanup, and paste over bridge.
-    - Add release automation for Go binaries, Swift daemon, Homebrew formula updates, and Pi package publishing as appropriate.
-    - Evaluate replacing generated AppleScript source strings with direct AppleEvents for safer argument passing and lower control overhead.
+    - [x] Add install docs for Homebrew, remote bootstrap, Neovim plugin, and Pi extension.
+    - [ ] Add troubleshooting docs from real-world failures for SSH forwarding, `GTY_SOCK`, remote bootstrap, stale sockets, and macOS TCC.
+    - [ ] Record manual validation evidence for two Ghostty panes to the same host, forwarding disabled, daemon restart, stale remote socket cleanup, and paste over bridge.
+    - [x] Add release automation for Go binaries, Swift daemon, Homebrew formula updates, and Pi package publishing as appropriate.
+    - [ ] Evaluate replacing generated AppleScript source strings with direct AppleEvents for safer argument passing and lower control overhead.
   - Validation:
-    - Fresh-machine install path succeeds from documentation.
-    - End-to-end local and remote workflows pass the documented test matrix.
+    - [ ] Fresh-machine install path succeeds from documentation.
+    - [ ] End-to-end local and remote workflows pass the documented test matrix.

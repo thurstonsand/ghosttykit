@@ -1,6 +1,6 @@
 # Install
 
-Status: in progress.
+Status: stable `v0.3.0` is published.
 
 The primary macOS install path is the `thurstonsand/homebrew-ghosttykit` Homebrew tap. Stable releases follow `v*` tags:
 
@@ -28,7 +28,7 @@ brew services start thurstonsand/ghosttykit/ghosttykit
 gty doctor
 ```
 
-`gty doctor` proves the socket and service are reachable, then asks the daemon to confirm that it can send Apple Events to Ghostty. See [tcc-macos.md](tcc-macos.md) for troubleshooting Automation permissions.
+`gty doctor` proves the socket and service are reachable, then asks the daemon to confirm that it can send Apple Events to Ghostty. See [tcc-macos.md](tcc-macos.md) for macOS Automation behavior.
 
 Remote hosts normally receive `gty` through `gty ssh` bootstrap. The wrapper first looks for `gty` in remote `PATH`, then `~/.local/bin/gty`. If neither exists or the remote `gty version` line differs from the local one, it installs a fresh `~/.local/bin/gty` over SSH.
 
@@ -73,4 +73,4 @@ Optional settings, in `~/.pi/agent/settings.json`:
 }
 ```
 
-See [daemon.md](daemon.md) for daemon socket selection and dry-run behavior, and [ssh.md](ssh.md) for bridge behavior.
+See [daemon.md](daemon.md) for daemon socket selection and dry-run behavior, [ssh.md](ssh.md) for bridge behavior, and [tcc-macos.md](tcc-macos.md) for macOS Automation behavior.
