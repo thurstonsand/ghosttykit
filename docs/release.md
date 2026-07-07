@@ -35,6 +35,17 @@ The Neovim plugin does not publish separate binary nightly artifacts. Pair the H
 
 Local development and dogfooding can track mirror `main` instead.
 
+### Go module
+
+Go packages live in the root module `github.com/thurstonsand/ghosttykit`. Stable `v*` tags make both the SDK packages and CLI installable through normal Go module resolution, for example:
+
+```sh
+go get github.com/thurstonsand/ghosttykit/sdk/go@vX.Y.Z
+go install github.com/thurstonsand/ghosttykit/cli/gty@vX.Y.Z
+```
+
+There is no separate Go registry publish step.
+
 ### npm packages
 
 The `Release` workflow publishes the TypeScript SDK from `sdk/ts` as `@thurstonsand/ghosttykit` and the Pi extension from `pi/pi-paste` as `@thurstonsand/pi-paste`. It uses npm Trusted Publishing through GitHub Actions OIDC, so the repository does not store an npm token.

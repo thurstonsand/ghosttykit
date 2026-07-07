@@ -42,6 +42,14 @@ mkdir -p ~/.local/bin
 chmod 755 ~/.local/bin/gty
 ```
 
+Go users can also install `gty` from a tagged release:
+
+```sh
+go install github.com/thurstonsand/ghosttykit/cli/gty@vX.Y.Z
+```
+
+This installs only the CLI. macOS users still need `ghosttykitd`, so Homebrew remains the normal local install path.
+
 ## Ghostty config for Neovim navigation
 
 Copy the Ghostty key-table fragment from the root [README](../README.md#ghostty-config-for-neovim-navigation) into your Ghostty config if you use `ghosttykit.nvim` split navigation. GhosttyKit does not modify your config automatically; the required key table name is `nvim`.
