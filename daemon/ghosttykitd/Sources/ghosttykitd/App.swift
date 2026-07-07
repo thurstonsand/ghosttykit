@@ -112,27 +112,40 @@ final class GhosttyKitDaemon {
 
     private func resolveSpawnWrapper() -> SpawnWrapper? {
         guard let path = resolveGtyPath() else {
-            logger.ghosttykit("gty not found; spawned terminals bind lazily")
+            logger.ghosttykitError("gty not found; spawned terminals bind lazily")
             return nil
         }
         logger.ghosttykit("spawn wrapping enabled gty_path=\(path)")
         return SpawnWrapper(gtyPath: path, socketPath: options.socketPath)
     }
 
-    /// GTY_BIN override, then the installed layout (sibling binary), then the daemon's own PATH
+    /// GTY_BIN override, then the release layout (`<prefix>/bin/gty` beside the app bundle),
+    /// then a sibling binary, then the daemon's own PATH. The layout branches outrank PATH
+    /// because they always name the gty that shipped with this daemon; PATH can be stale.
     private func resolveGtyPath() -> String? {
         let environment = ProcessInfo.processInfo.environment
         let fileManager = FileManager.default
         if let override = environment["GTY_BIN"], !override.isEmpty {
             return fileManager.isExecutableFile(atPath: override) ? override : nil
         }
-        if let sibling = Bundle.main.executableURL?
+        if let executableDir = Bundle.main.executableURL?
             .resolvingSymlinksInPath()
-            .deletingLastPathComponent()
-            .appendingPathComponent("gty")
-            .path,
-            fileManager.isExecutableFile(atPath: sibling) {
-            return sibling
+            .deletingLastPathComponent() {
+            // MacOS → Contents → GhosttyKitD.app → install prefix
+            let prefixed = executableDir
+                .deletingLastPathComponent()
+                .deletingLastPathComponent()
+                .deletingLastPathComponent()
+                .appendingPathComponent("bin")
+                .appendingPathComponent("gty")
+                .path
+            if fileManager.isExecutableFile(atPath: prefixed) {
+                return prefixed
+            }
+            let sibling = executableDir.appendingPathComponent("gty").path
+            if fileManager.isExecutableFile(atPath: sibling) {
+                return sibling
+            }
         }
         for directory in (environment["PATH"] ?? "").split(separator: ":") {
             let candidate = "\(directory)/gty"

@@ -15,6 +15,10 @@ extension Logger {
     func ghosttykit(_ message: String) {
         info("\(message, privacy: .public)")
     }
+
+    func ghosttykitError(_ message: String) {
+        error("\(message, privacy: .public)")
+    }
 }
 
 enum Direction: String, Decodable {

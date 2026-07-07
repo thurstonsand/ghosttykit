@@ -9,7 +9,7 @@ fi
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 GTY_BIN="${GTY_BIN:-$repo_root/cli/gty/gty}"
 GHOSTTYKITD_BIN="${GHOSTTYKITD_BIN:-$repo_root/daemon/ghosttykitd/ghosttykitd}"
-# The daemon resolves gty as a sibling binary; in-repo they live apart, so pin it for spawn wrapping.
+# The daemon resolves gty from its install layout; in-repo they live apart, so pin it for spawn wrapping.
 export GTY_BIN
 
 bridge_mode=0
