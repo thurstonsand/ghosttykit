@@ -194,6 +194,9 @@ private struct ConnectionHandler {
             case let .reply(reply):
                 try await connection.send(reply)
                 try await connection.closeOutput()
+            case let .deferred(makeReply):
+                try await connection.send(makeReply())
+                try await connection.closeOutput()
             case let .hold(holdReply):
                 try await connection.send(.frame(holdReply.frame))
                 do {

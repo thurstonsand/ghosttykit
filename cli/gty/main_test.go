@@ -25,7 +25,7 @@ func TestWaitCommandUsesCall(t *testing.T) {
 
 	requestCh := make(chan protocol.FocusRequest, 1)
 	errorCh := make(chan error, 1)
-	go serveFocusRequest(listener, requestCh, errorCh)
+	go serveOneRequest(listener, requestCh, errorCh)
 
 	cmd := newRootCmd()
 	cmd.SetArgs([]string{"focus", "left", "--wait"})
@@ -45,7 +45,87 @@ func TestWaitCommandUsesCall(t *testing.T) {
 	}
 }
 
-func serveFocusRequest(listener net.Listener, requestCh chan<- protocol.FocusRequest, errorCh chan<- error) {
+func TestSpawnClaimCommandSendsTokenAndTTY(t *testing.T) {
+	testDir, err := os.MkdirTemp("/tmp", "gty-cli-")
+	if err != nil {
+		t.Fatalf("MkdirTemp() error = %v", err)
+	}
+	defer func() { _ = os.RemoveAll(testDir) }()
+	socketPath := filepath.Join(testDir, "d.sock")
+	listener := testUnixListener(t, socketPath)
+	defer func() { _ = listener.Close() }()
+	t.Setenv("GTY_SOCK", socketPath)
+	t.Setenv("GTY_TTY", "/dev/ttys001")
+
+	requestCh := make(chan protocol.SpawnClaimRequest, 1)
+	errorCh := make(chan error, 1)
+	go serveOneRequest(listener, requestCh, errorCh)
+
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"spawn-claim", "token-1"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	request := <-requestCh
+	if request.Command != "spawn-claim" {
+		t.Fatalf("request.Command = %q, want spawn-claim", request.Command)
+	}
+	if request.TTY != "/dev/ttys001" {
+		t.Fatalf("request.TTY = %q, want /dev/ttys001", request.TTY)
+	}
+	if request.SpawnToken != "token-1" {
+		t.Fatalf("request.SpawnToken = %q, want token-1", request.SpawnToken)
+	}
+	if err := <-errorCh; err != nil {
+		t.Fatalf("server error = %v", err)
+	}
+}
+
+func TestInputCommandSendsTextAndSubmit(t *testing.T) {
+	testDir, err := os.MkdirTemp("/tmp", "gty-cli-")
+	if err != nil {
+		t.Fatalf("MkdirTemp() error = %v", err)
+	}
+	defer func() { _ = os.RemoveAll(testDir) }()
+	socketPath := filepath.Join(testDir, "d.sock")
+	listener := testUnixListener(t, socketPath)
+	defer func() { _ = listener.Close() }()
+	t.Setenv("GTY_SOCK", socketPath)
+	t.Setenv("GTY_TTY", "/dev/ttys002")
+
+	requestCh := make(chan protocol.InputRequest, 1)
+	errorCh := make(chan error, 1)
+	go serveOneRequest(listener, requestCh, errorCh)
+
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"input", "--tty", "/dev/ttys001", "--submit", "--wait", "nvim", "."})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	request := <-requestCh
+	if request.Command != "input" {
+		t.Fatalf("request.Command = %q, want input", request.Command)
+	}
+	if request.TTY != "/dev/ttys001" {
+		t.Fatalf("request.TTY = %q, want /dev/ttys001", request.TTY)
+	}
+	if request.Text != "nvim ." {
+		t.Fatalf("request.Text = %q, want nvim .", request.Text)
+	}
+	if !request.Submit {
+		t.Fatal("request.Submit = false, want true")
+	}
+	if !request.Ack {
+		t.Fatal("request.Ack = false, want true")
+	}
+	if err := <-errorCh; err != nil {
+		t.Fatalf("server error = %v", err)
+	}
+}
+
+func serveOneRequest[T any](listener net.Listener, requestCh chan<- T, errorCh chan<- error) {
 	conn, err := listener.Accept()
 	if err != nil {
 		errorCh <- err
@@ -53,7 +133,7 @@ func serveFocusRequest(listener net.Listener, requestCh chan<- protocol.FocusReq
 	}
 	defer func() { _ = conn.Close() }()
 
-	var request protocol.FocusRequest
+	var request T
 	err = json.NewDecoder(conn).Decode(&request)
 	if err != nil {
 		errorCh <- err

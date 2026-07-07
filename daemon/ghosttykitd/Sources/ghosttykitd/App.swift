@@ -16,7 +16,7 @@ struct GhosttyKitDaemonCommand: AsyncParsableCommand {
         version: "ghosttykitd \(GhosttyKitVersion.current)"
     )
 
-    @Flag(help: "Run without calling Ghostty AppleScript APIs.")
+    @Flag(help: "Run without calling Ghostty control APIs.")
     var dryRun = false
 
     mutating func run() async throws {
@@ -62,6 +62,8 @@ final class GhosttyKitDaemon {
     private let options: DaemonOptions
     private let ghostty: GhosttyControlling
     private lazy var cache = TerminalIDCache(logger: logger)
+    private lazy var spawnRendezvous = SpawnRendezvous(logger: logger)
+    private lazy var spawnWrapper = resolveSpawnWrapper()
     private lazy var bridgeManager = BridgeSessionManager(logger: logger) { [weak self] terminal, lease, request in
         guard let self else {
             return .reply(.frame(FrameReply.failure(code: ProtocolCode.internalError, "daemon unavailable")))
@@ -71,7 +73,9 @@ final class GhosttyKitDaemon {
             ghostty: ghostty,
             logger: logger,
             terminal: terminal,
-            lease: lease
+            lease: lease,
+            spawnRendezvous: spawnRendezvous,
+            spawnWrapper: spawnWrapper
         )
         return commandQueue.sync { self.dispatch(request, using: context) }
     }
@@ -82,7 +86,7 @@ final class GhosttyKitDaemon {
         self.options = options
         ghostty = options.dryRun
             ? DryRunGhosttyController(pasteText: ProcessInfo.processInfo.environment["GTY_DRY_RUN_PASTE_TEXT"])
-            : AppleScriptGhosttyController()
+            : AppleEventGhosttyController()
     }
 
     func start() async throws {
@@ -97,11 +101,46 @@ final class GhosttyKitDaemon {
                 cache: cache,
                 ghostty: ghostty,
                 logger: logger,
-                bridgeManager: bridgeManager
+                bridgeManager: bridgeManager,
+                spawnRendezvous: spawnRendezvous,
+                spawnWrapper: spawnWrapper
             )
             return commandQueue.sync { self.dispatch(request, using: context) }
         }
         try await daemon.start()
+    }
+
+    private func resolveSpawnWrapper() -> SpawnWrapper? {
+        guard let path = resolveGtyPath() else {
+            logger.ghosttykit("gty not found; spawned terminals bind lazily")
+            return nil
+        }
+        logger.ghosttykit("spawn wrapping enabled gty_path=\(path)")
+        return SpawnWrapper(gtyPath: path, socketPath: options.socketPath)
+    }
+
+    /// GTY_BIN override, then the installed layout (sibling binary), then the daemon's own PATH
+    private func resolveGtyPath() -> String? {
+        let environment = ProcessInfo.processInfo.environment
+        let fileManager = FileManager.default
+        if let override = environment["GTY_BIN"], !override.isEmpty {
+            return fileManager.isExecutableFile(atPath: override) ? override : nil
+        }
+        if let sibling = Bundle.main.executableURL?
+            .resolvingSymlinksInPath()
+            .deletingLastPathComponent()
+            .appendingPathComponent("gty")
+            .path,
+            fileManager.isExecutableFile(atPath: sibling) {
+            return sibling
+        }
+        for directory in (environment["PATH"] ?? "").split(separator: ":") {
+            let candidate = "\(directory)/gty"
+            if fileManager.isExecutableFile(atPath: candidate) {
+                return candidate
+            }
+        }
+        return nil
     }
 
     private func preflightAutomationPermission() {

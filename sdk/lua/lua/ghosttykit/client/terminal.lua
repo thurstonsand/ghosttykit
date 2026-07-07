@@ -45,6 +45,13 @@ function Terminal:clear_cache(opts)
   return self.ops.notify_ack(self.client, protocol.clear_cache(opts), opts.ack)
 end
 
+---Sends text as bracketed paste, leaving it in the line editor unless submit is true.
+---Bridge sockets target their bound terminal.
+function Terminal:input(opts)
+  opts = opts or {}
+  return self.ops.notify_ack(self.client, protocol.input(opts), opts.ack)
+end
+
 function M.new(client, ops)
   return setmetatable({ client = client, ops = ops }, Terminal)
 end

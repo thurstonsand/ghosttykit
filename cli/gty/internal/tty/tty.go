@@ -3,7 +3,6 @@ package tty
 
 import (
 	"errors"
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -18,15 +17,14 @@ func Normalize(value string) string {
 	return "/dev/" + value
 }
 
-// Current returns the path for the controlling terminal.
+// Current returns the terminal path of the first stdio descriptor that is valid.
 func Current() (string, error) {
-	file, err := os.OpenFile("/dev/tty", os.O_RDONLY, 0)
-	if err != nil {
-		return "", fmt.Errorf("open /dev/tty: %w", err)
+	for _, stdio := range []*os.File{os.Stdin, os.Stdout, os.Stderr} {
+		if path, err := ttyCommand(stdio); err == nil {
+			return path, nil
+		}
 	}
-	defer func() { _ = file.Close() }()
-
-	return ttyCommand(file)
+	return "", errors.New("no stdio descriptor is a terminal")
 }
 
 func ttyCommand(stdin *os.File) (string, error) {

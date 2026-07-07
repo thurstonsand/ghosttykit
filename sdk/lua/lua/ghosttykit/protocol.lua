@@ -9,6 +9,7 @@ M.codes = {
   unknown_command = "unknown_command",
   invalid_request = "invalid_request",
   terminal_not_found = "terminal_not_found",
+  spawn_token_not_found = "spawn_token_not_found",
   ghostty_unavailable = "ghostty_unavailable",
   paste_empty = "paste_empty",
   paste_unsupported = "paste_unsupported",
@@ -157,6 +158,27 @@ function M.split(opts)
   request.cwd = opts.cwd
   request.commandText = opts.command_text
   request.focus = opts.focus
+  request.ack = opts.ack or nil
+  request._reply_mode = ack_mode(opts.ack)
+  return request
+end
+
+---@class ghosttykit.InputOptions
+---@field tty string?
+---@field focused boolean?
+---@field text string
+---@field submit boolean?
+---@field ack boolean?
+
+---@param opts ghosttykit.InputOptions
+---@return ghosttykit.Request
+function M.input(opts)
+  opts = opts or {}
+  local request = envelope("input")
+  request.tty = opts.tty
+  request.focused = opts.focused or nil
+  request.text = opts.text
+  request.submit = opts.submit or nil
   request.ack = opts.ack or nil
   request._reply_mode = ack_mode(opts.ack)
   return request

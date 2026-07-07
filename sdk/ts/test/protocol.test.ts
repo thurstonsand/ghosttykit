@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   encodeRequest,
   focusRequest,
+  inputRequest,
   pasteRequest,
   replyModeOf,
   terminalIdRequest,
@@ -29,5 +30,44 @@ test("reports reply modes", () => {
   assert.equal(replyModeOf(terminalIdRequest()), "frame");
   assert.equal(replyModeOf(focusRequest({ direction: "left" })), "none");
   assert.equal(replyModeOf(focusRequest({ direction: "left", ack: true })), "frame");
+  assert.equal(replyModeOf(inputRequest({ text: "echo hi" })), "none");
+  assert.equal(replyModeOf(inputRequest({ text: "echo hi", ack: true })), "frame");
   assert.equal(replyModeOf(pasteRequest()), "stream");
+});
+
+test("encodes input requests with optional booleans omitted unless true", () => {
+  assert.deepEqual(
+    inputRequest({
+      tty: "/dev/ttys001",
+      focused: false,
+      text: "echo hi",
+      submit: false,
+      ack: false,
+    }),
+    {
+      version: 1,
+      command: "input",
+      tty: "/dev/ttys001",
+      text: "echo hi",
+    },
+  );
+
+  assert.deepEqual(
+    inputRequest({
+      tty: "/dev/ttys001",
+      focused: true,
+      text: "echo hi",
+      submit: true,
+      ack: true,
+    }),
+    {
+      version: 1,
+      command: "input",
+      tty: "/dev/ttys001",
+      focused: true,
+      text: "echo hi",
+      submit: true,
+      ack: true,
+    },
+  );
 });

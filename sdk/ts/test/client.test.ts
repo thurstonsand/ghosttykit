@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { GhosttyKitClient } from "../src/client.js";
-import { InvalidReplyModeError, PasteEmptyError } from "../src/errors.js";
+import { InvalidReplyModeError, PasteEmptyError, SpawnTokenNotFoundError } from "../src/errors.js";
 import { Paste } from "../src/paste.js";
 import {
   doctorRequest,
@@ -34,6 +34,19 @@ test("call maps protocol errors", async () => {
     async (socketPathValue) => {
       const client = new GhosttyKitClient({ socketPath: socketPathValue });
       await assert.rejects(client.call(doctorRequest()), PasteEmptyError);
+    },
+  );
+});
+
+test("call maps spawn token errors", async () => {
+  await withServer(
+    async (socket) => {
+      await readRequest(socket);
+      socket.end('{"version":1,"code":"spawn_token_not_found","error":"expired"}\n');
+    },
+    async (socketPathValue) => {
+      const client = new GhosttyKitClient({ socketPath: socketPathValue });
+      await assert.rejects(client.call(doctorRequest()), SpawnTokenNotFoundError);
     },
   );
 });
@@ -153,6 +166,49 @@ test("notify waits for daemon close without reply bytes", async () => {
   );
 });
 
+test("waited split returns reply value and accepts absent values", async () => {
+  await withServer(
+    async (socket) => {
+      const request = await readRequest(socket);
+      assert.equal(request.command, "split");
+      socket.end('{"version":1,"code":"ok","value":"/dev/ttys024"}\n');
+    },
+    async (socketPathValue) => {
+      const client = new GhosttyKitClient({ socketPath: socketPathValue });
+      assert.equal(await client.split("right", { tty: "/dev/ttys001", ack: true }), "/dev/ttys024");
+    },
+  );
+
+  await withServer(
+    async (socket) => {
+      await readRequest(socket);
+      socket.end('{"version":1,"code":"ok"}\n');
+    },
+    async (socketPathValue) => {
+      const client = new GhosttyKitClient({ socketPath: socketPathValue });
+      assert.equal(await client.split("right", { tty: "/dev/ttys001", ack: true }), undefined);
+    },
+  );
+});
+
+test("input sends typed input as ack-style command", async () => {
+  await withServer(
+    async (socket) => {
+      const request = await readRequest(socket);
+      assert.equal(request.command, "input");
+      assert.equal(request.tty, "/dev/ttys001");
+      assert.equal(request.text, "echo hi");
+      assert.equal(request.submit, true);
+      assert.equal(request.ack, true);
+      socket.end('{"version":1,"code":"ok"}\n');
+    },
+    async (socketPathValue) => {
+      const client = new GhosttyKitClient({ socketPath: socketPathValue });
+      await client.input({ tty: "/dev/ttys001", text: "echo hi", submit: true, ack: true });
+    },
+  );
+});
+
 test("socketPath prefers explicit path, then GTY_SOCK", () => {
   const previous = process.env.GTY_SOCK;
   process.env.GTY_SOCK = "/tmp/gty.sock";
@@ -192,7 +248,7 @@ async function withServer(
   }
 }
 
-function readRequest(socket: net.Socket): Promise<unknown> {
+function readRequest(socket: net.Socket): Promise<Record<string, unknown>> {
   return new Promise((resolve, reject) => {
     let data = "";
     socket.on("data", (chunk: Buffer) => {

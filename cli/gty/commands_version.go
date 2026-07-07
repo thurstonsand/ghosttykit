@@ -12,8 +12,8 @@ func versionCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:  "version",
 		Args: cobra.NoArgs,
-		Run: func(_ *cobra.Command, _ []string) {
-			fmt.Printf("gty %s protocol=%d\n", ghosttykit.Version, ghosttykit.ProtocolVersion)
+		Run: func(cmd *cobra.Command, _ []string) {
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "gty %s protocol=%d\n", ghosttykit.Version, ghosttykit.ProtocolVersion)
 		},
 	}
 }

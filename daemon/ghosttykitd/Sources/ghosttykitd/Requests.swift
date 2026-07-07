@@ -29,6 +29,7 @@ enum ProtocolCode {
     static let unknownCommand = "unknown_command"
     static let invalidRequest = "invalid_request"
     static let terminalNotFound = "terminal_not_found"
+    static let spawnTokenNotFound = "spawn_token_not_found"
     static let ghosttyUnavailable = "ghostty_unavailable"
     static let pasteEmpty = "paste_empty"
     static let pasteUnsupported = "paste_unsupported"
@@ -46,6 +47,8 @@ enum CommandResult {
     case none
     case reply(ReplyBody)
     case hold(HoldReplyBody)
+    /// The reply is not ready at dispatch time; the connection awaits it off the command queue.
+    case deferred(@Sendable () async -> ReplyBody)
 }
 
 enum ReplyBody {
@@ -132,79 +135,6 @@ extension TerminalCommandRequest {
 
     func terminal(using context: CommandContext) throws -> TerminalContext {
         try context.terminal(for: normalizeTTY(rawTTY), focused: focused)
-    }
-}
-
-protocol CommandContext: AnyObject {
-    var cache: TerminalIDCache { get }
-    var ghostty: GhosttyControlling { get }
-    var logger: Logger { get }
-
-    func terminal(for tty: String, focused: Bool) throws -> TerminalContext
-}
-
-final class MainCommandContext: CommandContext {
-    let cache: TerminalIDCache
-    let ghostty: GhosttyControlling
-    let logger: Logger
-    private let bridgeManager: BridgeSessionManaging
-
-    init(
-        cache: TerminalIDCache,
-        ghostty: GhosttyControlling,
-        logger: Logger,
-        bridgeManager: BridgeSessionManaging
-    ) {
-        self.cache = cache
-        self.ghostty = ghostty
-        self.logger = logger
-        self.bridgeManager = bridgeManager
-    }
-
-    func terminal(for tty: String, focused: Bool) throws -> TerminalContext {
-        if let terminal = cache.terminal(for: tty) {
-            return terminal
-        }
-        guard focused else {
-            throw GhosttyKitError.terminalNotFound(tty)
-        }
-        let terminal = try ghostty.focusedTerminalContext()
-        cache.store(terminal: terminal, for: tty)
-        return terminal
-    }
-
-    func createBridge(terminal: TerminalContext) throws -> BridgeCreateReply {
-        try bridgeManager.createBridge(terminal: terminal)
-    }
-}
-
-final class BridgeCommandContext: CommandContext {
-    let cache: TerminalIDCache
-    let ghostty: GhosttyControlling
-    let logger: Logger
-    private let bridgeTerminal: TerminalContext
-    private let lease: BridgeLease
-
-    init(
-        cache: TerminalIDCache,
-        ghostty: GhosttyControlling,
-        logger: Logger,
-        terminal: TerminalContext,
-        lease: BridgeLease
-    ) {
-        self.cache = cache
-        self.ghostty = ghostty
-        self.logger = logger
-        bridgeTerminal = terminal
-        self.lease = lease
-    }
-
-    func terminal(for _: String, focused _: Bool) throws -> TerminalContext {
-        bridgeTerminal
-    }
-
-    func acceptHold(token: String) throws -> ConnectionHold {
-        try lease.accept(token: token)
     }
 }
 
@@ -416,14 +346,80 @@ struct SplitRequest: TerminalCommandRequest, AckCommandRequest {
         "command=\(command) tty=\(tty ?? "") direction=\(direction)"
     }
 
+    /// Only reached when ack is true: parks the reply on the spawn rendezvous so it can carry the
+    /// claimed tty. The wait happens off the command queue — the claim it waits for dispatches there.
+    func dispatch(using context: CommandContext) -> CommandResult {
+        do {
+            guard let token = try performSplit(using: context) else {
+                return .reply(.frame(FrameReply.ok()))
+            }
+            let (claims, continuation) = AsyncStream<String?>.makeStream()
+            context.spawnRendezvous.park(token: token) { tty in
+                continuation.yield(tty)
+                continuation.finish()
+            }
+            return .deferred {
+                var claimed: String?
+                for await tty in claims {
+                    claimed = tty
+                }
+                return .frame(FrameReply.ok(claimed))
+            }
+        } catch {
+            context.cache.clear(tty: tty)
+            context.logger.ghosttykit("\(logSummary) failed error=\(error.localizedDescription)")
+            return .reply(errorReply(for: error))
+        }
+    }
+
     func reply(using context: CommandContext) throws -> ReplyBody {
-        try context.ghostty.split(
+        _ = try performSplit(using: context)
+        return .frame(FrameReply.ok())
+    }
+
+    private func performSplit(using context: CommandContext) throws -> String? {
+        let origin = try terminal(using: context)
+        let spawn = context.spawnWrapper?.mint(wrapping: commandText)
+        let newTerminal = try context.ghostty.split(
             direction: direction,
             cwd: cwd,
-            command: commandText,
+            command: spawn?.command ?? commandText,
             focus: focus ?? .new,
-            terminal: terminal(using: context)
+            terminal: origin
         )
+        if let spawn {
+            context.spawnRendezvous.escrow(token: spawn.token, terminal: newTerminal)
+        }
+        return spawn?.token
+    }
+}
+
+struct InputRequest: TerminalCommandRequest, AckCommandRequest {
+    let version: Int
+    let command: String
+    let rawTTY: String
+    @DefaultFalse var focused: Bool
+    let text: String
+    @DefaultFalse var submit: Bool
+    @DefaultFalse var ack: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case version
+        case command
+        case rawTTY = "tty"
+        case focused
+        case text
+        case submit
+        case ack
+    }
+
+    /// The text stays out of logs deliberately.
+    var logSummary: String {
+        "command=\(command) tty=\(tty ?? "") submit=\(submit)"
+    }
+
+    func reply(using context: CommandContext) throws -> ReplyBody {
+        try context.ghostty.input(text, submit: submit, terminal: terminal(using: context))
         return .frame(FrameReply.ok())
     }
 }
@@ -505,6 +501,42 @@ struct CreateBridgeRequest: TerminalCommandRequest {
     }
 }
 
+struct SpawnClaimRequest: CommandRequest {
+    let version: Int
+    let command: String
+    let rawTTY: String
+    let spawnToken: String
+
+    enum CodingKeys: String, CodingKey {
+        case version
+        case command
+        case rawTTY = "tty"
+        case spawnToken
+    }
+
+    var tty: String? {
+        normalizeTTY(rawTTY)
+    }
+
+    /// Skips commandReply: a failed claim must leave the tty's existing cache entry untouched.
+    func dispatch(using context: CommandContext) -> CommandResult {
+        do {
+            return try .reply(reply(using: context))
+        } catch {
+            context.logger.ghosttykit("\(logSummary) failed error=\(error.localizedDescription)")
+            return .reply(errorReply(for: error))
+        }
+    }
+
+    func reply(using context: CommandContext) throws -> ReplyBody {
+        guard let context = context as? MainCommandContext else {
+            throw RequestValidationError.invalidRequest("spawn claims are not accepted by this endpoint")
+        }
+        _ = try context.claimSpawn(token: spawnToken, tty: normalizeTTY(rawTTY))
+        return .frame(FrameReply.ok())
+    }
+}
+
 struct BridgeLeaseRequest: CommandRequest {
     let version: Int
     let command: String
@@ -567,106 +599,6 @@ private func pasteFrameFailure(for error: Error) -> PasteStreamFrameHeader {
     return .failure(code: response.code, response.error ?? "request failed")
 }
 
-struct BridgeCreateReply: Codable {
-    let version: Int
-    let code: String
-    let socketPath: String?
-    let leaseToken: String?
-    let error: String?
-
-    static func ok(socketPath: String, leaseToken: String) -> BridgeCreateReply {
-        BridgeCreateReply(
-            version: ProtocolVersion.current,
-            code: ProtocolCode.ok,
-            socketPath: socketPath,
-            leaseToken: leaseToken,
-            error: nil
-        )
-    }
-}
-
-struct FrameReply: Codable {
-    let version: Int
-    let code: String
-    let value: String?
-    let error: String?
-
-    static func ok(_ value: String? = nil) -> FrameReply {
-        FrameReply(
-            version: ProtocolVersion.current, code: ProtocolCode.ok, value: value, error: nil
-        )
-    }
-
-    static func failure(code: String, _ error: String) -> FrameReply {
-        FrameReply(version: ProtocolVersion.current, code: code, value: nil, error: error)
-    }
-}
-
-struct PasteStreamFrameHeader: Encodable {
-    let version: Int
-    let code: String
-    let error: String?
-    let kind: String?
-    let files: [PasteFrameFile]?
-    let bytes: Int?
-
-    static func text(byteCount: Int) -> PasteStreamFrameHeader {
-        PasteStreamFrameHeader(
-            version: ProtocolVersion.current,
-            code: ProtocolCode.ok,
-            error: nil,
-            kind: "text",
-            files: nil,
-            bytes: byteCount
-        )
-    }
-
-    static func files(_ files: [PasteFrameFile]) -> PasteStreamFrameHeader {
-        PasteStreamFrameHeader(
-            version: ProtocolVersion.current,
-            code: ProtocolCode.ok,
-            error: nil,
-            kind: "files",
-            files: files,
-            bytes: files.reduce(0) { $0 + $1.bytes }
-        )
-    }
-
-    static func failure(code: String, _ error: String) -> PasteStreamFrameHeader {
-        PasteStreamFrameHeader(
-            version: ProtocolVersion.current,
-            code: code,
-            error: error,
-            kind: nil,
-            files: nil,
-            bytes: nil
-        )
-    }
-}
-
-struct PasteFrameFile: Encodable {
-    let fileName: String?
-    let mediaType: String?
-    let bytes: Int
-    let source: String?
-}
-
-enum FrameStream {
-    case data(Data)
-    case file(URL)
-}
-
-struct FrameStreamReply {
-    let header: any Encodable
-    let streams: [FrameStream]
-}
-
-func encodeJSONLine(_ value: any Encodable) throws -> Data {
-    var data = try JSONEncoder().encode(value)
-    data.append(0x0A)
-    return data
-}
-
 func decodeCommand(from data: Data) throws -> any CommandRequest {
     let trimmed = linePayload(from: data)
     let envelope = try JSONDecoder().decode(FrameEnvelope.self, from: trimmed)
@@ -688,6 +620,8 @@ func responseForError(_ error: Error) -> FrameReply {
         return .failure(code: ProtocolCode.invalidRequest, decodingErrorMessage(decodingError))
     case let validationError as RequestValidationError:
         return .failure(code: validationError.protocolCode, message)
+    case let claimError as SpawnClaimError:
+        return .failure(code: claimError.protocolCode, message)
     case let ghosttyError as GhosttyKitError:
         return .failure(code: ghosttyError.protocolCode, message)
     case let pasteboardError as PasteboardError:
@@ -752,10 +686,12 @@ private let commandDecoders: [String: (Data) throws -> any CommandRequest] = [
     "clear-cache": { try JSONDecoder().decode(ClearCacheRequest.self, from: $0) },
     "bridge-create": { try JSONDecoder().decode(CreateBridgeRequest.self, from: $0) },
     "bridge-lease": { try JSONDecoder().decode(BridgeLeaseRequest.self, from: $0) },
+    "spawn-claim": { try JSONDecoder().decode(SpawnClaimRequest.self, from: $0) },
     "key-table-activate": { try JSONDecoder().decode(KeyTableActivateRequest.self, from: $0) },
     "key-table-deactivate": { try JSONDecoder().decode(KeyTableDeactivateRequest.self, from: $0) },
     "focus": { try JSONDecoder().decode(FocusRequest.self, from: $0) },
     "split": { try JSONDecoder().decode(SplitRequest.self, from: $0) },
+    "input": { try JSONDecoder().decode(InputRequest.self, from: $0) },
     "resize": { try JSONDecoder().decode(ResizeCommandRequest.self, from: $0) },
     "zoom": { try JSONDecoder().decode(ZoomRequest.self, from: $0) },
     "paste": { try JSONDecoder().decode(PasteRequest.self, from: $0) }

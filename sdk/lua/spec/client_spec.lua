@@ -77,6 +77,36 @@ describe("ghosttykit client", function()
     assert.is_true(tx.calls[5].payload:match('"percent":10') ~= nil)
   end)
 
+  it("returns waited split tty values without requiring them", function()
+    local tx = transport({
+      { version = 1, code = "ok", value = "/dev/ttys024" },
+      { version = 1, code = "ok" },
+    })
+    local client = ghosttykit.client({ socket_path = "/tmp/gty.sock", transport = tx })
+
+    local tty, tty_err = client.layout:split({ direction = "right", tty = "/dev/ttys001", ack = true })
+    local empty, empty_err = client.layout:split({ direction = "right", tty = "/dev/ttys001", ack = true })
+
+    assert.is_nil(tty_err)
+    assert.is_nil(empty_err)
+    assert.are.equal("/dev/ttys024", tty)
+    assert.is_nil(empty)
+  end)
+
+  it("sends input as an ack-style terminal command", function()
+    local tx = transport({ { version = 1, code = "ok" } })
+    local client = ghosttykit.client({ socket_path = "/tmp/gty.sock", transport = tx })
+
+    local ok, err = client.terminal:input({ tty = "/dev/ttys001", text = "echo hi", submit = true, ack = true })
+
+    assert.is_nil(err)
+    assert.is_true(ok)
+    assert.are.equal("frame", tx.calls[1].mode)
+    assert.is_true(tx.calls[1].payload:match('"command":"input"') ~= nil)
+    assert.is_true(tx.calls[1].payload:match('"text":"echo hi"') ~= nil)
+    assert.is_true(tx.calls[1].payload:match('"submit":true') ~= nil)
+  end)
+
   it("keeps raw protocol calls available", function()
     local tx = transport({ { version = 1, code = "ok", value = "raw" } })
     local client = ghosttykit.client({ socket_path = "/tmp/gty.sock", transport = tx })

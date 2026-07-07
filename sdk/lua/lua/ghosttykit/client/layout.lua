@@ -32,9 +32,19 @@ function Layout:focus(opts)
   return self.ops.notify_ack(self.client, protocol.focus(opts), opts.ack)
 end
 
+---Creates a split and returns the new terminal's TTY when ack is true.
 function Layout:split(opts)
   opts = opts or {}
-  return self.ops.notify_ack(self.client, protocol.split(opts), opts.ack)
+  local request = protocol.split(opts)
+  if not opts.ack then
+    return self.ops.notify(self.client, request)
+  end
+
+  local reply, err = self.ops.call(self.client, request)
+  if err then
+    return nil, err
+  end
+  return reply.value, nil
 end
 
 function Layout:resize(opts)

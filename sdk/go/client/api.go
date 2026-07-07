@@ -42,6 +42,14 @@ type SplitOptions struct {
 	Focus       string
 }
 
+// InputOptions controls typed input delivery.
+type InputOptions struct {
+	TerminalOptions
+	AckOptions
+	Text   string
+	Submit bool
+}
+
 // ResizeOptions controls a resize operation.
 type ResizeOptions struct {
 	TerminalOptions
@@ -54,6 +62,12 @@ type ResizeOptions struct {
 type ZoomOptions struct {
 	TerminalOptions
 	AckOptions
+}
+
+// SpawnClaimOptions identifies a pending daemon spawn to claim.
+type SpawnClaimOptions struct {
+	TTY   string
+	Token string
 }
 
 // ClearCacheOptions controls cache clearing.
@@ -113,9 +127,23 @@ func (c Client) Focus(opts FocusOptions) error {
 	return NotifyAck(c, request, opts.Wait)
 }
 
-// Split creates a Ghostty split.
-func (c Client) Split(opts SplitOptions) error {
+// Split creates a Ghostty split. Returns the new terminal's TTY
+// when Waited.
+func (c Client) Split(opts SplitOptions) (string, error) {
 	request := protocol.NewSplitRequest(opts.TTY, opts.Direction, opts.CWD, opts.CommandText, opts.Focus, opts.Focused, opts.Wait)
+	if !opts.Wait {
+		return "", Notify(c, request)
+	}
+	reply, err := Call[protocol.FrameReply](c, request)
+	if err != nil {
+		return "", err
+	}
+	return reply.Value, nil
+}
+
+// Input sends text to a terminal as pasted input; Submit follows it with an enter keypress.
+func (c Client) Input(opts InputOptions) error {
+	request := protocol.NewInputRequest(opts.TTY, opts.Text, opts.Submit, opts.Focused, opts.Wait)
 	return NotifyAck(c, request, opts.Wait)
 }
 
@@ -141,6 +169,12 @@ func (c Client) ActivateKeyTable(opts KeyTableOptions) error {
 func (c Client) DeactivateKeyTable(opts KeyTableOptions) error {
 	request := protocol.NewKeyTableDeactivateRequest(opts.TTY, opts.Focused, opts.Wait)
 	return NotifyAck(c, request, opts.Wait)
+}
+
+// SpawnClaim binds the caller TTY to the terminal the daemon spawned with Token.
+func (c Client) SpawnClaim(opts SpawnClaimOptions) error {
+	_, err := Call[protocol.FrameReply](c, protocol.NewSpawnClaimRequest(opts.TTY, opts.Token))
+	return err
 }
 
 // ClearCache removes cached terminal mappings.

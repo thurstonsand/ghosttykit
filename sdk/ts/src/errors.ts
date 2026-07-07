@@ -16,6 +16,7 @@ export class ProtocolVersionMismatchError extends GhosttyKitError {}
 export class UnknownCommandError extends GhosttyKitError {}
 export class InvalidRequestError extends GhosttyKitError {}
 export class TerminalNotFoundError extends GhosttyKitError {}
+export class SpawnTokenNotFoundError extends GhosttyKitError {}
 export class GhosttyUnavailableError extends GhosttyKitError {}
 export class PasteEmptyError extends GhosttyKitError {}
 export class PasteUnsupportedError extends GhosttyKitError {}
@@ -66,6 +67,8 @@ export function errorFromReply(reply: FrameReply): GhosttyKitError | undefined {
       return new InvalidRequestError(code, message);
     case protocolCodes.terminalNotFound:
       return new TerminalNotFoundError(code, message);
+    case protocolCodes.spawnTokenNotFound:
+      return new SpawnTokenNotFoundError(code, message);
     case protocolCodes.ghosttyUnavailable:
       return new GhosttyUnavailableError(code, message);
     case protocolCodes.pasteEmpty:

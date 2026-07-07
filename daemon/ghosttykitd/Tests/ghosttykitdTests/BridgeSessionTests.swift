@@ -104,7 +104,9 @@ final class BridgeSessionTests: XCTestCase {
             ghostty: DryRunGhosttyController(),
             logger: testLogger(),
             terminal: testTerminal(),
-            lease: lease
+            lease: lease,
+            spawnRendezvous: SpawnRendezvous(logger: testLogger()),
+            spawnWrapper: nil
         )
     }
 

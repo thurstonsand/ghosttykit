@@ -18,6 +18,8 @@ const (
 	CodeInvalidRequest = "invalid_request"
 	// CodeTerminalNotFound means no Ghostty terminal matches the request target.
 	CodeTerminalNotFound = "terminal_not_found"
+	// CodeSpawnTokenNotFound means the spawn token is unknown, already claimed, or expired.
+	CodeSpawnTokenNotFound = "spawn_token_not_found"
 	// CodeGhosttyUnavailable means Ghostty cannot be reached or controlled.
 	CodeGhosttyUnavailable = "ghostty_unavailable"
 	// CodePasteEmpty means the clipboard has no supported paste content.
@@ -110,6 +112,8 @@ func (r FrameReply) Err() error {
 		return &InvalidRequestError{protocolError: base}
 	case CodeTerminalNotFound:
 		return &TerminalNotFoundError{protocolError: base}
+	case CodeSpawnTokenNotFound:
+		return &SpawnTokenNotFoundError{protocolError: base}
 	case CodeGhosttyUnavailable:
 		return &GhosttyUnavailableError{protocolError: base}
 	case CodePasteEmpty:
@@ -155,6 +159,9 @@ type InvalidRequestError struct{ protocolError }
 
 // TerminalNotFoundError means no Ghostty terminal matches the request target.
 type TerminalNotFoundError struct{ protocolError }
+
+// SpawnTokenNotFoundError means the spawn token is unknown, already claimed, or expired.
+type SpawnTokenNotFoundError struct{ protocolError }
 
 // GhosttyUnavailableError means Ghostty cannot be reached or controlled.
 type GhosttyUnavailableError struct{ protocolError }
@@ -281,6 +288,24 @@ func NewBridgeLeaseRequest(token string) BridgeLeaseRequest {
 	return BridgeLeaseRequest{FrameEnvelope: NewFrameEnvelope("bridge-lease"), Token: token}
 }
 
+// SpawnClaimRequest binds the caller TTY to the pending daemon spawn identified by SpawnToken.
+type SpawnClaimRequest struct {
+	FrameEnvelope
+	TTY        string `json:"tty"`
+	SpawnToken string `json:"spawnToken"`
+}
+
+func (SpawnClaimRequest) isRequest() {}
+
+// NewSpawnClaimRequest returns a spawn-claim request.
+func NewSpawnClaimRequest(tty, spawnToken string) SpawnClaimRequest {
+	return SpawnClaimRequest{
+		FrameEnvelope: NewFrameEnvelope("spawn-claim"),
+		TTY:           tty,
+		SpawnToken:    spawnToken,
+	}
+}
+
 // ClearCacheRequest removes one TTY mapping, or all mappings when TTY is empty.
 type ClearCacheRequest struct {
 	FrameEnvelope
@@ -396,6 +421,32 @@ func NewSplitRequest(tty, direction, cwd, commandText, focus string, focused, ac
 }
 
 func (r SplitRequest) replyMode() ReplyMode { return ackReplyMode(r.Ack) }
+
+// InputRequest sends text to a terminal as pasted input, optionally submitted with enter.
+type InputRequest struct {
+	FrameEnvelope
+	TTY     string `json:"tty"`
+	Focused bool   `json:"focused,omitempty"`
+	Text    string `json:"text"`
+	Submit  bool   `json:"submit,omitempty"`
+	Ack     bool   `json:"ack,omitempty"`
+}
+
+func (InputRequest) isRequest() {}
+
+// NewInputRequest returns an input request.
+func NewInputRequest(tty, text string, submit, focused, ack bool) InputRequest {
+	return InputRequest{
+		FrameEnvelope: NewFrameEnvelope("input"),
+		TTY:           tty,
+		Focused:       focused,
+		Text:          text,
+		Submit:        submit,
+		Ack:           ack,
+	}
+}
+
+func (r InputRequest) replyMode() ReplyMode { return ackReplyMode(r.Ack) }
 
 // ResizeRequest resizes a Ghostty split adjacent to the caller TTY terminal.
 type ResizeRequest struct {

@@ -22,6 +22,7 @@ import {
   type FocusTarget,
   type FrameReply,
   focusRequest,
+  inputRequest,
   type KeyTableActivateOptions,
   keyTableActivateRequest,
   keyTableDeactivateRequest,
@@ -82,6 +83,11 @@ export interface SplitCommandOptions extends TerminalCommandOptions {
   cwd?: string;
   commandText?: string;
   focus?: FocusTarget;
+}
+
+export interface InputCommandOptions extends TerminalCommandOptions {
+  text: string;
+  submit?: boolean;
 }
 
 export class GhosttyKitClient {
@@ -191,9 +197,19 @@ export class GhosttyKitClient {
     await this.send(focusRequest({ ...options, direction }), options.ack);
   }
 
-  async split(direction: Direction, options: SplitCommandOptions): Promise<void> {
+  /** Creates a split and returns the new terminal's TTY when ack is true. */
+  async split(direction: Direction, options: SplitCommandOptions): Promise<string | undefined> {
     const requestOptions: SplitOptions = { ...options, direction };
-    await this.send(splitRequest(requestOptions), options.ack);
+    const reply = await this.send(splitRequest(requestOptions), options.ack);
+    return reply?.value;
+  }
+
+  /**
+   * Sends text as bracketed paste, leaving it in the line editor unless submit is true.
+   * Bridge sockets target their bound terminal.
+   */
+  async input(options: InputCommandOptions): Promise<void> {
+    await this.send(inputRequest(options), options.ack);
   }
 
   async resize(
@@ -224,12 +240,12 @@ export class GhosttyKitClient {
     return { socketPath: reply.socketPath, close: lease.close };
   }
 
-  private async send(request: Request, ack?: boolean): Promise<void> {
+  private async send(request: Request, ack?: boolean): Promise<FrameReply | undefined> {
     if (ack) {
-      await this.call(request);
-      return;
+      return this.call(request);
     }
     await this.notify(request);
+    return undefined;
   }
 }
 

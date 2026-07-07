@@ -2,7 +2,7 @@ package main
 
 import (
 	"errors"
-	"strconv"
+	"fmt"
 
 	"github.com/spf13/cobra"
 
@@ -14,13 +14,13 @@ func tabTerminalCountCmd(opts *options) *cobra.Command {
 	return &cobra.Command{
 		Use:  "tab-terminal-count",
 		Args: cobra.NoArgs,
-		RunE: func(_ *cobra.Command, _ []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			target := optionalTerminalTarget(opts)
 			count, err := client.New().TabTerminalCount(client.TerminalOptions{TTY: target.tty, Focused: target.focused})
 			if err != nil {
 				return err
 			}
-			printValue(strconv.Itoa(count))
+			_, _ = fmt.Fprintln(cmd.OutOrStdout(), count)
 			return nil
 		},
 	}
@@ -55,12 +55,12 @@ func splitCmd(opts *options) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:  "split <left|down|up|right>",
 		Args: cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			target, err := requestTerminalTarget(opts)
 			if err != nil {
 				return err
 			}
-			return client.New().Split(client.SplitOptions{
+			tty, err := client.New().Split(client.SplitOptions{
 				TerminalOptions: client.TerminalOptions{TTY: target.tty, Focused: target.focused},
 				AckOptions:      client.AckOptions{Wait: wait},
 				Direction:       args[0],
@@ -68,12 +68,19 @@ func splitCmd(opts *options) *cobra.Command {
 				CommandText:     commandText,
 				Focus:           focus,
 			})
+			if err != nil {
+				return err
+			}
+			if tty != "" {
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), tty)
+			}
+			return nil
 		},
 	}
 	cmd.Flags().StringVar(&cwd, "cwd", "", "initial working directory")
 	cmd.Flags().StringVar(&commandText, "command", "", "command to run")
 	cmd.Flags().StringVar(&focus, "focus", "new", "focus target: new or original")
-	cmd.Flags().BoolVar(&wait, "wait", false, "wait for acknowledgement")
+	cmd.Flags().BoolVar(&wait, "wait", false, "wait for the new terminal's tty")
 	return cmd
 }
 

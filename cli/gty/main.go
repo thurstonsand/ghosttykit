@@ -35,8 +35,10 @@ func newRootCmd() *cobra.Command {
 		splitCmd(opts),
 		resizeCmd(opts),
 		zoomCmd(opts),
+		inputCmd(opts),
 		pasteCmd(opts),
 		clearCacheCmd(opts),
+		spawnClaimCmd(opts),
 		titleCmd(),
 		sshCmd(opts),
 	)

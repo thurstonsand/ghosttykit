@@ -4,6 +4,7 @@ export const protocolCodes = {
   unknownCommand: "unknown_command",
   invalidRequest: "invalid_request",
   terminalNotFound: "terminal_not_found",
+  spawnTokenNotFound: "spawn_token_not_found",
   ghosttyUnavailable: "ghostty_unavailable",
   pasteEmpty: "paste_empty",
   pasteUnsupported: "paste_unsupported",

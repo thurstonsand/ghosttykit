@@ -31,12 +31,13 @@ func doctorCmd() *cobra.Command {
 				}
 				return nil
 			}
+			// Not cmd.Printf: cobra's Print helpers write to stderr.
 			for _, check := range reply.Checks {
 				if check.Message == "" {
-					cmd.Printf("%s: %s\n", check.Name, check.Status)
+					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s: %s\n", check.Name, check.Status)
 					continue
 				}
-				cmd.Printf("%s: %s - %s\n", check.Name, check.Status, check.Message)
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s: %s - %s\n", check.Name, check.Status, check.Message)
 			}
 			if !reply.Healthy {
 				return doctorError{}
@@ -80,7 +81,7 @@ func terminalIDCmd(opts *options) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			printValue(terminalID)
+			_, _ = fmt.Fprintln(cmd.OutOrStdout(), terminalID)
 			return nil
 		},
 	}
@@ -111,8 +112,17 @@ func clearCacheCmd(opts *options) *cobra.Command {
 	return cmd
 }
 
-func printValue(value string) {
-	if value != "" {
-		fmt.Println(value)
+func spawnClaimCmd(opts *options) *cobra.Command {
+	return &cobra.Command{
+		Use:    "spawn-claim <token>",
+		Hidden: true,
+		Args:   cobra.ExactArgs(1),
+		RunE: func(_ *cobra.Command, args []string) error {
+			tty, err := requestTTY(opts)
+			if err != nil {
+				return err
+			}
+			return client.New().SpawnClaim(client.SpawnClaimOptions{TTY: tty, Token: args[0]})
+		},
 	}
 }

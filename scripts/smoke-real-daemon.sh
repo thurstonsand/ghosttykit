@@ -9,6 +9,8 @@ fi
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 GTY_BIN="${GTY_BIN:-$repo_root/cli/gty/gty}"
 GHOSTTYKITD_BIN="${GHOSTTYKITD_BIN:-$repo_root/daemon/ghosttykitd/ghosttykitd}"
+# The daemon resolves gty as a sibling binary; in-repo they live apart, so pin it for spawn wrapping.
+export GTY_BIN
 
 bridge_mode=0
 for arg in "$@"; do
@@ -233,7 +235,21 @@ expect paste "$paste_output" "$paste_text"
 run key-table activate nvim --wait >/dev/null
 run key-table deactivate --wait >/dev/null
 
-run split right --focus original --command "/bin/sh -lc 'printf ghosttykit-smoke-split; sleep 8'" --wait >/dev/null
+split_tty="$(run split right --focus original --command "/bin/sh -lc 'printf ghosttykit-smoke-split; sleep 8'" --wait)"
+expect_nonempty split-tty "$split_tty"
+if [[ "$split_tty" != /dev/* ]]; then
+  echo "smoke-real-daemon: split-tty = $split_tty, want /dev/* path" >&2
+  exit 1
+fi
+printf 'split tty: %s\n' "$split_tty" >&2
+if [[ "$bridge_mode" -eq 0 ]]; then
+  split_terminal_id="$(run terminal-id --tty "$split_tty")"
+  expect_nonempty split-terminal-id "$split_terminal_id"
+  if [[ "$split_terminal_id" == "$terminal_id" ]]; then
+    echo "smoke-real-daemon: split terminal id matches origin terminal id" >&2
+    exit 1
+  fi
+fi
 count_after_split="$(run tab-terminal-count)"
 expect_int tab-terminal-count-after-split "$count_after_split"
 if (( count_after_split <= count_before )); then
@@ -249,5 +265,38 @@ run resize left --pixels 10 --wait >/dev/null
 run zoom --wait >/dev/null
 run zoom --wait >/dev/null
 run clear-cache --wait >/dev/null
+
+if [[ "$bridge_mode" -eq 0 ]]; then
+  osascript -e "tell application \"Ghostty\" to close terminal id \"$split_terminal_id\"" >/dev/null
+  sleep 2
+
+  # A fresh split usually recycles the just-freed pty, whose cache entry is now stale — the
+  # spawn claim must overwrite it.
+  second_tty="$(run split right --focus original --wait)"
+  expect_nonempty second-split-tty "$second_tty"
+  second_id="$(run terminal-id --tty "$second_tty")"
+  expect_nonempty second-split-terminal-id "$second_id"
+  if [[ "$second_tty" == "$split_tty" ]]; then
+    if [[ "$second_id" == "$split_terminal_id" ]]; then
+      echo "smoke-real-daemon: recycled pty kept its stale binding; claim did not overwrite" >&2
+      exit 1
+    fi
+    printf 'claim overwrote stale binding on recycled pty %s\n' "$second_tty" >&2
+  else
+    printf 'pty not recycled (%s -> %s); overwrite path not exercised this run\n' "$split_tty" "$second_tty" >&2
+  fi
+
+  input_proof="$(mktemp -t ghosttykit-input-proof.XXXXXX)"
+  rm -f "$input_proof"
+  run input --tty "$second_tty" --submit --wait "printf smoke-input-proof > $input_proof"
+  for _ in {1..150}; do
+    [[ -f "$input_proof" ]] && break
+    sleep 0.1
+  done
+  expect input-proof "$(cat "$input_proof" 2>/dev/null || true)" "smoke-input-proof"
+  rm -f "$input_proof"
+
+  osascript -e "tell application \"Ghostty\" to close terminal id \"$second_id\"" >/dev/null
+fi
 
 printf 'smoke-real-daemon: ok\n' >&2

@@ -63,12 +63,16 @@ See [protocol/codes.md](protocol/codes.md) for defined codes.
 | `gty split <direction>`          | `split`                | responds when `ack` is true | `tty`, `direction`, optional `focused`, `cwd`, `commandText`, `focus`, `ack` |
 | `gty resize <direction>`         | `resize`               | responds when `ack` is true | `tty`, `direction`, `amount`, optional `focused`, optional `ack`             |
 | `gty zoom`                       | `zoom`                 | responds when `ack` is true | `tty`, optional `focused`, optional `ack`                                    |
+| `gty input <text>`               | `input`                | responds when `ack` is true | `tty`, `text`, optional `submit`, optional `focused`, optional `ack`         |
 | `gty paste`                      | `paste`                | always responds             | `tty` optional                                                               |
 | `gty clear-cache`                | `clear-cache`          | responds when `ack` is true | `tty` optional, optional `ack`                                               |
+| `gty spawn-claim <token>`        | `spawn-claim`          | always responds             | `tty`, `spawnToken`                                                          |
 | `gty ssh` bridge setup           | `bridge-create`        | always responds             | `tty`, optional `focused`                                                    |
 | `gty ssh` bridge lease           | `bridge-lease`         | hold after initial response | `token`                                                                      |
 
 For `terminal-id`, `refresh: true` forces a refresh of the cached mapping. `refresh: true` when not in the focused window is invalid.
+
+`spawn-claim` is daemon plumbing: `ghosttykitd` mints a single-use spawn token when it creates a terminal, and the spawned process claims it to bind its TTY to the terminal the daemon created. A claim consumes the token. Bridge endpoints reject `spawn-claim` with `invalid_request`.
 
 `amount` is exactly one of:
 

@@ -66,6 +66,11 @@ export interface SplitOptions extends DirectionOptions {
   focus?: FocusTarget;
 }
 
+export interface InputOptions extends AckOptions {
+  text: string;
+  submit?: boolean;
+}
+
 export interface ResizeOptions extends DirectionOptions {
   amount: ResizeAmount;
 }
@@ -191,6 +196,20 @@ export function splitRequest(options: SplitOptions): Request {
       cwd: options.cwd,
       commandText: options.commandText,
       focus: options.focus,
+      ack: optionalTrue(options.ack),
+    }),
+    ackReplyMode(options.ack),
+  );
+}
+
+export function inputRequest(options: InputOptions): Request {
+  return withReplyMode(
+    compact({
+      ...envelope("input"),
+      tty: options.tty,
+      focused: optionalTrue(options.focused),
+      text: options.text,
+      submit: optionalTrue(options.submit),
       ack: optionalTrue(options.ack),
     }),
     ackReplyMode(options.ack),
