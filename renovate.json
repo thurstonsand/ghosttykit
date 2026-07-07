@@ -3,8 +3,9 @@
   "extends": ["config:recommended"],
   "ignorePaths": ["sdk/lua/.github/workflows/**", "nvim/.github/workflows/**"],
   "dependencyDashboard": true,
+  "timezone": "America/New_York",
   "labels": ["dependencies"],
-  "schedule": ["before 6am on Monday"],
+  "schedule": ["* * * * 1"],
   "packageRules": [
     {
       "matchManagers": ["github-actions"],
