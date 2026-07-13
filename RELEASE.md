@@ -2,6 +2,28 @@
 
 # Release notes
 
+## 0.4.0
+
+Deterministic terminal targeting and hardened Ghostty control.
+
+### Added
+
+- Added `gty input` and SDK input APIs for sending text to a terminal, with optional Enter submission.
+- Added spawn-token binding so daemon-created splits report and cache their exact tty without relying on focus timing.
+- Added deterministic tty-to-terminal resolution through Ghostty's scripting `tty` property when available, with an OSC 7 rendezvous fallback on older Ghostty versions.
+
+### Changed
+
+- Replaced Ghostty AppleScript source execution with direct Apple Events, cutting median latency roughly in half for representative operations in benchmarks (focused context: 53.3→25.0 ms; perform action: 16.7→8.3 ms), with substantially lower tail latency.
+- Removed `focused` targeting from the protocol, CLI integrations, SDKs, and Neovim plugin. Terminal-targeted raw requests now require `tty`; high-level SDK clients derive it from `GTY_TTY` or the controlling terminal when omitted.
+- Moved the Go CLI and SDK into one root module at `github.com/thurstonsand/ghosttykit`.
+
+### Fixed
+
+- Prevented focus races from binding a tty to the wrong Ghostty terminal.
+- Retry-safe actions now clear and recover stale terminal bindings without replaying partial input or split operations.
+- Fixed daemon-installed splits failing to find the matching `gty` executable.
+
 ## 0.3.0
 
 SDK and Pi paste expansion.
