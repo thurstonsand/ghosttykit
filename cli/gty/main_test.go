@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/spf13/cobra"
+
 	"github.com/thurstonsand/ghosttykit/sdk/go/protocol"
 )
 
@@ -151,6 +153,24 @@ func testUnixListener(t *testing.T, socketPath string) net.Listener {
 		t.Fatalf("Listen() error = %v", err)
 	}
 	return listener
+}
+
+func TestCommandsHaveDescriptions(t *testing.T) {
+	root := newRootCmd()
+	if root.Short == "" {
+		t.Fatal("root command has no description")
+	}
+
+	var check func(*cobra.Command)
+	check = func(parent *cobra.Command) {
+		for _, command := range parent.Commands() {
+			if command.Short == "" {
+				t.Errorf("%s has no description", command.CommandPath())
+			}
+			check(command)
+		}
+	}
+	check(root)
 }
 
 func TestArgumentErrorUsesUsageExitCode(t *testing.T) {

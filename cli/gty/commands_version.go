@@ -10,8 +10,9 @@ import (
 
 func versionCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:  "version",
-		Args: cobra.NoArgs,
+		Use:   "version",
+		Short: "Print the client and protocol versions",
+		Args:  cobra.NoArgs,
 		Run: func(cmd *cobra.Command, _ []string) {
 			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "gty %s protocol=%d\n", ghosttykit.Version, ghosttykit.ProtocolVersion)
 		},

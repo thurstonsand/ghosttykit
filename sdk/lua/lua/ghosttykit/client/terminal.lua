@@ -14,7 +14,13 @@ local function reply_value(reply, message)
 end
 
 function Terminal:id(opts)
-  local reply, err = self.ops.call(self.client, protocol.terminal_id(opts))
+  local err
+  opts, err = self.ops.resolve_terminal_options(opts)
+  if err then
+    return nil, err
+  end
+  local reply
+  reply, err = self.ops.call(self.client, protocol.terminal_id(opts))
   if err then
     return nil, err
   end
@@ -22,7 +28,13 @@ function Terminal:id(opts)
 end
 
 function Terminal:count(opts)
-  local reply, err = self.ops.call(self.client, protocol.tab_terminal_count(opts))
+  local err
+  opts, err = self.ops.resolve_terminal_options(opts)
+  if err then
+    return nil, err
+  end
+  local reply
+  reply, err = self.ops.call(self.client, protocol.tab_terminal_count(opts))
   if err then
     return nil, err
   end
@@ -48,7 +60,11 @@ end
 ---Sends text as bracketed paste, leaving it in the line editor unless submit is true.
 ---Bridge sockets target their bound terminal.
 function Terminal:input(opts)
-  opts = opts or {}
+  local err
+  opts, err = self.ops.resolve_terminal_options(opts)
+  if err then
+    return nil, err
+  end
   return self.ops.notify_ack(self.client, protocol.input(opts), opts.ack)
 end
 

@@ -78,6 +78,7 @@ protocol CommandRequest: Decodable {
     var command: String { get }
     var tty: String? { get }
     var replyMode: ReplyMode { get }
+    var retriesStaleBinding: Bool { get }
     func dispatch(using context: CommandContext) -> CommandResult
     func reply(using context: CommandContext) throws -> ReplyBody
     func errorReply(for error: Error) -> ReplyBody
@@ -88,17 +89,31 @@ extension CommandRequest {
         .frame
     }
 
+    var retriesStaleBinding: Bool {
+        false
+    }
+
     func dispatch(using context: CommandContext) -> CommandResult {
         .reply(commandReply(using: context))
     }
 
     func commandReply(using context: CommandContext) -> ReplyBody {
         do {
-            return try reply(using: context)
+            return try retryingStaleBinding(using: context) { try reply(using: $0) }
         } catch {
             context.cache.clear(tty: tty)
             context.logger.ghosttykit("\(logSummary) failed error=\(error.localizedDescription)")
             return errorReply(for: error)
+        }
+    }
+
+    func retryingStaleBinding<T>(using context: CommandContext, _ body: (CommandContext) throws -> T) throws -> T {
+        do {
+            return try body(context)
+        } catch let error where retriesStaleBinding && error.isGhosttyObjectNotFound {
+            guard let tty, context.recoverTerminalBinding(for: tty) else { throw error }
+            context.logger.ghosttykit("\(logSummary) retrying after stale terminal binding")
+            return try body(context)
         }
     }
 
@@ -125,7 +140,14 @@ extension AckCommandRequest {
 
 protocol TerminalCommandRequest: CommandRequest {
     var rawTTY: String { get }
-    var focused: Bool { get }
+}
+
+protocol StaleBindingRetryableRequest: TerminalCommandRequest {}
+
+extension StaleBindingRetryableRequest {
+    var retriesStaleBinding: Bool {
+        true
+    }
 }
 
 extension TerminalCommandRequest {
@@ -134,7 +156,7 @@ extension TerminalCommandRequest {
     }
 
     func terminal(using context: CommandContext) throws -> TerminalContext {
-        try context.terminal(for: normalizeTTY(rawTTY), focused: focused)
+        try context.terminal(for: normalizeTTY(rawTTY))
     }
 }
 
@@ -148,70 +170,40 @@ struct ResizeAmount: Decodable {
     let percent: Double?
 }
 
-struct TerminalIDRequest: CommandRequest {
+struct TerminalIDRequest: TerminalCommandRequest {
     let version: Int
     let command: String
-    let rawTTY: String?
-    @DefaultFalse var focused: Bool
+    let rawTTY: String
     @DefaultFalse var refresh: Bool
 
     enum CodingKeys: String, CodingKey {
         case version
         case command
         case rawTTY = "tty"
-        case focused
         case refresh
     }
 
-    var tty: String? {
-        rawTTY.map(normalizeTTY)
-    }
-
     func reply(using context: CommandContext) throws -> ReplyBody {
-        let terminal = try terminal(using: context)
-        return .frame(FrameReply.ok(terminal.terminalID))
-    }
-
-    private func terminal(using context: CommandContext) throws -> TerminalContext {
-        switch (refresh, tty, focused) {
-        case (true, .some, false):
-            throw RequestValidationError.invalidRequest(
-                "cannot refresh terminal-id if it is not the focused window"
-            )
-        case (true, let tty?, true):
-            let terminal = try context.ghostty.focusedTerminalContext()
-            context.cache.store(terminal: terminal, for: tty)
-            return terminal
-        case (true, nil, _):
-            return try context.ghostty.focusedTerminalContext()
-        case (false, let tty?, let focused):
-            return try context.terminal(for: tty, focused: focused)
-        case (false, nil, _):
-            return try context.ghostty.focusedTerminalContext()
+        if refresh {
+            context.cache.clear(tty: tty)
         }
+        return try .frame(FrameReply.ok(terminal(using: context).terminalID))
     }
 }
 
-struct TabTerminalCountRequest: CommandRequest {
+struct TabTerminalCountRequest: StaleBindingRetryableRequest {
     let version: Int
     let command: String
-    let rawTTY: String?
-    @DefaultFalse var focused: Bool
+    let rawTTY: String
 
     enum CodingKeys: String, CodingKey {
         case version
         case command
         case rawTTY = "tty"
-        case focused
-    }
-
-    var tty: String? {
-        rawTTY.map(normalizeTTY)
     }
 
     func reply(using context: CommandContext) throws -> ReplyBody {
-        let terminal = try tty.map { try context.terminal(for: $0, focused: focused) }
-        let count = try context.ghostty.tabTerminalCount(terminal: terminal)
+        let count = try context.ghostty.tabTerminalCount(terminal: terminal(using: context))
         return .frame(FrameReply.ok(String(count)))
     }
 }
@@ -244,11 +236,10 @@ struct ClearCacheRequest: AckCommandRequest {
     }
 }
 
-struct KeyTableActivateRequest: TerminalCommandRequest, AckCommandRequest {
+struct KeyTableActivateRequest: StaleBindingRetryableRequest, AckCommandRequest {
     let version: Int
     let command: String
     let rawTTY: String
-    @DefaultFalse var focused: Bool
     let table: String
     @DefaultFalse var ack: Bool
 
@@ -256,7 +247,6 @@ struct KeyTableActivateRequest: TerminalCommandRequest, AckCommandRequest {
         case version
         case command
         case rawTTY = "tty"
-        case focused
         case table
         case ack
     }
@@ -271,18 +261,16 @@ struct KeyTableActivateRequest: TerminalCommandRequest, AckCommandRequest {
     }
 }
 
-struct KeyTableDeactivateRequest: TerminalCommandRequest, AckCommandRequest {
+struct KeyTableDeactivateRequest: StaleBindingRetryableRequest, AckCommandRequest {
     let version: Int
     let command: String
     let rawTTY: String
-    @DefaultFalse var focused: Bool
     @DefaultFalse var ack: Bool
 
     enum CodingKeys: String, CodingKey {
         case version
         case command
         case rawTTY = "tty"
-        case focused
         case ack
     }
 
@@ -292,11 +280,10 @@ struct KeyTableDeactivateRequest: TerminalCommandRequest, AckCommandRequest {
     }
 }
 
-struct FocusRequest: TerminalCommandRequest, AckCommandRequest {
+struct FocusRequest: StaleBindingRetryableRequest, AckCommandRequest {
     let version: Int
     let command: String
     let rawTTY: String
-    @DefaultFalse var focused: Bool
     let direction: Direction
     @DefaultFalse var ack: Bool
 
@@ -304,7 +291,6 @@ struct FocusRequest: TerminalCommandRequest, AckCommandRequest {
         case version
         case command
         case rawTTY = "tty"
-        case focused
         case direction
         case ack
     }
@@ -323,7 +309,6 @@ struct SplitRequest: TerminalCommandRequest, AckCommandRequest {
     let version: Int
     let command: String
     let rawTTY: String
-    @DefaultFalse var focused: Bool
     let direction: Direction
     let cwd: String?
     let commandText: String?
@@ -334,7 +319,6 @@ struct SplitRequest: TerminalCommandRequest, AckCommandRequest {
         case version
         case command
         case rawTTY = "tty"
-        case focused
         case direction
         case cwd
         case commandText
@@ -398,7 +382,6 @@ struct InputRequest: TerminalCommandRequest, AckCommandRequest {
     let version: Int
     let command: String
     let rawTTY: String
-    @DefaultFalse var focused: Bool
     let text: String
     @DefaultFalse var submit: Bool
     @DefaultFalse var ack: Bool
@@ -407,7 +390,6 @@ struct InputRequest: TerminalCommandRequest, AckCommandRequest {
         case version
         case command
         case rawTTY = "tty"
-        case focused
         case text
         case submit
         case ack
@@ -424,11 +406,10 @@ struct InputRequest: TerminalCommandRequest, AckCommandRequest {
     }
 }
 
-struct ResizeCommandRequest: TerminalCommandRequest, AckCommandRequest {
+struct ResizeCommandRequest: StaleBindingRetryableRequest, AckCommandRequest {
     let version: Int
     let command: String
     let rawTTY: String
-    @DefaultFalse var focused: Bool
     let direction: Direction
     let amount: ResizeAmount
     @DefaultFalse var ack: Bool
@@ -437,7 +418,6 @@ struct ResizeCommandRequest: TerminalCommandRequest, AckCommandRequest {
         case version
         case command
         case rawTTY = "tty"
-        case focused
         case direction
         case amount
         case ack
@@ -455,18 +435,16 @@ struct ResizeCommandRequest: TerminalCommandRequest, AckCommandRequest {
     }
 }
 
-struct ZoomRequest: TerminalCommandRequest, AckCommandRequest {
+struct ZoomRequest: StaleBindingRetryableRequest, AckCommandRequest {
     let version: Int
     let command: String
     let rawTTY: String
-    @DefaultFalse var focused: Bool
     @DefaultFalse var ack: Bool
 
     enum CodingKeys: String, CodingKey {
         case version
         case command
         case rawTTY = "tty"
-        case focused
         case ack
     }
 
@@ -480,13 +458,11 @@ struct CreateBridgeRequest: TerminalCommandRequest {
     let version: Int
     let command: String
     let rawTTY: String
-    @DefaultFalse var focused: Bool
 
     enum CodingKeys: String, CodingKey {
         case version
         case command
         case rawTTY = "tty"
-        case focused
     }
 
     var logSummary: String {

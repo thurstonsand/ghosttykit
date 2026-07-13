@@ -39,15 +39,16 @@ describe("ghosttykit.nvim autocmds", function()
       end,
     }
 
-    require("ghosttykit.nvim").setup({ focused = false })
+    require("ghosttykit.nvim").setup({})
 
     assert.are.equal(1, autocmd_count("FocusGained"))
     assert.are.equal(1, autocmd_count("VimSuspend"))
+    assert.same({ activate = 1, deactivate = 0 }, calls)
 
     vim.api.nvim_exec_autocmds("FocusGained", { group = "ghosttykit" })
     vim.api.nvim_exec_autocmds("VimSuspend", { group = "ghosttykit" })
 
-    assert.same({ activate = 1, deactivate = 1 }, calls)
+    assert.same({ activate = 2, deactivate = 1 }, calls)
     assert.are.equal(1, autocmd_count("FocusGained"))
     assert.are.equal(1, autocmd_count("VimSuspend"))
   end)

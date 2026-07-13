@@ -83,7 +83,6 @@ The key table must be named `nvim`. GhosttyKit does not edit your Ghostty config
   "thurstonsand/ghosttykit.nvim",
   version = "*", -- use branch = "main" with ghosttykit-nightly
   opts = {
-    focused = true,
     key_table = "nvim",
     float_win_behavior = "previous",
     notify_errors = false,
@@ -91,7 +90,6 @@ The key table must be named `nvim`. GhosttyKit does not edit your Ghostty config
 }
 ```
 
-- `focused`: Activate Ghostty key table while Neovim is focused. Default: `true`.
 - `key_table`: Ghostty key table to activate while Neovim is focused. Default: `"nvim"`.
 - `float_win_behavior`: Floating window navigation. `"previous"` returns to the previous normal window. `"mux"` sends navigation to Ghostty instead. Default: `"previous"`.
 - `notify_errors`: Show daemon errors with `vim.notify()`. Navigation failures are quiet by default. Default: `false`.

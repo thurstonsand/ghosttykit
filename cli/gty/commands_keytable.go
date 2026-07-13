@@ -14,30 +14,24 @@ func keyTableCmd(opts *options) *cobra.Command {
 	}
 	cmd.AddCommand(
 		&cobra.Command{
-			Use:  "activate <table>",
-			Args: cobra.ExactArgs(1),
+			Use:   "activate <table>",
+			Short: "Activate a Ghostty key table for the caller's terminal",
+			Args:  cobra.ExactArgs(1),
 			RunE: func(_ *cobra.Command, args []string) error {
-				target, err := requestTerminalTarget(opts)
-				if err != nil {
-					return err
-				}
 				return client.New().ActivateKeyTable(client.KeyTableOptions{
-					TerminalOptions: client.TerminalOptions{TTY: target.tty, Focused: target.focused},
+					TerminalOptions: client.TerminalOptions{TTY: opts.tty},
 					AckOptions:      client.AckOptions{Wait: wait},
 					Table:           args[0],
 				})
 			},
 		},
 		&cobra.Command{
-			Use:  "deactivate",
-			Args: cobra.NoArgs,
+			Use:   "deactivate",
+			Short: "Deactivate the caller's active Ghostty key table",
+			Args:  cobra.NoArgs,
 			RunE: func(_ *cobra.Command, _ []string) error {
-				target, err := requestTerminalTarget(opts)
-				if err != nil {
-					return err
-				}
 				return client.New().DeactivateKeyTable(client.KeyTableOptions{
-					TerminalOptions: client.TerminalOptions{TTY: target.tty, Focused: target.focused},
+					TerminalOptions: client.TerminalOptions{TTY: opts.tty},
 					AckOptions:      client.AckOptions{Wait: wait},
 				})
 			},

@@ -2,6 +2,7 @@ local protocol = require("ghosttykit.protocol")
 local errors = require("ghosttykit.error")
 local json = require("ghosttykit.json")
 local socket = require("ghosttykit.socket")
+local tty = require("ghosttykit.tty")
 
 ---@class ghosttykit.Request: table
 ---@field version integer
@@ -122,12 +123,27 @@ local function notify_ack(client, req, ack)
   return notify(client, req)
 end
 
+local function resolve_terminal_options(opts)
+  opts = opts or {}
+  local resolved = tty.resolve(opts.tty)
+  if not resolved then
+    return nil, errors.new("invalid_request", "no tty: pass tty explicitly or set GTY_TTY")
+  end
+  local result = {}
+  for key, value in pairs(opts) do
+    result[key] = value
+  end
+  result.tty = resolved
+  return result, nil
+end
+
 local ops = {
   call = call,
   notify = notify,
   stream = stream,
   hold = hold,
   notify_ack = notify_ack,
+  resolve_terminal_options = resolve_terminal_options,
 }
 
 function Client:doctor()

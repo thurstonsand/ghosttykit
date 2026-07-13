@@ -7,7 +7,6 @@ local M = {}
 local function target()
   return {
     tty = tty.current(),
-    focused = config.get().focused,
   }
 end
 

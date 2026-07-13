@@ -15,8 +15,9 @@ func pasteCmd(opts *options) *cobra.Command {
 	var outputDir string
 	var jsonOutput bool
 	cmd := &cobra.Command{
-		Use:  "paste",
-		Args: cobra.NoArgs,
+		Use:   "paste",
+		Short: "Print clipboard content, materializing copied files to disk",
+		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runPaste(cmd.OutOrStdout(), opts, outputDir, jsonOutput)
 		},
@@ -31,7 +32,7 @@ func runPaste(out io.Writer, opts *options, outputDir string, jsonOutput bool) e
 		return usageError{err: errors.New("--output-dir is required")}
 	}
 	gtyClient := client.New()
-	pasteOpts := client.PasteOptions{TTY: optionalTTY(opts), OutputDir: outputDir}
+	pasteOpts := client.PasteOptions{TTY: opts.tty, OutputDir: outputDir}
 	if !jsonOutput {
 		result, err := gtyClient.WritePasteText(out, pasteOpts)
 		if err != nil {

@@ -28,7 +28,7 @@ func TestStreamRejectsFrameRequest(t *testing.T) {
 }
 
 func TestStreamRejectsNoReplyRequest(t *testing.T) {
-	_, _, err := Stream[protocol.PasteStreamFrameHeader](ForSocket("unused.sock"), protocol.NewFocusRequest("", "", false, false))
+	_, _, err := Stream[protocol.PasteStreamFrameHeader](ForSocket("unused.sock"), protocol.NewFocusRequest("", "", false))
 	if !errors.Is(err, ErrNoReplyMode) {
 		t.Fatalf("Stream(FocusRequest) error = %v, want %v", err, ErrNoReplyMode)
 	}

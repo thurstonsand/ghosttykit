@@ -12,15 +12,12 @@ func inputCmd(opts *options) *cobra.Command {
 	var submit bool
 	var wait bool
 	cmd := &cobra.Command{
-		Use:  "input <text...>",
-		Args: cobra.MinimumNArgs(1),
+		Use:   "input <text...>",
+		Short: "Send text to the caller's terminal, optionally pressing Enter",
+		Args:  cobra.MinimumNArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
-			target, err := requestTerminalTarget(opts)
-			if err != nil {
-				return err
-			}
 			return client.New().Input(client.InputOptions{
-				TerminalOptions: client.TerminalOptions{TTY: target.tty, Focused: target.focused},
+				TerminalOptions: client.TerminalOptions{TTY: opts.tty},
 				AckOptions:      client.AckOptions{Wait: wait},
 				Text:            strings.Join(args, " "),
 				Submit:          submit,

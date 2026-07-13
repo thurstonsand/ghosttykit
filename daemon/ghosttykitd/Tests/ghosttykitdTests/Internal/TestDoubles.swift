@@ -9,25 +9,31 @@ final class StubBridgeSessionManager: BridgeSessionManaging {
 }
 
 final class SpyGhosttyController: GhosttyControlling {
-    private let focused: TerminalContext
     private let splitResult: TerminalContext
+    private let resolvedTerminal: TerminalContext?
+    private(set) var resolvedTTYs: [String] = []
     private(set) var controlledTerminal: TerminalContext?
     private(set) var splitCommand: String?
+    private(set) var splitCallCount = 0
     private(set) var inputText: String?
     private(set) var inputSubmit: Bool?
+    private(set) var inputCallCount = 0
+    var nextActionError: Error?
 
     init(
-        focusedTerminal: TerminalContext = mainTerminal(),
-        splitResult: TerminalContext = splitTerminal()
+        splitResult: TerminalContext = splitTerminal(),
+        resolvedTerminal: TerminalContext? = mainTerminal()
     ) {
-        focused = focusedTerminal
         self.splitResult = splitResult
+        self.resolvedTerminal = resolvedTerminal
     }
 
     func preflightAutomationPermission() throws -> Bool { true }
 
-    func focusedTerminalContext() throws -> TerminalContext {
-        focused
+    func terminalContext(forTTY tty: String) throws -> TerminalContext {
+        resolvedTTYs.append(tty)
+        guard let resolvedTerminal else { throw GhosttyKitError.terminalNotFound(tty) }
+        return resolvedTerminal
     }
 
     func readPasteboardContent() throws -> FrameStreamReply {
@@ -35,7 +41,15 @@ final class SpyGhosttyController: GhosttyControlling {
     }
 
     func activateKeyTable(_: String, terminal: TerminalContext) throws {
+        try consumeActionError()
         controlledTerminal = terminal
+    }
+
+    private func consumeActionError() throws {
+        if let error = nextActionError {
+            nextActionError = nil
+            throw error
+        }
     }
 
     func deactivateKeyTable(terminal: TerminalContext) throws {
@@ -50,13 +64,15 @@ final class SpyGhosttyController: GhosttyControlling {
         controlledTerminal = terminal
         inputText = text
         inputSubmit = submit
+        inputCallCount += 1
+        try consumeActionError()
     }
 
     func toggleSplitZoom(terminal: TerminalContext) throws {
         controlledTerminal = terminal
     }
 
-    func tabTerminalCount(terminal _: TerminalContext?) throws -> Int {
+    func tabTerminalCount(terminal _: TerminalContext) throws -> Int {
         1
     }
 
@@ -69,6 +85,8 @@ final class SpyGhosttyController: GhosttyControlling {
     ) throws -> TerminalContext {
         controlledTerminal = terminal
         splitCommand = command
+        splitCallCount += 1
+        try consumeActionError()
         return splitResult
     }
 

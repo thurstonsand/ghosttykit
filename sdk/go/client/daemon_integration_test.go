@@ -44,7 +44,7 @@ func TestIntegrationDryRunDaemonE2E(t *testing.T) {
 	}
 
 	tty := "/dev/ghosttykit-sdk-integration"
-	terminalIDRequest := protocol.NewTerminalIDRequest(tty, true, true)
+	terminalIDRequest := protocol.NewTerminalIDRequest(tty, true)
 	reply, err := Call[protocol.FrameReply](c, terminalIDRequest)
 	if err != nil {
 		t.Fatalf("terminal-id Call() error = %v", err)
@@ -53,7 +53,7 @@ func TestIntegrationDryRunDaemonE2E(t *testing.T) {
 		t.Fatalf("terminal-id value = %q, want %q", got, want)
 	}
 
-	tabTerminalCountRequest := protocol.NewTabTerminalCountRequest(tty, false)
+	tabTerminalCountRequest := protocol.NewTabTerminalCountRequest(tty)
 	reply, err = Call[protocol.FrameReply](c, tabTerminalCountRequest)
 	if err != nil {
 		t.Fatalf("tab-terminal-count Call() error = %v", err)
@@ -62,7 +62,7 @@ func TestIntegrationDryRunDaemonE2E(t *testing.T) {
 		t.Fatalf("tab-terminal-count value = %q, want %q", got, want)
 	}
 
-	focusRequest := protocol.NewFocusRequest(tty, "left", false, true)
+	focusRequest := protocol.NewFocusRequest(tty, "left", true)
 	reply, err = Call[protocol.FrameReply](c, focusRequest)
 	if err != nil {
 		t.Fatalf("ack focus Call() error = %v", err)
@@ -71,7 +71,7 @@ func TestIntegrationDryRunDaemonE2E(t *testing.T) {
 		t.Fatalf("ack focus code = %q, want %q", got, want)
 	}
 
-	notifyRequest := protocol.NewFocusRequest(tty, "right", false, false)
+	notifyRequest := protocol.NewFocusRequest(tty, "right", false)
 	if err := Notify(c, notifyRequest); err != nil {
 		t.Fatalf("no-ack focus Notify() error = %v", err)
 	}

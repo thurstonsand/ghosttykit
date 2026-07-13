@@ -9,6 +9,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+type options struct {
+	tty string
+}
+
 func main() {
 	if err := newRootCmd().Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, "gty:", err)
@@ -20,10 +24,11 @@ func newRootCmd() *cobra.Command {
 	opts := &options{}
 	root := &cobra.Command{
 		Use:           "gty",
+		Short:         "Control Ghostty terminals through GhosttyKit",
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
-	root.PersistentFlags().StringVar(&opts.tty, "tty", "", "terminal TTY path override")
+	root.PersistentFlags().StringVar(&opts.tty, "tty", "", "target terminal TTY path (defaults to caller)")
 
 	root.AddCommand(
 		versionCmd(),

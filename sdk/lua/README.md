@@ -38,21 +38,21 @@ local client = ghosttykit.client({
 
 ## Commands
 
-Commands are grouped by domain. Most methods return `value, err`; methods that only need acknowledgement return `ok, err` when `ack = true`, or send a notification without waiting when `ack` is omitted.
+Commands are grouped by domain. Terminal-scoped methods derive `tty` from `GTY_TTY`, then the process's controlling terminal, when it is omitted; pass `tty` explicitly to override it. Most methods return `value, err`; methods that only need acknowledgement return `ok, err` when `ack = true`, or send a notification without waiting when `ack` is omitted.
 
 ```lua
 client:doctor()
-client.terminal:id({ focused = true })
-client.terminal:count({ focused = true })
+client.terminal:id({})
+client.terminal:count({})
 client.terminal:clear_cache({ ack = true })
-client.key_table:activate({ name = "nvim", focused = true, ack = true })
-client.key_table:deactivate({ focused = true, ack = true })
-client.layout:focus({ direction = "left", focused = true, ack = true })
+client.key_table:activate({ name = "nvim", ack = true })
+client.key_table:deactivate({ ack = true })
+client.layout:focus({ direction = "left", ack = true })
 client.layout:split({ direction = "right", cwd = vim.fn.getcwd(), focus = true, ack = true })
 client.layout:resize({ direction = "right", pixels = 10, ack = true })
 client.layout:zoom({ ack = true })
 client.paste:get()
-client.bridge:create({ focused = true })
+client.bridge:create({})
 ```
 
 Paste handles can read text, read file contents, or save pasted content to disk:
@@ -68,7 +68,7 @@ print(saved[1].path)
 Raw request builders are available through `ghosttykit.protocol`, and clients expose protocol reply modes through `client.raw`:
 
 ```lua
-local request = ghosttykit.protocol.focus({ direction = "left", ack = true })
+local request = ghosttykit.protocol.focus({ tty = "/dev/ttys001", direction = "left", ack = true })
 local reply, err = client.raw:call(request)
 
 local stream, stream_err = client.raw:stream(ghosttykit.protocol.paste())

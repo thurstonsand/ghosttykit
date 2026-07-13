@@ -1,4 +1,7 @@
 local ghosttykit = require("ghosttykit")
+local tty = require("ghosttykit.tty")
+
+local original_resolve_tty = tty.resolve
 
 local function transport(replies)
   local calls = {}
@@ -28,6 +31,16 @@ local function stream_body(chunks)
 end
 
 describe("ghosttykit client", function()
+  before_each(function()
+    rawset(tty, "resolve", function(value)
+      return value or "/dev/ttys001"
+    end)
+  end)
+
+  after_each(function()
+    rawset(tty, "resolve", original_resolve_tty)
+  end)
+
   it("returns high-level doctor status", function()
     local tx = transport({ { version = 1, code = "ok", healthy = true } })
     local client = ghosttykit.client({ socket_path = "/tmp/gty.sock", transport = tx })
@@ -49,13 +62,29 @@ describe("ghosttykit client", function()
     })
     local client = ghosttykit.client({ socket_path = "/tmp/gty.sock", transport = tx })
 
-    local id, id_err = client.terminal:id({ focused = true })
-    local count, count_err = client.terminal:count({ focused = true })
+    local id, id_err = client.terminal:id()
+    local count, count_err = client.terminal:count()
 
     assert.is_nil(id_err)
     assert.is_nil(count_err)
     assert.are.equal("terminal-1", id)
     assert.are.equal(3, count)
+    assert.is_true(tx.calls[1].payload:match('"tty":"/dev/ttys001"') ~= nil)
+    assert.is_true(tx.calls[2].payload:match('"tty":"/dev/ttys001"') ~= nil)
+  end)
+
+  it("reports tty resolution failures before transport", function()
+    rawset(tty, "resolve", function()
+      return nil
+    end)
+    local tx = transport({})
+    local client = ghosttykit.client({ socket_path = "/tmp/gty.sock", transport = tx })
+
+    local value, err = client.terminal:id()
+
+    assert.is_nil(value)
+    assert.are.equal("invalid_request", err.code)
+    assert.are.equal(0, #tx.calls)
   end)
 
   it("uses domain command tables", function()
@@ -84,12 +113,12 @@ describe("ghosttykit client", function()
     })
     local client = ghosttykit.client({ socket_path = "/tmp/gty.sock", transport = tx })
 
-    local tty, tty_err = client.layout:split({ direction = "right", tty = "/dev/ttys001", ack = true })
+    local split_tty, tty_err = client.layout:split({ direction = "right", tty = "/dev/ttys001", ack = true })
     local empty, empty_err = client.layout:split({ direction = "right", tty = "/dev/ttys001", ack = true })
 
     assert.is_nil(tty_err)
     assert.is_nil(empty_err)
-    assert.are.equal("/dev/ttys024", tty)
+    assert.are.equal("/dev/ttys024", split_tty)
     assert.is_nil(empty)
   end)
 
@@ -111,7 +140,7 @@ describe("ghosttykit client", function()
     local tx = transport({ { version = 1, code = "ok", value = "raw" } })
     local client = ghosttykit.client({ socket_path = "/tmp/gty.sock", transport = tx })
 
-    local reply, err = client.raw:call(ghosttykit.protocol.terminal_id())
+    local reply, err = client.raw:call(ghosttykit.protocol.terminal_id({ tty = "/dev/ttys001" }))
 
     assert.is_nil(err)
     assert.are.equal("raw", reply.value)

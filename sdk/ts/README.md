@@ -50,30 +50,30 @@ const gty = client({ socketPath: "/path/to/ghosttykit.sock" });
 
 ## Commands
 
+Terminal-scoped methods derive `tty` from `GTY_TTY`, then the process's controlling terminal, when it is omitted. Pass `tty` explicitly to override it. Raw protocol request builders require a resolved `tty`.
+
 ```ts
 await gty.doctor(); // DoctorStatus
-await gty.terminalId({ focused: true }); // string
-await gty.tabTerminalCount({ focused: true }); // number
-const tty = process.env.GTY_TTY ?? "/dev/ttys001";
+await gty.terminalId(); // string
+await gty.tabTerminalCount(); // number
 
-await gty.keyTableActivate("nvim", { tty, focused: true, ack: true });
-await gty.keyTableDeactivate({ tty, focused: true, ack: true });
-await gty.focus("left", { tty, focused: true, ack: true });
+await gty.keyTableActivate("nvim", { ack: true });
+await gty.keyTableDeactivate({ ack: true });
+await gty.focus("left", { ack: true });
 await gty.split("right", {
-  tty,
   cwd: process.cwd(),
   focus: "new",
   ack: true,
 });
-await gty.resize("right", { pixels: 40 }, { tty, ack: true });
-await gty.zoom({ tty, ack: true });
+await gty.resize("right", { pixels: 40 }, { ack: true });
+await gty.zoom({ ack: true });
 await gty.clearCache({ ack: true });
 ```
 
 Create a bridge lease:
 
 ```ts
-const bridge = await gty.bridge({ tty, focused: true });
+const bridge = await gty.bridge();
 try {
   console.log(bridge.socketPath);
 } finally {

@@ -9,10 +9,10 @@ import {
 import type { Paste } from "./paste.js";
 import { pasteFromStream } from "./paste-internal.js";
 import {
-  type AckOptions,
   type BridgeCreateReply,
   bridgeCreateRequest,
   bridgeLeaseRequest,
+  type ClearCacheOptions,
   clearCacheRequest,
   type Direction,
   type DoctorCheck,
@@ -23,7 +23,6 @@ import {
   type FrameReply,
   focusRequest,
   inputRequest,
-  type KeyTableActivateOptions,
   keyTableActivateRequest,
   keyTableDeactivateRequest,
   type PasteOptions,
@@ -34,15 +33,13 @@ import {
   type ResizeAmount,
   replyModeOf,
   resizeRequest,
-  type SplitOptions,
   splitRequest,
-  type TerminalIdOptions,
-  type TerminalTargetOptions,
   tabTerminalCountRequest,
   terminalIdRequest,
   zoomRequest,
 } from "./protocol.js";
 import { dial, socketPath as resolveSocketPath } from "./socket.js";
+import { resolveTTY } from "./tty.js";
 
 export interface ClientOptions {
   socketPath?: string;
@@ -69,14 +66,16 @@ export interface Bridge {
   close(): void;
 }
 
-export interface CommandOptions extends AckOptions {}
-
-export interface TerminalOptions extends TerminalTargetOptions {
-  tty: string;
+export interface TerminalOptions {
+  tty?: string;
 }
 
 export interface TerminalCommandOptions extends TerminalOptions {
   ack?: boolean;
+}
+
+export interface TerminalIdOptions extends TerminalOptions {
+  refresh?: boolean;
 }
 
 export interface SplitCommandOptions extends TerminalCommandOptions {
@@ -164,12 +163,14 @@ export class GhosttyKitClient {
   }
 
   async terminalId(options: TerminalIdOptions = {}): Promise<string> {
-    const reply = await this.call(terminalIdRequest(options));
+    const reply = await this.call(terminalIdRequest({ ...options, tty: resolveTTY(options.tty) }));
     return requiredReplyValue(reply, "terminal-id reply missing terminal ID");
   }
 
-  async tabTerminalCount(options: TerminalTargetOptions = {}): Promise<number> {
-    const reply = await this.call(tabTerminalCountRequest(options));
+  async tabTerminalCount(options: TerminalOptions = {}): Promise<number> {
+    const reply = await this.call(
+      tabTerminalCountRequest({ ...options, tty: resolveTTY(options.tty) }),
+    );
     const value = Number.parseInt(
       requiredReplyValue(reply, "tab-terminal-count reply missing count"),
       10,
@@ -180,26 +181,36 @@ export class GhosttyKitClient {
     return value;
   }
 
-  async clearCache(options: CommandOptions = {}): Promise<void> {
+  async clearCache(options: ClearCacheOptions = {}): Promise<void> {
     await this.send(clearCacheRequest(options), options.ack);
   }
 
-  async keyTableActivate(table: string, options: TerminalCommandOptions): Promise<void> {
-    const requestOptions: KeyTableActivateOptions = { ...options, table };
+  async keyTableActivate(table: string, options: TerminalCommandOptions = {}): Promise<void> {
+    const requestOptions = {
+      ...options,
+      tty: resolveTTY(options.tty),
+      table,
+    };
     await this.send(keyTableActivateRequest(requestOptions), options.ack);
   }
 
-  async keyTableDeactivate(options: TerminalCommandOptions): Promise<void> {
-    await this.send(keyTableDeactivateRequest(options), options.ack);
+  async keyTableDeactivate(options: TerminalCommandOptions = {}): Promise<void> {
+    await this.send(
+      keyTableDeactivateRequest({ ...options, tty: resolveTTY(options.tty) }),
+      options.ack,
+    );
   }
 
-  async focus(direction: Direction, options: TerminalCommandOptions): Promise<void> {
-    await this.send(focusRequest({ ...options, direction }), options.ack);
+  async focus(direction: Direction, options: TerminalCommandOptions = {}): Promise<void> {
+    await this.send(
+      focusRequest({ ...options, tty: resolveTTY(options.tty), direction }),
+      options.ack,
+    );
   }
 
   /** Creates a split and returns the new terminal's TTY when ack is true. */
   async split(direction: Direction, options: SplitCommandOptions): Promise<string | undefined> {
-    const requestOptions: SplitOptions = { ...options, direction };
+    const requestOptions = { ...options, tty: resolveTTY(options.tty), direction };
     const reply = await this.send(splitRequest(requestOptions), options.ack);
     return reply?.value;
   }
@@ -209,19 +220,22 @@ export class GhosttyKitClient {
    * Bridge sockets target their bound terminal.
    */
   async input(options: InputCommandOptions): Promise<void> {
-    await this.send(inputRequest(options), options.ack);
+    await this.send(inputRequest({ ...options, tty: resolveTTY(options.tty) }), options.ack);
   }
 
   async resize(
     direction: Direction,
     amount: ResizeAmount,
-    options: TerminalCommandOptions,
+    options: TerminalCommandOptions = {},
   ): Promise<void> {
-    await this.send(resizeRequest({ ...options, direction, amount }), options.ack);
+    await this.send(
+      resizeRequest({ ...options, tty: resolveTTY(options.tty), direction, amount }),
+      options.ack,
+    );
   }
 
-  async zoom(options: CommandOptions = {}): Promise<void> {
-    await this.send(zoomRequest(options), options.ack);
+  async zoom(options: TerminalCommandOptions = {}): Promise<void> {
+    await this.send(zoomRequest({ ...options, tty: resolveTTY(options.tty) }), options.ack);
   }
 
   async paste(options: PasteOptions = {}): Promise<Paste> {
@@ -229,8 +243,10 @@ export class GhosttyKitClient {
     return pasteFromStream(normalizePasteHeader(result.header), result.body, result.close);
   }
 
-  async bridge(options: TerminalOptions): Promise<Bridge> {
-    const reply = await this.call<BridgeCreateReply>(bridgeCreateRequest(options));
+  async bridge(options: TerminalOptions = {}): Promise<Bridge> {
+    const reply = await this.call<BridgeCreateReply>(
+      bridgeCreateRequest({ ...options, tty: resolveTTY(options.tty) }),
+    );
     if (!reply.socketPath || !reply.leaseToken) {
       throw new InvalidReplyError("bridge-create reply missing socket path or lease token");
     }
@@ -261,14 +277,6 @@ function requireReplyMode(request: Request, want: string): void {
 }
 
 function validateRequest(request: Request): void {
-  if (
-    request.command === "terminal-id" &&
-    request.refresh === true &&
-    request.tty &&
-    request.focused !== true
-  ) {
-    throw new InvalidReplyError("cannot refresh terminal-id if it is not the focused window");
-  }
   if (request.command === "resize") {
     validateResizeAmount(request.amount);
   }

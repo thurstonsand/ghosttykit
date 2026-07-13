@@ -75,7 +75,13 @@ if [[ -z "${GTY_SOCK:-}" ]]; then
   start_local_daemon
 fi
 
-SMOKE_TTY="${GTY_SMOKE_TTY:-/dev/ghosttykit-smoke-$$}"
+# Deterministic resolution rendezvouses over the pty device, so the smoke tty must be real — the
+# caller's own terminal by default.
+SMOKE_TTY="${GTY_SMOKE_TTY:-$(tty 2>/dev/null || true)}"
+if [[ -z "$SMOKE_TTY" || "$SMOKE_TTY" == "not a tty" ]]; then
+  echo "smoke-real-daemon: requires a real tty; run from a Ghostty terminal or set GTY_SMOKE_TTY" >&2
+  exit 1
+fi
 export GTY_TTY="$SMOKE_TTY"
 
 run() {

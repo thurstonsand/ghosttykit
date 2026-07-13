@@ -3,15 +3,29 @@ package client
 import (
 	"fmt"
 	"io"
+	"os"
 	"strconv"
 
 	"github.com/thurstonsand/ghosttykit/sdk/go/protocol"
+	"github.com/thurstonsand/ghosttykit/sdk/go/tty"
 )
 
-// TerminalOptions selects the terminal affected by terminal-scoped operations.
+// TerminalOptions selects the terminal affected by terminal-scoped operations. TTY is derived
+// (GTY_TTY, then the process's controlling terminal) when empty.
 type TerminalOptions struct {
-	TTY     string
-	Focused bool
+	TTY string
+}
+
+// ResolveTTY normalizes an explicit tty value, or derives the caller's: GTY_TTY first, then the
+// process's own controlling terminal.
+func ResolveTTY(value string) (string, error) {
+	if value != "" {
+		return tty.Normalize(value), nil
+	}
+	if env := os.Getenv("GTY_TTY"); env != "" {
+		return tty.Normalize(env), nil
+	}
+	return tty.Current()
 }
 
 // TerminalIDOptions selects the terminal-id lookup behavior.
@@ -101,16 +115,24 @@ func (c Client) Doctor() (protocol.DoctorReply, error) {
 
 // TerminalID resolves a Ghostty terminal id.
 func (c Client) TerminalID(opts TerminalIDOptions) (string, error) {
-	reply, err := Call[protocol.FrameReply](c, protocol.NewTerminalIDRequest(opts.TTY, opts.Focused, opts.Refresh))
+	ttyPath, err := ResolveTTY(opts.TTY)
+	if err != nil {
+		return "", err
+	}
+	reply, err := Call[protocol.FrameReply](c, protocol.NewTerminalIDRequest(ttyPath, opts.Refresh))
 	if err != nil {
 		return "", err
 	}
 	return reply.Value, nil
 }
 
-// TabTerminalCount returns the number of terminals in the selected Ghostty tab.
+// TabTerminalCount returns the number of terminals in the caller's Ghostty tab.
 func (c Client) TabTerminalCount(opts TerminalOptions) (int, error) {
-	reply, err := Call[protocol.FrameReply](c, protocol.NewTabTerminalCountRequest(opts.TTY, opts.Focused))
+	ttyPath, err := ResolveTTY(opts.TTY)
+	if err != nil {
+		return 0, err
+	}
+	reply, err := Call[protocol.FrameReply](c, protocol.NewTabTerminalCountRequest(ttyPath))
 	if err != nil {
 		return 0, err
 	}
@@ -123,14 +145,22 @@ func (c Client) TabTerminalCount(opts TerminalOptions) (int, error) {
 
 // Focus moves Ghostty focus in a direction.
 func (c Client) Focus(opts FocusOptions) error {
-	request := protocol.NewFocusRequest(opts.TTY, opts.Direction, opts.Focused, opts.Wait)
+	ttyPath, err := ResolveTTY(opts.TTY)
+	if err != nil {
+		return err
+	}
+	request := protocol.NewFocusRequest(ttyPath, opts.Direction, opts.Wait)
 	return NotifyAck(c, request, opts.Wait)
 }
 
 // Split creates a Ghostty split. Returns the new terminal's TTY
 // when Waited.
 func (c Client) Split(opts SplitOptions) (string, error) {
-	request := protocol.NewSplitRequest(opts.TTY, opts.Direction, opts.CWD, opts.CommandText, opts.Focus, opts.Focused, opts.Wait)
+	ttyPath, err := ResolveTTY(opts.TTY)
+	if err != nil {
+		return "", err
+	}
+	request := protocol.NewSplitRequest(ttyPath, opts.Direction, opts.CWD, opts.CommandText, opts.Focus, opts.Wait)
 	if !opts.Wait {
 		return "", Notify(c, request)
 	}
@@ -143,37 +173,61 @@ func (c Client) Split(opts SplitOptions) (string, error) {
 
 // Input sends text to a terminal as pasted input; Submit follows it with an enter keypress.
 func (c Client) Input(opts InputOptions) error {
-	request := protocol.NewInputRequest(opts.TTY, opts.Text, opts.Submit, opts.Focused, opts.Wait)
+	ttyPath, err := ResolveTTY(opts.TTY)
+	if err != nil {
+		return err
+	}
+	request := protocol.NewInputRequest(ttyPath, opts.Text, opts.Submit, opts.Wait)
 	return NotifyAck(c, request, opts.Wait)
 }
 
 // Resize resizes a Ghostty split.
 func (c Client) Resize(opts ResizeOptions) error {
-	request := protocol.NewResizeRequest(opts.TTY, opts.Direction, opts.Amount, opts.Focused, opts.Wait)
+	ttyPath, err := ResolveTTY(opts.TTY)
+	if err != nil {
+		return err
+	}
+	request := protocol.NewResizeRequest(ttyPath, opts.Direction, opts.Amount, opts.Wait)
 	return NotifyAck(c, request, opts.Wait)
 }
 
 // Zoom toggles split zoom.
 func (c Client) Zoom(opts ZoomOptions) error {
-	request := protocol.NewZoomRequest(opts.TTY, opts.Focused, opts.Wait)
+	ttyPath, err := ResolveTTY(opts.TTY)
+	if err != nil {
+		return err
+	}
+	request := protocol.NewZoomRequest(ttyPath, opts.Wait)
 	return NotifyAck(c, request, opts.Wait)
 }
 
 // ActivateKeyTable activates a Ghostty key table.
 func (c Client) ActivateKeyTable(opts KeyTableOptions) error {
-	request := protocol.NewKeyTableActivateRequest(opts.TTY, opts.Table, opts.Focused, opts.Wait)
+	ttyPath, err := ResolveTTY(opts.TTY)
+	if err != nil {
+		return err
+	}
+	request := protocol.NewKeyTableActivateRequest(ttyPath, opts.Table, opts.Wait)
 	return NotifyAck(c, request, opts.Wait)
 }
 
 // DeactivateKeyTable deactivates the current Ghostty key table.
 func (c Client) DeactivateKeyTable(opts KeyTableOptions) error {
-	request := protocol.NewKeyTableDeactivateRequest(opts.TTY, opts.Focused, opts.Wait)
+	ttyPath, err := ResolveTTY(opts.TTY)
+	if err != nil {
+		return err
+	}
+	request := protocol.NewKeyTableDeactivateRequest(ttyPath, opts.Wait)
 	return NotifyAck(c, request, opts.Wait)
 }
 
 // SpawnClaim binds the caller TTY to the terminal the daemon spawned with Token.
 func (c Client) SpawnClaim(opts SpawnClaimOptions) error {
-	_, err := Call[protocol.FrameReply](c, protocol.NewSpawnClaimRequest(opts.TTY, opts.Token))
+	ttyPath, err := ResolveTTY(opts.TTY)
+	if err != nil {
+		return err
+	}
+	_, err = Call[protocol.FrameReply](c, protocol.NewSpawnClaimRequest(ttyPath, opts.Token))
 	return err
 }
 
@@ -185,7 +239,11 @@ func (c Client) ClearCache(opts ClearCacheOptions) error {
 
 // Bridge creates a daemon-owned bridge and holds its lease until Close.
 func (c Client) Bridge(opts BridgeOptions) (*Bridge, error) {
-	reply, err := Call[protocol.BridgeCreateReply](c, protocol.NewBridgeCreateRequest(opts.TTY, opts.Focused))
+	ttyPath, err := ResolveTTY(opts.TTY)
+	if err != nil {
+		return nil, err
+	}
+	reply, err := Call[protocol.BridgeCreateReply](c, protocol.NewBridgeCreateRequest(ttyPath))
 	if err != nil {
 		return nil, err
 	}

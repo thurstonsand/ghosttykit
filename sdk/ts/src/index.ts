@@ -1,13 +1,13 @@
 export type {
   Bridge,
   ClientOptions,
-  CommandOptions,
   DoctorStatus,
   HoldResult,
   InputCommandOptions,
   RawStream,
   SplitCommandOptions,
   TerminalCommandOptions,
+  TerminalIdOptions,
   TerminalOptions,
 } from "./client.js";
 export { client, GhosttyKitClient } from "./client.js";
@@ -48,3 +48,4 @@ export type {
 } from "./protocol.js";
 export * as protocol from "./protocol.js";
 export { defaultSocketPath, dial, socketPath } from "./socket.js";
+export { resolveTTY } from "./tty.js";

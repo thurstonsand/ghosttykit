@@ -13,7 +13,7 @@ func sshCmd(opts *options) *cobra.Command {
 	sshOpts := &remote.SSHOptions{}
 	cmd := &cobra.Command{
 		Use:   "ssh [flags] host [-- remote command]",
-		Short: "Start SSH with a GhosttyKit bridge",
+		Short: "Start SSH with a bridge back to the caller's terminal",
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runSSHWrapper(opts, *sshOpts, args, cmd.ArgsLenAtDash())
@@ -42,11 +42,7 @@ func runSSHWrapper(opts *options, sshOpts remote.SSHOptions, args []string, dash
 }
 
 func createBridgeLease(opts *options) (remote.Bridge, error) {
-	target, err := requestTerminalTarget(opts)
-	if err != nil {
-		return remote.Bridge{}, err
-	}
-	bridge, err := client.New().Bridge(client.BridgeOptions{TerminalOptions: client.TerminalOptions{TTY: target.tty, Focused: target.focused}})
+	bridge, err := client.New().Bridge(client.BridgeOptions{TerminalOptions: client.TerminalOptions{TTY: opts.tty}})
 	if err != nil {
 		return remote.Bridge{}, err
 	}

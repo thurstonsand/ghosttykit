@@ -12,7 +12,6 @@ describe("ghosttykit.nvim.client", function()
     package.loaded["ghosttykit.nvim.config"] = {
       get = function()
         return {
-          focused = true,
           key_table = "nvim",
           notify_errors = false,
         }
@@ -57,8 +56,8 @@ describe("ghosttykit.nvim.client", function()
     client.focus("left")
 
     assert.are.equal("key_table.activate", calls[1][1])
-    assert.same({ tty = "/dev/ttys001", focused = true, name = "nvim", ack = false }, calls[1][2])
+    assert.same({ tty = "/dev/ttys001", name = "nvim", ack = false }, calls[1][2])
     assert.are.equal("layout.focus", calls[2][1])
-    assert.same({ tty = "/dev/ttys001", focused = true, direction = "left", ack = false }, calls[2][2])
+    assert.same({ tty = "/dev/ttys001", direction = "left", ack = false }, calls[2][2])
   end)
 end)

@@ -8,7 +8,8 @@ protocol CommandContext: AnyObject {
     var spawnRendezvous: SpawnRendezvous { get }
     var spawnWrapper: SpawnWrapper? { get }
 
-    func terminal(for tty: String, focused: Bool) throws -> TerminalContext
+    func terminal(for tty: String) throws -> TerminalContext
+    func recoverTerminalBinding(for tty: String) -> Bool
 }
 
 final class MainCommandContext: CommandContext {
@@ -35,16 +36,18 @@ final class MainCommandContext: CommandContext {
         self.spawnWrapper = spawnWrapper
     }
 
-    func terminal(for tty: String, focused: Bool) throws -> TerminalContext {
+    func terminal(for tty: String) throws -> TerminalContext {
         if let terminal = cache.terminal(for: tty) {
             return terminal
         }
-        guard focused else {
-            throw GhosttyKitError.terminalNotFound(tty)
-        }
-        let terminal = try ghostty.focusedTerminalContext()
+        let terminal = try ghostty.terminalContext(forTTY: tty)
         cache.store(terminal: terminal, for: tty)
         return terminal
+    }
+
+    func recoverTerminalBinding(for tty: String) -> Bool {
+        cache.clear(tty: tty)
+        return true
     }
 
     func createBridge(terminal: TerminalContext) throws -> BridgeCreateReply {
@@ -87,8 +90,12 @@ final class BridgeCommandContext: CommandContext {
         self.spawnWrapper = spawnWrapper
     }
 
-    func terminal(for _: String, focused _: Bool) throws -> TerminalContext {
+    func terminal(for _: String) throws -> TerminalContext {
         bridgeTerminal
+    }
+
+    func recoverTerminalBinding(for _: String) -> Bool {
+        false
     }
 
     func acceptHold(token: String) throws -> ConnectionHold {

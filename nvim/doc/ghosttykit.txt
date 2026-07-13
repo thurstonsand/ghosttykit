@@ -101,16 +101,12 @@ Example:
     "thurstonsand/ghosttykit.nvim",
     version = "*", -- use branch = "main" with ghosttykit-nightly
     opts = {
-      focused = true,
       key_table = "nvim",
       float_win_behavior = "previous",
       notify_errors = false,
     },
   }
 <
-
-`focused`               Activate Ghostty key table while Neovim is focused.
-                        Default: true.
 
 `key_table`             Ghostty key table to activate while Neovim is focused.
                         Default: "nvim".

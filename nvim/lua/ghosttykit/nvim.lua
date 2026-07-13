@@ -40,7 +40,7 @@ function M.setup(opts)
   end
   setup_done = true
 
-  if setup_autocmds() and config.get().focused then
+  if setup_autocmds() then
     client.activate_key_table()
   end
 end

@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -13,8 +12,9 @@ import (
 func doctorCmd() *cobra.Command {
 	var jsonOutput bool
 	cmd := &cobra.Command{
-		Use:  "doctor",
-		Args: cobra.NoArgs,
+		Use:   "doctor",
+		Short: "Run daemon and Ghostty integration health checks",
+		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reply, err := client.New().Doctor()
 			if err != nil {
@@ -58,24 +58,12 @@ func (doctorError) ExitCode() int { return exitRuntime }
 func terminalIDCmd(opts *options) *cobra.Command {
 	var refresh bool
 	cmd := &cobra.Command{
-		Use:  "terminal-id",
-		Args: cobra.NoArgs,
+		Use:   "terminal-id",
+		Short: "Print the caller's Ghostty terminal ID",
+		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if refresh && cmd.Root().PersistentFlags().Changed("tty") {
-				return usageError{err: errors.New("--refresh cannot be combined with explicit --tty")}
-			}
-			var target terminalTarget
-			if refresh {
-				var err error
-				target, err = requestTerminalTarget(opts)
-				if err != nil {
-					return err
-				}
-			} else {
-				target = optionalTerminalTarget(opts)
-			}
 			terminalID, err := client.New().TerminalID(client.TerminalIDOptions{
-				TerminalOptions: client.TerminalOptions{TTY: target.tty, Focused: target.focused},
+				TerminalOptions: client.TerminalOptions{TTY: opts.tty},
 				Refresh:         refresh,
 			})
 			if err != nil {
@@ -93,12 +81,13 @@ func clearCacheCmd(opts *options) *cobra.Command {
 	var all bool
 	var wait bool
 	cmd := &cobra.Command{
-		Use:  "clear-cache",
-		Args: cobra.NoArgs,
+		Use:   "clear-cache",
+		Short: "Clear cached TTY-to-terminal mappings",
+		Args:  cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			tty := ""
 			if !all {
-				value, err := requestTTY(opts)
+				value, err := client.ResolveTTY(opts.tty)
 				if err != nil {
 					return err
 				}
@@ -115,14 +104,11 @@ func clearCacheCmd(opts *options) *cobra.Command {
 func spawnClaimCmd(opts *options) *cobra.Command {
 	return &cobra.Command{
 		Use:    "spawn-claim <token>",
+		Short:  "Bind a spawned terminal to its TTY",
 		Hidden: true,
 		Args:   cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
-			tty, err := requestTTY(opts)
-			if err != nil {
-				return err
-			}
-			return client.New().SpawnClaim(client.SpawnClaimOptions{TTY: tty, Token: args[0]})
+			return client.New().SpawnClaim(client.SpawnClaimOptions{TTY: opts.tty, Token: args[0]})
 		},
 	}
 }

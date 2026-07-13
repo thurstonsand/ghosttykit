@@ -12,11 +12,11 @@ import (
 
 func tabTerminalCountCmd(opts *options) *cobra.Command {
 	return &cobra.Command{
-		Use:  "tab-terminal-count",
-		Args: cobra.NoArgs,
+		Use:   "tab-terminal-count",
+		Short: "Print the number of terminals in the caller's tab",
+		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			target := optionalTerminalTarget(opts)
-			count, err := client.New().TabTerminalCount(client.TerminalOptions{TTY: target.tty, Focused: target.focused})
+			count, err := client.New().TabTerminalCount(client.TerminalOptions{TTY: opts.tty})
 			if err != nil {
 				return err
 			}
@@ -29,15 +29,12 @@ func tabTerminalCountCmd(opts *options) *cobra.Command {
 func focusCmd(opts *options) *cobra.Command {
 	var wait bool
 	cmd := &cobra.Command{
-		Use:  "focus <left|down|up|right>",
-		Args: cobra.ExactArgs(1),
+		Use:   "focus <left|down|up|right>",
+		Short: "Move focus to an adjacent split",
+		Args:  cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
-			target, err := requestTerminalTarget(opts)
-			if err != nil {
-				return err
-			}
 			return client.New().Focus(client.FocusOptions{
-				TerminalOptions: client.TerminalOptions{TTY: target.tty, Focused: target.focused},
+				TerminalOptions: client.TerminalOptions{TTY: opts.tty},
 				AckOptions:      client.AckOptions{Wait: wait},
 				Direction:       args[0],
 			})
@@ -53,15 +50,12 @@ func splitCmd(opts *options) *cobra.Command {
 	var focus string
 	var wait bool
 	cmd := &cobra.Command{
-		Use:  "split <left|down|up|right>",
-		Args: cobra.ExactArgs(1),
+		Use:   "split <left|down|up|right>",
+		Short: "Create a split beside the caller's terminal",
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			target, err := requestTerminalTarget(opts)
-			if err != nil {
-				return err
-			}
 			tty, err := client.New().Split(client.SplitOptions{
-				TerminalOptions: client.TerminalOptions{TTY: target.tty, Focused: target.focused},
+				TerminalOptions: client.TerminalOptions{TTY: opts.tty},
 				AckOptions:      client.AckOptions{Wait: wait},
 				Direction:       args[0],
 				CWD:             cwd,
@@ -89,19 +83,16 @@ func resizeCmd(opts *options) *cobra.Command {
 	var percent float64
 	var wait bool
 	cmd := &cobra.Command{
-		Use:  "resize <left|down|up|right>",
-		Args: cobra.ExactArgs(1),
+		Use:   "resize <left|down|up|right>",
+		Short: "Resize the caller's split by pixels or percentage",
+		Args:  cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
-			target, err := requestTerminalTarget(opts)
-			if err != nil {
-				return err
-			}
 			amount, err := resizeAmount(pixels, percent)
 			if err != nil {
 				return err
 			}
 			return client.New().Resize(client.ResizeOptions{
-				TerminalOptions: client.TerminalOptions{TTY: target.tty, Focused: target.focused},
+				TerminalOptions: client.TerminalOptions{TTY: opts.tty},
 				AckOptions:      client.AckOptions{Wait: wait},
 				Direction:       args[0],
 				Amount:          amount,
@@ -128,15 +119,12 @@ func resizeAmount(pixels int, percent float64) (protocol.ResizeAmount, error) {
 func zoomCmd(opts *options) *cobra.Command {
 	var wait bool
 	cmd := &cobra.Command{
-		Use:  "zoom",
-		Args: cobra.NoArgs,
+		Use:   "zoom",
+		Short: "Toggle split zoom for the caller's terminal",
+		Args:  cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
-			target, err := requestTerminalTarget(opts)
-			if err != nil {
-				return err
-			}
 			return client.New().Zoom(client.ZoomOptions{
-				TerminalOptions: client.TerminalOptions{TTY: target.tty, Focused: target.focused},
+				TerminalOptions: client.TerminalOptions{TTY: opts.tty},
 				AckOptions:      client.AckOptions{Wait: wait},
 			})
 		},

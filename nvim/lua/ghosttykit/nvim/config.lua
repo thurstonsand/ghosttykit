@@ -2,7 +2,6 @@ local M = {}
 
 local defaults = {
   key_table = "nvim",
-  focused = true,
   float_win_behavior = "previous",
   notify_errors = false,
 }
@@ -19,9 +18,6 @@ local function validate(opts)
   vim.validate("opts", opts, "table", true)
   if opts.key_table ~= nil then
     vim.validate("key_table", opts.key_table, "string")
-  end
-  if opts.focused ~= nil then
-    vim.validate("focused", opts.focused, "boolean")
   end
   if opts.float_win_behavior ~= nil then
     vim.validate("float_win_behavior", opts.float_win_behavior, "string")

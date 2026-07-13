@@ -16,12 +16,20 @@ local function request_options(opts)
 end
 
 function KeyTable:activate(opts)
-  opts = opts or {}
+  local err
+  opts, err = self.ops.resolve_terminal_options(opts)
+  if err then
+    return nil, err
+  end
   return self.ops.notify_ack(self.client, protocol.key_table_activate(request_options(opts)), opts.ack)
 end
 
 function KeyTable:deactivate(opts)
-  opts = opts or {}
+  local err
+  opts, err = self.ops.resolve_terminal_options(opts)
+  if err then
+    return nil, err
+  end
   return self.ops.notify_ack(self.client, protocol.key_table_deactivate(opts), opts.ack)
 end
 

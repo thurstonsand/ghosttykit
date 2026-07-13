@@ -146,6 +146,22 @@ final class RequestDispatchTests: XCTestCase {
         XCTAssertTrue(command.contains("exec\\ -l\\ /bin/zsh"))
     }
 
+    func testSplitDoesNotRetryAfterPartialFailure() throws {
+        let ghostty = SpyGhosttyController(resolvedTerminal: splitTerminal())
+        let context = mainContext(ghostty: ghostty)
+        context.cache.store(terminal: bridgeTerminal(), for: "/dev/ttys009")
+        ghostty.nextActionError = AppleEventControlError.objectNotFound(operation: "focus split")
+        let request: SplitRequest = try decodeJSON(
+            #"{"version":1,"command":"split","tty":"/dev/ttys009","direction":"right","ack":true}"#
+        )
+
+        let result = request.dispatch(using: context)
+
+        XCTAssertNotEqual(result.frameReply?.code, ProtocolCode.ok)
+        XCTAssertEqual(ghostty.splitCallCount, 1)
+        XCTAssertTrue(ghostty.resolvedTTYs.isEmpty)
+    }
+
     func testInputDeliversTextToBoundTerminal() throws {
         let ghostty = SpyGhosttyController()
         let context = mainContext(ghostty: ghostty)
@@ -162,14 +178,30 @@ final class RequestDispatchTests: XCTestCase {
         XCTAssertEqual(ghostty.inputSubmit, true)
     }
 
-    func testInputMissesUnboundTTYWithoutFocusedHint() throws {
+    func testInputFailsWhenTTYResolutionFindsNoTerminal() throws {
         let request: InputRequest = try decodeJSON(
             #"{"version":1,"command":"input","tty":"/dev/ttys009","text":"nvim .","ack":true}"#
         )
 
-        let result = request.dispatch(using: mainContext())
+        let result = request.dispatch(using: mainContext(ghostty: SpyGhosttyController(resolvedTerminal: nil)))
 
         XCTAssertEqual(result.frameReply?.code, ProtocolCode.terminalNotFound)
+    }
+
+    func testInputDoesNotRetryAfterPartialFailure() throws {
+        let ghostty = SpyGhosttyController(resolvedTerminal: splitTerminal())
+        let context = mainContext(ghostty: ghostty)
+        context.cache.store(terminal: bridgeTerminal(), for: "/dev/ttys009")
+        ghostty.nextActionError = AppleEventControlError.objectNotFound(operation: "send key")
+        let request: InputRequest = try decodeJSON(
+            #"{"version":1,"command":"input","tty":"/dev/ttys009","text":"nvim .","submit":true,"ack":true}"#
+        )
+
+        let result = request.dispatch(using: context)
+
+        XCTAssertNotEqual(result.frameReply?.code, ProtocolCode.ok)
+        XCTAssertEqual(ghostty.inputCallCount, 1)
+        XCTAssertTrue(ghostty.resolvedTTYs.isEmpty)
     }
 
     func testBridgeInputIgnoresRequestTTY() throws {
@@ -186,14 +218,47 @@ final class RequestDispatchTests: XCTestCase {
         XCTAssertEqual(ghostty.controlledTerminal?.terminalID, terminal.terminalID)
     }
 
-    func testMainContextUsesFocusedTerminalWhenAllowed() throws {
-        let ghostty = SpyGhosttyController(focusedTerminal: mainTerminal())
+    func testMainContextResolvesUnknownTTYDeterministically() throws {
+        let ghostty = SpyGhosttyController(resolvedTerminal: mainTerminal())
         let context = mainContext(ghostty: ghostty)
 
-        let terminal = try context.terminal(for: "/dev/ttys001", focused: true)
+        let terminal = try context.terminal(for: "/dev/ttys001")
 
         XCTAssertEqual(terminal.terminalID, mainTerminal().terminalID)
         XCTAssertEqual(context.cache.terminal(for: "/dev/ttys001")?.terminalID, mainTerminal().terminalID)
+        XCTAssertEqual(ghostty.resolvedTTYs, ["/dev/ttys001"])
+    }
+
+    func testTerminalIDRefreshRebindsTTY() throws {
+        let ghostty = SpyGhosttyController(resolvedTerminal: splitTerminal())
+        let context = mainContext(ghostty: ghostty)
+        context.cache.store(terminal: mainTerminal(), for: "/dev/ttys009")
+        let request: TerminalIDRequest = try decodeJSON(
+            #"{"version":1,"command":"terminal-id","tty":"/dev/ttys009","refresh":true}"#
+        )
+
+        let result = request.dispatch(using: context)
+
+        XCTAssertEqual(result.frameReply?.code, ProtocolCode.ok)
+        XCTAssertEqual(result.frameReply?.value, splitTerminal().terminalID)
+        XCTAssertEqual(context.cache.terminal(for: "/dev/ttys009")?.terminalID, splitTerminal().terminalID)
+    }
+
+    func testStaleBindingHealsWithinOneRequest() throws {
+        let ghostty = SpyGhosttyController(resolvedTerminal: splitTerminal())
+        let context = mainContext(ghostty: ghostty)
+        context.cache.store(terminal: bridgeTerminal(), for: "/dev/ttys009")
+        ghostty.nextActionError = AppleEventControlError.objectNotFound(operation: "perform Ghostty action")
+        let request: KeyTableActivateRequest = try decodeJSON(
+            #"{"version":1,"command":"key-table-activate","tty":"/dev/ttys009","table":"nvim","ack":true}"#
+        )
+
+        let result = request.dispatch(using: context)
+
+        XCTAssertEqual(result.frameReply?.code, ProtocolCode.ok)
+        XCTAssertEqual(ghostty.controlledTerminal?.terminalID, splitTerminal().terminalID)
+        XCTAssertEqual(context.cache.terminal(for: "/dev/ttys009")?.terminalID, splitTerminal().terminalID)
+        XCTAssertEqual(ghostty.resolvedTTYs, ["/dev/ttys009"])
     }
 
     private func mainContext(
@@ -233,7 +298,7 @@ final class RequestDispatchTests: XCTestCase {
     private func splitRequest(commandText: String? = nil) throws -> SplitRequest {
         let command = commandText.map { #","commandText":"\#($0)""# } ?? ""
         return try decodeJSON(
-            #"{"version":1,"command":"split","tty":"/dev/ttys001","focused":true,"direction":"left","ack":true"# +
+            #"{"version":1,"command":"split","tty":"/dev/ttys001","direction":"left","ack":true"# +
                 command + "}"
         )
     }

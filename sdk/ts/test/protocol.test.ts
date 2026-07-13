@@ -27,11 +27,12 @@ test("encodes request envelopes without reply metadata", () => {
 });
 
 test("reports reply modes", () => {
-  assert.equal(replyModeOf(terminalIdRequest()), "frame");
-  assert.equal(replyModeOf(focusRequest({ direction: "left" })), "none");
-  assert.equal(replyModeOf(focusRequest({ direction: "left", ack: true })), "frame");
-  assert.equal(replyModeOf(inputRequest({ text: "echo hi" })), "none");
-  assert.equal(replyModeOf(inputRequest({ text: "echo hi", ack: true })), "frame");
+  const tty = "/dev/ttys001";
+  assert.equal(replyModeOf(terminalIdRequest({ tty })), "frame");
+  assert.equal(replyModeOf(focusRequest({ tty, direction: "left" })), "none");
+  assert.equal(replyModeOf(focusRequest({ tty, direction: "left", ack: true })), "frame");
+  assert.equal(replyModeOf(inputRequest({ tty, text: "echo hi" })), "none");
+  assert.equal(replyModeOf(inputRequest({ tty, text: "echo hi", ack: true })), "frame");
   assert.equal(replyModeOf(pasteRequest()), "stream");
 });
 
@@ -39,7 +40,6 @@ test("encodes input requests with optional booleans omitted unless true", () => 
   assert.deepEqual(
     inputRequest({
       tty: "/dev/ttys001",
-      focused: false,
       text: "echo hi",
       submit: false,
       ack: false,
@@ -55,7 +55,6 @@ test("encodes input requests with optional booleans omitted unless true", () => 
   assert.deepEqual(
     inputRequest({
       tty: "/dev/ttys001",
-      focused: true,
       text: "echo hi",
       submit: true,
       ack: true,
@@ -64,7 +63,6 @@ test("encodes input requests with optional booleans omitted unless true", () => 
       version: 1,
       command: "input",
       tty: "/dev/ttys001",
-      focused: true,
       text: "echo hi",
       submit: true,
       ack: true,

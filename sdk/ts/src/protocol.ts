@@ -40,8 +40,7 @@ export type FocusTarget = "new" | "original";
 export type ResizeAmount = { pixels: number } | { percent: number };
 
 export interface TerminalTargetOptions {
-  tty?: string;
-  focused?: boolean;
+  tty: string;
 }
 
 export interface TerminalIdOptions extends TerminalTargetOptions {
@@ -120,24 +119,27 @@ export function doctorRequest(): Request {
   return envelope("doctor");
 }
 
-export function terminalIdRequest(options: TerminalIdOptions = {}): Request {
+export function terminalIdRequest(options: TerminalIdOptions): Request {
   return compact({
     ...envelope("terminal-id"),
     tty: options.tty,
-    focused: optionalTrue(options.focused),
     refresh: optionalTrue(options.refresh),
   });
 }
 
-export function tabTerminalCountRequest(options: TerminalTargetOptions = {}): Request {
+export function tabTerminalCountRequest(options: TerminalTargetOptions): Request {
   return compact({
     ...envelope("tab-terminal-count"),
     tty: options.tty,
-    focused: optionalTrue(options.focused),
   });
 }
 
-export function clearCacheRequest(options: { tty?: string; ack?: boolean } = {}): Request {
+export interface ClearCacheOptions {
+  tty?: string;
+  ack?: boolean;
+}
+
+export function clearCacheRequest(options: ClearCacheOptions = {}): Request {
   return withReplyMode(
     compact({
       ...envelope("clear-cache"),
@@ -153,7 +155,6 @@ export function keyTableActivateRequest(options: KeyTableActivateOptions): Reque
     compact({
       ...envelope("key-table-activate"),
       tty: options.tty,
-      focused: optionalTrue(options.focused),
       table: options.table,
       ack: optionalTrue(options.ack),
     }),
@@ -161,12 +162,11 @@ export function keyTableActivateRequest(options: KeyTableActivateOptions): Reque
   );
 }
 
-export function keyTableDeactivateRequest(options: AckOptions = {}): Request {
+export function keyTableDeactivateRequest(options: AckOptions): Request {
   return withReplyMode(
     compact({
       ...envelope("key-table-deactivate"),
       tty: options.tty,
-      focused: optionalTrue(options.focused),
       ack: optionalTrue(options.ack),
     }),
     ackReplyMode(options.ack),
@@ -178,7 +178,6 @@ export function focusRequest(options: DirectionOptions): Request {
     compact({
       ...envelope("focus"),
       tty: options.tty,
-      focused: optionalTrue(options.focused),
       direction: options.direction,
       ack: optionalTrue(options.ack),
     }),
@@ -191,7 +190,6 @@ export function splitRequest(options: SplitOptions): Request {
     compact({
       ...envelope("split"),
       tty: options.tty,
-      focused: optionalTrue(options.focused),
       direction: options.direction,
       cwd: options.cwd,
       commandText: options.commandText,
@@ -207,7 +205,6 @@ export function inputRequest(options: InputOptions): Request {
     compact({
       ...envelope("input"),
       tty: options.tty,
-      focused: optionalTrue(options.focused),
       text: options.text,
       submit: optionalTrue(options.submit),
       ack: optionalTrue(options.ack),
@@ -221,7 +218,6 @@ export function resizeRequest(options: ResizeOptions): Request {
     compact({
       ...envelope("resize"),
       tty: options.tty,
-      focused: optionalTrue(options.focused),
       direction: options.direction,
       amount: options.amount,
       ack: optionalTrue(options.ack),
@@ -230,12 +226,11 @@ export function resizeRequest(options: ResizeOptions): Request {
   );
 }
 
-export function zoomRequest(options: AckOptions = {}): Request {
+export function zoomRequest(options: AckOptions): Request {
   return withReplyMode(
     compact({
       ...envelope("zoom"),
       tty: options.tty,
-      focused: optionalTrue(options.focused),
       ack: optionalTrue(options.ack),
     }),
     ackReplyMode(options.ack),
@@ -252,11 +247,10 @@ export function pasteRequest(options: PasteOptions = {}): Request {
   );
 }
 
-export function bridgeCreateRequest(options: TerminalTargetOptions = {}): Request {
+export function bridgeCreateRequest(options: TerminalTargetOptions): Request {
   return compact({
     ...envelope("bridge-create"),
     tty: options.tty,
-    focused: optionalTrue(options.focused),
   });
 }
 

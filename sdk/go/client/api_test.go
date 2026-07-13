@@ -68,7 +68,7 @@ func TestBridgeReturnsHandleThatClosesLease(t *testing.T) {
 		leaseClosed <- err
 	}()
 
-	bridge, err := ForSocket(daemonSocket).Bridge(BridgeOptions{TerminalOptions: TerminalOptions{TTY: "/dev/ttys001", Focused: true}})
+	bridge, err := ForSocket(daemonSocket).Bridge(BridgeOptions{TerminalOptions: TerminalOptions{TTY: "/dev/ttys001"}})
 	if err != nil {
 		t.Fatalf("Bridge() error = %v", err)
 	}
@@ -98,7 +98,7 @@ func TestTerminalIDReturnsValue(t *testing.T) {
 func TestTabTerminalCountParsesValue(t *testing.T) {
 	client := frameTestClient(t, `{"version":1,"code":"ok","value":"3"}`+"\n")
 
-	count, err := client.TabTerminalCount(TerminalOptions{})
+	count, err := client.TabTerminalCount(TerminalOptions{TTY: "/dev/ttys001"})
 	if err != nil {
 		t.Fatalf("TabTerminalCount() error = %v", err)
 	}

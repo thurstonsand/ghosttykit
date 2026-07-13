@@ -2,8 +2,6 @@
 package protocol
 
 import (
-	"errors"
-
 	ghosttykit "github.com/thurstonsand/ghosttykit/sdk/go"
 )
 
@@ -204,67 +202,53 @@ type DoctorCheck struct {
 	Message string `json:"message,omitempty"`
 }
 
-// TerminalIDRequest asks the daemon to resolve the focused Ghostty terminal id.
+// TerminalIDRequest asks the daemon to resolve the caller's Ghostty terminal id.
 type TerminalIDRequest struct {
 	FrameEnvelope
-	TTY     string `json:"tty,omitempty"`
-	Focused bool   `json:"focused,omitempty"`
+	TTY     string `json:"tty"`
 	Refresh bool   `json:"refresh,omitempty"`
 }
 
 func (TerminalIDRequest) isRequest() {}
 
 // NewTerminalIDRequest returns a terminal-id request.
-func NewTerminalIDRequest(tty string, focused, refresh bool) TerminalIDRequest {
+func NewTerminalIDRequest(tty string, refresh bool) TerminalIDRequest {
 	return TerminalIDRequest{
 		FrameEnvelope: NewFrameEnvelope("terminal-id"),
 		TTY:           tty,
-		Focused:       focused,
 		Refresh:       refresh,
 	}
 }
 
-// Validate checks terminal-id request invariants.
-func (r TerminalIDRequest) Validate() error {
-	if r.Refresh && r.TTY != "" && !r.Focused {
-		return errors.New("cannot refresh terminal-id if it is not the focused window")
-	}
-	return nil
-}
-
-// TabTerminalCountRequest asks for the terminal count in the selected Ghostty tab.
+// TabTerminalCountRequest asks for the terminal count in the caller's Ghostty tab.
 type TabTerminalCountRequest struct {
 	FrameEnvelope
-	TTY     string `json:"tty,omitempty"`
-	Focused bool   `json:"focused,omitempty"`
+	TTY string `json:"tty"`
 }
 
 func (TabTerminalCountRequest) isRequest() {}
 
 // NewTabTerminalCountRequest returns a tab-terminal-count request.
-func NewTabTerminalCountRequest(tty string, focused bool) TabTerminalCountRequest {
+func NewTabTerminalCountRequest(tty string) TabTerminalCountRequest {
 	return TabTerminalCountRequest{
 		FrameEnvelope: NewFrameEnvelope("tab-terminal-count"),
 		TTY:           tty,
-		Focused:       focused,
 	}
 }
 
 // BridgeCreateRequest asks the local daemon to create a per-SSH-session bridge.
 type BridgeCreateRequest struct {
 	FrameEnvelope
-	TTY     string `json:"tty"`
-	Focused bool   `json:"focused,omitempty"`
+	TTY string `json:"tty"`
 }
 
 func (BridgeCreateRequest) isRequest() {}
 
 // NewBridgeCreateRequest returns a bridge-create request.
-func NewBridgeCreateRequest(tty string, focused bool) BridgeCreateRequest {
+func NewBridgeCreateRequest(tty string) BridgeCreateRequest {
 	return BridgeCreateRequest{
 		FrameEnvelope: NewFrameEnvelope("bridge-create"),
 		TTY:           tty,
-		Focused:       focused,
 	}
 }
 
@@ -325,20 +309,18 @@ func (r ClearCacheRequest) replyMode() ReplyMode { return ackReplyMode(r.Ack) }
 // KeyTableActivateRequest activates a Ghostty key table for the caller TTY.
 type KeyTableActivateRequest struct {
 	FrameEnvelope
-	TTY     string `json:"tty"`
-	Focused bool   `json:"focused,omitempty"`
-	Table   string `json:"table"`
-	Ack     bool   `json:"ack,omitempty"`
+	TTY   string `json:"tty"`
+	Table string `json:"table"`
+	Ack   bool   `json:"ack,omitempty"`
 }
 
 func (KeyTableActivateRequest) isRequest() {}
 
 // NewKeyTableActivateRequest returns a key-table-activate request.
-func NewKeyTableActivateRequest(tty, table string, focused, ack bool) KeyTableActivateRequest {
+func NewKeyTableActivateRequest(tty, table string, ack bool) KeyTableActivateRequest {
 	return KeyTableActivateRequest{
 		FrameEnvelope: NewFrameEnvelope("key-table-activate"),
 		TTY:           tty,
-		Focused:       focused,
 		Table:         table,
 		Ack:           ack,
 	}
@@ -349,19 +331,17 @@ func (r KeyTableActivateRequest) replyMode() ReplyMode { return ackReplyMode(r.A
 // KeyTableDeactivateRequest deactivates the current Ghostty key table for the caller TTY.
 type KeyTableDeactivateRequest struct {
 	FrameEnvelope
-	TTY     string `json:"tty"`
-	Focused bool   `json:"focused,omitempty"`
-	Ack     bool   `json:"ack,omitempty"`
+	TTY string `json:"tty"`
+	Ack bool   `json:"ack,omitempty"`
 }
 
 func (KeyTableDeactivateRequest) isRequest() {}
 
 // NewKeyTableDeactivateRequest returns a key-table-deactivate request.
-func NewKeyTableDeactivateRequest(tty string, focused, ack bool) KeyTableDeactivateRequest {
+func NewKeyTableDeactivateRequest(tty string, ack bool) KeyTableDeactivateRequest {
 	return KeyTableDeactivateRequest{
 		FrameEnvelope: NewFrameEnvelope("key-table-deactivate"),
 		TTY:           tty,
-		Focused:       focused,
 		Ack:           ack,
 	}
 }
@@ -372,7 +352,6 @@ func (r KeyTableDeactivateRequest) replyMode() ReplyMode { return ackReplyMode(r
 type FocusRequest struct {
 	FrameEnvelope
 	TTY       string `json:"tty"`
-	Focused   bool   `json:"focused,omitempty"`
 	Direction string `json:"direction"`
 	Ack       bool   `json:"ack,omitempty"`
 }
@@ -380,11 +359,10 @@ type FocusRequest struct {
 func (FocusRequest) isRequest() {}
 
 // NewFocusRequest returns a focus request.
-func NewFocusRequest(tty, direction string, focused, ack bool) FocusRequest {
+func NewFocusRequest(tty, direction string, ack bool) FocusRequest {
 	return FocusRequest{
 		FrameEnvelope: NewFrameEnvelope("focus"),
 		TTY:           tty,
-		Focused:       focused,
 		Direction:     direction,
 		Ack:           ack,
 	}
@@ -396,7 +374,6 @@ func (r FocusRequest) replyMode() ReplyMode { return ackReplyMode(r.Ack) }
 type SplitRequest struct {
 	FrameEnvelope
 	TTY         string `json:"tty"`
-	Focused     bool   `json:"focused,omitempty"`
 	Direction   string `json:"direction"`
 	CWD         string `json:"cwd,omitempty"`
 	CommandText string `json:"commandText,omitempty"`
@@ -407,11 +384,10 @@ type SplitRequest struct {
 func (SplitRequest) isRequest() {}
 
 // NewSplitRequest returns a split request.
-func NewSplitRequest(tty, direction, cwd, commandText, focus string, focused, ack bool) SplitRequest {
+func NewSplitRequest(tty, direction, cwd, commandText, focus string, ack bool) SplitRequest {
 	return SplitRequest{
 		FrameEnvelope: NewFrameEnvelope("split"),
 		TTY:           tty,
-		Focused:       focused,
 		Direction:     direction,
 		CWD:           cwd,
 		CommandText:   commandText,
@@ -425,21 +401,19 @@ func (r SplitRequest) replyMode() ReplyMode { return ackReplyMode(r.Ack) }
 // InputRequest sends text to a terminal as pasted input, optionally submitted with enter.
 type InputRequest struct {
 	FrameEnvelope
-	TTY     string `json:"tty"`
-	Focused bool   `json:"focused,omitempty"`
-	Text    string `json:"text"`
-	Submit  bool   `json:"submit,omitempty"`
-	Ack     bool   `json:"ack,omitempty"`
+	TTY    string `json:"tty"`
+	Text   string `json:"text"`
+	Submit bool   `json:"submit,omitempty"`
+	Ack    bool   `json:"ack,omitempty"`
 }
 
 func (InputRequest) isRequest() {}
 
 // NewInputRequest returns an input request.
-func NewInputRequest(tty, text string, submit, focused, ack bool) InputRequest {
+func NewInputRequest(tty, text string, submit, ack bool) InputRequest {
 	return InputRequest{
 		FrameEnvelope: NewFrameEnvelope("input"),
 		TTY:           tty,
-		Focused:       focused,
 		Text:          text,
 		Submit:        submit,
 		Ack:           ack,
@@ -452,7 +426,6 @@ func (r InputRequest) replyMode() ReplyMode { return ackReplyMode(r.Ack) }
 type ResizeRequest struct {
 	FrameEnvelope
 	TTY       string       `json:"tty"`
-	Focused   bool         `json:"focused,omitempty"`
 	Direction string       `json:"direction"`
 	Amount    ResizeAmount `json:"amount"`
 	Ack       bool         `json:"ack,omitempty"`
@@ -461,11 +434,10 @@ type ResizeRequest struct {
 func (ResizeRequest) isRequest() {}
 
 // NewResizeRequest returns a resize request.
-func NewResizeRequest(tty, direction string, amount ResizeAmount, focused, ack bool) ResizeRequest {
+func NewResizeRequest(tty, direction string, amount ResizeAmount, ack bool) ResizeRequest {
 	return ResizeRequest{
 		FrameEnvelope: NewFrameEnvelope("resize"),
 		TTY:           tty,
-		Focused:       focused,
 		Direction:     direction,
 		Amount:        amount,
 		Ack:           ack,
@@ -483,16 +455,15 @@ type ResizeAmount struct {
 // ZoomRequest toggles split zoom for the caller TTY terminal.
 type ZoomRequest struct {
 	FrameEnvelope
-	TTY     string `json:"tty"`
-	Focused bool   `json:"focused,omitempty"`
-	Ack     bool   `json:"ack,omitempty"`
+	TTY string `json:"tty"`
+	Ack bool   `json:"ack,omitempty"`
 }
 
 func (ZoomRequest) isRequest() {}
 
 // NewZoomRequest returns a zoom request.
-func NewZoomRequest(tty string, focused, ack bool) ZoomRequest {
-	return ZoomRequest{FrameEnvelope: NewFrameEnvelope("zoom"), TTY: tty, Focused: focused, Ack: ack}
+func NewZoomRequest(tty string, ack bool) ZoomRequest {
+	return ZoomRequest{FrameEnvelope: NewFrameEnvelope("zoom"), TTY: tty, Ack: ack}
 }
 
 func (r ZoomRequest) replyMode() ReplyMode { return ackReplyMode(r.Ack) }

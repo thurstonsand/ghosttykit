@@ -161,7 +161,7 @@ test("notify waits for daemon close without reply bytes", async () => {
     },
     async (socketPathValue) => {
       const client = new GhosttyKitClient({ socketPath: socketPathValue });
-      await client.notify(focusRequest({ direction: "left" }));
+      await client.notify(focusRequest({ tty: "/dev/ttys001", direction: "left" }));
     },
   );
 });
@@ -203,8 +203,18 @@ test("input sends typed input as ack-style command", async () => {
       socket.end('{"version":1,"code":"ok"}\n');
     },
     async (socketPathValue) => {
-      const client = new GhosttyKitClient({ socketPath: socketPathValue });
-      await client.input({ tty: "/dev/ttys001", text: "echo hi", submit: true, ack: true });
+      const previous = process.env.GTY_TTY;
+      process.env.GTY_TTY = "/dev/ttys001";
+      try {
+        const client = new GhosttyKitClient({ socketPath: socketPathValue });
+        await client.input({ text: "echo hi", submit: true, ack: true });
+      } finally {
+        if (previous === undefined) {
+          delete process.env.GTY_TTY;
+        } else {
+          process.env.GTY_TTY = previous;
+        }
+      }
     },
   );
 });
