@@ -123,7 +123,9 @@ extension CommandRequest {
 
     var logSummary: String {
         var parts = ["command=\(command)"]
-        if let tty { parts.append("tty=\(tty)") }
+        if let tty {
+            parts.append("tty=\(tty)")
+        }
         return parts.joined(separator: " ")
     }
 }
@@ -226,7 +228,9 @@ struct ClearCacheRequest: AckCommandRequest {
     }
 
     var logSummary: String {
-        if tty == nil { return "command=\(command) scope=all" }
+        if tty == nil {
+            return "command=\(command) scope=all"
+        }
         return "command=\(command) tty=\(tty ?? "")"
     }
 

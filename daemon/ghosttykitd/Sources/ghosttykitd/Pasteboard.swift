@@ -58,8 +58,12 @@ private func readFileURLItems(from pasteboard: NSPasteboard) throws -> [Pasteboa
         options: [.urlReadingFileURLsOnly: true]
     ) ?? []
     let urls = objects.compactMap { object -> URL? in
-        if let url = object as? URL { return url }
-        if let url = object as? NSURL { return url as URL }
+        if let url = object as? URL {
+            return url
+        }
+        if let url = object as? NSURL {
+            return url as URL
+        }
         return nil
     }
 
@@ -172,7 +176,9 @@ private func fallbackCandidate(for type: NSPasteboard.PasteboardType) -> Pastebo
 
 private func fileSize(_ url: URL) throws -> Int {
     let values = try url.resourceValues(forKeys: [.fileSizeKey])
-    if let size = values.fileSize { return size }
+    if let size = values.fileSize {
+        return size
+    }
     let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
     return attributes[.size] as? Int ?? 0
 }

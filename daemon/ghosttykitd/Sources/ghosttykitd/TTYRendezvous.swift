@@ -31,7 +31,9 @@ struct TTYDevice {
         guard let foregroundPGID = processes.first?.kp_eproc.e_tpgid else { return nil }
         let members = processes.filter { $0.kp_eproc.e_pgid == foregroundPGID }.map(\.kp_proc.p_pid)
         for pid in [foregroundPGID] + members where pid > 0 {
-            if let cwd = workingDirectory(ofPID: pid) { return cwd }
+            if let cwd = workingDirectory(ofPID: pid) {
+                return cwd
+            }
         }
         return nil
     }
@@ -75,7 +77,9 @@ struct TTYDevice {
                 guard let base = raw.baseAddress else { return -1 }
                 return Darwin.write(fd, base, raw.count)
             }
-            if result < 0, errno == EINTR { continue }
+            if result < 0, errno == EINTR {
+                continue
+            }
             guard result > 0 else { throw GhosttyKitError.terminalNotFound(path) }
             written += result
         }
