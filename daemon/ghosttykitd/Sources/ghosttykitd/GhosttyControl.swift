@@ -255,7 +255,9 @@ private final class GhosttyAppleEvents {
     /// Probes the terminal scripting class for the tty property Ghostty ships in 1.4.0. Memoized
     /// for the daemon's lifetime; a Ghostty upgrade restarts the daemon's world anyway.
     func supportsTTYProperty() -> Bool {
-        if let ttyPropertySupport { return ttyPropertySupport == .supported }
+        if let ttyPropertySupport {
+            return ttyPropertySupport == .supported
+        }
         guard let windowCount = try? client.count(.window, in: .null(), operation: "count Ghostty windows"),
               windowCount > 0
         else { return false }
@@ -404,7 +406,9 @@ private final class GhosttyAppleEvents {
                 from: AppleEventSpecifier.property(.id, of: window),
                 operation: "get Ghostty window id"
             )
-            if id == windowID { return index }
+            if id == windowID {
+                return index
+            }
         }
         return 1
     }
@@ -627,7 +631,9 @@ extension Error {
     /// Discriminates the AppleEvent failure meaning "this terminal no longer exists" so request
     /// dispatch can heal stale tty bindings
     var isGhosttyObjectNotFound: Bool {
-        if case .objectNotFound = self as? AppleEventControlError { return true }
+        if case .objectNotFound = self as? AppleEventControlError {
+            return true
+        }
         return false
     }
 }
