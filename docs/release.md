@@ -16,7 +16,7 @@ Stable releases are tag-driven. Create and push an annotated `v*` git tag; the w
 
 ### Homebrew tap
 
-The `Release` workflow also updates `thurstonsand/homebrew-ghosttykit` after publishing GitHub release archives.
+The `Release` workflow also updates the shared `thurstonsand/homebrew-tap` after publishing GitHub release archives.
 
 Pushes to `main` update `Formula/ghosttykit-nightly.rb` to point at the newest nightly prerelease. Pushes of `v*` tags update `Formula/ghosttykit.rb`. The Homebrew formula version matches the GitHub release archive version.
 
@@ -60,14 +60,14 @@ The workflow runs shared CI once, publishes the TypeScript SDK first, then rewri
 
 The release workflows use these package-publishing secrets:
 
-| Secret               | Purpose                                                                                           |
-| -------------------- | ------------------------------------------------------------------------------------------------- |
-| `HOMEBREW_TAP_TOKEN` | Writes Homebrew formulas and Lua mirror branches/tags to separate GitHub repositories             |
-| `LUAROCKS_API_KEY`   | Publishes the Lua SDK from `thurstonsand/ghosttykit.lua` to LuaRocks after stable SDK mirror tags |
+| Secret                     | Purpose                                                                                           |
+| -------------------------- | ------------------------------------------------------------------------------------------------- |
+| `HOMEBREW_TAP_PRIVATE_KEY` | Writes Homebrew formulae to `thurstonsand/homebrew-tap`                                           |
+| `HOMEBREW_TAP_TOKEN`       | Writes Lua mirror branches and tags to separate GitHub repositories                               |
+| `LUAROCKS_API_KEY`         | Publishes the Lua SDK from `thurstonsand/ghosttykit.lua` to LuaRocks after stable SDK mirror tags |
 
-`HOMEBREW_TAP_TOKEN` must have write access to:
+`HOMEBREW_TAP_PRIVATE_KEY` is a repository-scoped deploy key whose public key has write access only to `thurstonsand/homebrew-tap`. `HOMEBREW_TAP_TOKEN` must have write access to:
 
-- `thurstonsand/homebrew-ghosttykit`
 - `thurstonsand/ghosttykit.lua`
 - `thurstonsand/ghosttykit.nvim`
 

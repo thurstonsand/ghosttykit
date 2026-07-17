@@ -17,25 +17,25 @@ Status: stable. The Go `gty` CLI, Swift daemon, Go/TypeScript/Lua SDKs, SSH brid
 
 ## Install
 
-GhosttyKit is distributed for macOS through the `thurstonsand/homebrew-ghosttykit` Homebrew tap.
+GhosttyKit is distributed for macOS through the shared `thurstonsand/homebrew-tap` Homebrew tap.
 
 Stable releases follow `v*` tags:
 
 ```sh
-brew install thurstonsand/ghosttykit/ghosttykit
+brew install thurstonsand/tap/ghosttykit
 ```
 
 Nightly builds track recent commits on `main`:
 
 ```sh
-brew install thurstonsand/ghosttykit/ghosttykit-nightly
+brew install thurstonsand/tap/ghosttykit-nightly
 ```
 
 Start Ghostty before starting the daemon so macOS can ask for Automation permission on first start:
 
 ```sh
 open -a Ghostty
-brew services start thurstonsand/ghosttykit/ghosttykit
+brew services start thurstonsand/tap/ghosttykit
 gty doctor
 ```
 
@@ -50,7 +50,7 @@ automation: ok - Ghostty accepted Apple Events
 To stop the daemon:
 
 ```sh
-brew services stop thurstonsand/ghosttykit/ghosttykit
+brew services stop thurstonsand/tap/ghosttykit
 ```
 
 ## Ghostty config for Neovim navigation

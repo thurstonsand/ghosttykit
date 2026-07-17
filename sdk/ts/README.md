@@ -9,9 +9,9 @@ Use this package from Node.js tools that need to talk to `ghosttykitd` or a Ghos
 Install GhosttyKit on your Mac. See the root [GhosttyKit README](../../README.md#install) for the full install flow.
 
 ```sh
-brew install thurstonsand/ghosttykit/ghosttykit
+brew install thurstonsand/tap/ghosttykit
 open -a Ghostty
-brew services start thurstonsand/ghosttykit/ghosttykit
+brew services start thurstonsand/tap/ghosttykit
 gty doctor
 ```
 
@@ -24,8 +24,8 @@ npm install @thurstonsand/ghosttykit
 Use matching nightlies if you want to track the latest changes:
 
 ```sh
-brew install thurstonsand/ghosttykit/ghosttykit-nightly
-brew services start thurstonsand/ghosttykit/ghosttykit-nightly
+brew install thurstonsand/tap/ghosttykit-nightly
+brew services start thurstonsand/tap/ghosttykit-nightly
 npm install @thurstonsand/ghosttykit@nightly
 ```
 

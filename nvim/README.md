@@ -9,9 +9,9 @@ Install GhosttyKit first. The Neovim plugin talks to the `ghosttykitd` daemon th
 Stable channel:
 
 ```sh
-brew install thurstonsand/ghosttykit/ghosttykit
+brew install thurstonsand/tap/ghosttykit
 open -a Ghostty
-brew services start thurstonsand/ghosttykit/ghosttykit
+brew services start thurstonsand/tap/ghosttykit
 gty doctor
 ```
 
@@ -28,8 +28,8 @@ With lazy.nvim:
 Nightly channel. Pair `ghosttykit-nightly` with the plugin mirror's `main` branch:
 
 ```sh
-brew install thurstonsand/ghosttykit/ghosttykit-nightly
-brew services start thurstonsand/ghosttykit/ghosttykit-nightly
+brew install thurstonsand/tap/ghosttykit-nightly
+brew services start thurstonsand/tap/ghosttykit-nightly
 ```
 
 ```lua

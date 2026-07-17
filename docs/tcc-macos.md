@@ -6,13 +6,13 @@ Status: stable Homebrew releases use the bundled identity.
 
 Release builds package `ghosttykitd` inside `GhosttyKitD.app`, a background-only app bundle with `NSAppleEventsUsageDescription` and the stable bundle identifier `dev.ghosttykit.ghosttykitd`. The bundle and daemon are signed with the Apple Events hardened-runtime entitlement. Homebrew launches the daemon from inside that bundle so macOS TCC records Automation access against the bundle identity instead of a versioned Cellar executable path.
 
-On startup, the daemon performs a harmless Ghostty Apple Events preflight when Ghostty is already running. This is meant to make the first `brew services start thurstonsand/ghosttykit/ghosttykit-nightly` trigger the normal macOS Automation prompt instead of deferring the failure until the first layout command. After that first bundled authorization, Homebrew upgrades should retain access as long as the bundle identifier and signing requirement stay stable.
+On startup, the daemon performs a harmless Ghostty Apple Events preflight when Ghostty is already running. This is meant to make the first `brew services start thurstonsand/tap/ghosttykit-nightly` trigger the normal macOS Automation prompt instead of deferring the failure until the first layout command. After that first bundled authorization, Homebrew upgrades should retain access as long as the bundle identifier and signing requirement stay stable.
 
 First-run flow:
 
 ```sh
 open -a Ghostty
-brew services start thurstonsand/ghosttykit/ghosttykit-nightly
+brew services start thurstonsand/tap/ghosttykit-nightly
 gty doctor
 ```
 
@@ -24,5 +24,5 @@ For manual reset during packaging tests:
 
 ```sh
 tccutil reset AppleEvents dev.ghosttykit.ghosttykitd
-brew services restart thurstonsand/ghosttykit/ghosttykit-nightly
+brew services restart thurstonsand/tap/ghosttykit-nightly
 ```

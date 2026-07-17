@@ -492,14 +492,14 @@ Rejected. Shelling out to `gty` is useful as a fallback or debugging path, but t
   - Goal: Install `gty` and `ghosttykitd` through Homebrew with a user service.
   - Files: `homebrew/`, `daemon/ghosttykitd/`, `cli/gty/`, `docs/install.md`, `docs/tcc-macos.md`.
   - Work:
-    - Add a conventional `thurstonsand/homebrew-ghosttykit` tap that installs `gty` and the app-bundled daemon.
+    - Add a conventional shared `thurstonsand/homebrew-tap` that installs `gty` and the app-bundled daemon.
     - Add `service do` block for `ghosttykitd` with `brew services` support.
     - Codesign and notarize release archives.
     - Add `gty doctor` diagnostics for daemon reachability and macOS Automation/TCC permission failures.
     - Package `ghosttykitd` inside `GhosttyKitD.app` so TCC records the stable bundle identity instead of versioned Cellar executable paths.
   - Validation:
-    - `brew install thurstonsand/ghosttykit/ghosttykit-nightly` works on macOS.
-    - `brew services start thurstonsand/ghosttykit/ghosttykit-nightly` starts `ghosttykitd`.
+    - `brew install thurstonsand/tap/ghosttykit-nightly` works on macOS.
+    - `brew services start thurstonsand/tap/ghosttykit-nightly` starts `ghosttykitd`.
     - Daemon can send a harmless AppleEvent to Ghostty after permission is granted.
     - Permission failure produces actionable diagnostics.
 

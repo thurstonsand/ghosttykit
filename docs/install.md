@@ -1,17 +1,17 @@
 # Install
 
-Status: stable `v0.3.0` is published.
+Status: stable `v0.4.0` is published.
 
-The primary macOS install path is the `thurstonsand/homebrew-ghosttykit` Homebrew tap. Stable releases follow `v*` tags:
+The primary macOS install path is the shared `thurstonsand/homebrew-tap` Homebrew tap. Stable releases follow `v*` tags:
 
 ```sh
-brew install thurstonsand/ghosttykit/ghosttykit
+brew install thurstonsand/tap/ghosttykit
 ```
 
 Nightly builds track recent commits on `main` and may break:
 
 ```sh
-brew install thurstonsand/ghosttykit/ghosttykit-nightly
+brew install thurstonsand/tap/ghosttykit-nightly
 ```
 
 The formula installs:
@@ -24,7 +24,7 @@ After installing from the tap, start the user service while Ghostty is running s
 
 ```sh
 open -a Ghostty
-brew services start thurstonsand/ghosttykit/ghosttykit
+brew services start thurstonsand/tap/ghosttykit
 gty doctor
 ```
 

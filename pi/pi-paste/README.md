@@ -11,9 +11,9 @@ That means you can copy something on your Mac and paste it into a coding agent r
 Install and start GhosttyKit on your Mac. See the root [GhosttyKit README](../../README.md#install) for the full install flow.
 
 ```sh
-brew install thurstonsand/ghosttykit/ghosttykit
+brew install thurstonsand/tap/ghosttykit
 open -a Ghostty
-brew services start thurstonsand/ghosttykit/ghosttykit
+brew services start thurstonsand/tap/ghosttykit
 gty doctor
 ```
 
@@ -34,8 +34,8 @@ Inside Pi, press `alt+v` or run `/paste`.
 Use matching nightlies if you want to track the latest changes:
 
 ```sh
-brew install thurstonsand/ghosttykit/ghosttykit-nightly
-brew services start thurstonsand/ghosttykit/ghosttykit-nightly
+brew install thurstonsand/tap/ghosttykit-nightly
+brew services start thurstonsand/tap/ghosttykit-nightly
 pi install npm:@thurstonsand/pi-paste@nightly
 ```
 
