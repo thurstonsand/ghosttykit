@@ -26,7 +26,7 @@ One stable tag fans out into several release surfaces:
 | Surface                    | Source workflow                                        | Result                                                         |
 | -------------------------- | ------------------------------------------------------ | -------------------------------------------------------------- |
 | GitHub release archives    | `.github/workflows/release.yml`                        | Signed/notarized Darwin archives on `vX.Y.Z` or `nightly-*`    |
-| Homebrew tap               | `.github/workflows/release.yml`                        | `thurstonsand/homebrew-ghosttykit/Formula/ghosttykit.rb`       |
+| Homebrew tap               | `.github/workflows/release.yml` → tap `Formulae` audit | `thurstonsand/homebrew-tap/Formula/ghosttykit.rb`              |
 | Lua SDK mirror             | `.github/workflows/release.yml`                        | `thurstonsand/ghosttykit.lua` `main`, `nightly`, and `vX.Y.Z`  |
 | Neovim plugin mirror       | `.github/workflows/release.yml`                        | `thurstonsand/ghosttykit.nvim` `main`, `nightly`, and `vX.Y.Z` |
 | Lua SDK LuaRock            | `sdk/lua/.github/workflows/luarocks.yml` in the mirror | `ghosttykit` on LuaRocks                                       |
@@ -146,6 +146,16 @@ For binary nightlies, find the newest `nightly-*` prerelease instead of the lega
 gh release list --exclude-drafts --limit 10 | rg '^nightly-'
 ```
 
+The monorepo workflow pushes the generated nightly formula to `thurstonsand/homebrew-tap`, which triggers a separate `Formulae` workflow. The release workflow does not wait for that downstream audit. Find the run for the exact generated tap commit and watch it too:
+
+```sh
+tap_sha=$(gh api "repos/thurstonsand/homebrew-tap/commits?path=Formula/ghosttykit-nightly.rb&per_page=1" --jq '.[0].sha')
+tap_run_id=$(gh run list -R thurstonsand/homebrew-tap --workflow Formulae --commit "${tap_sha}" --limit 1 --json databaseId --jq '.[0].databaseId')
+gh run watch -R thurstonsand/homebrew-tap "${tap_run_id}" --exit-status
+```
+
+Do not report the nightly as published until both the monorepo release workflow and the downstream Homebrew formula workflow pass.
+
 If the release needs hand-testing, stop here and ask the user to test before tagging.
 
 ## 6. Verify npm package nightlies when included
@@ -194,6 +204,16 @@ gh run watch <release-run-id> --exit-status
 
 `Release` should create the GitHub release archives using the `RELEASE.md` entry as the release body, then update the stable Homebrew formula.
 
+The formula push triggers the tap's separate `Formulae` workflow. Find the run for the exact generated tap commit and watch it through completion:
+
+```sh
+tap_sha=$(gh api "repos/thurstonsand/homebrew-tap/commits?path=Formula/ghosttykit.rb&per_page=1" --jq '.[0].sha')
+tap_run_id=$(gh run list -R thurstonsand/homebrew-tap --workflow Formulae --commit "${tap_sha}" --limit 1 --json databaseId --jq '.[0].databaseId')
+gh run watch -R thurstonsand/homebrew-tap "${tap_run_id}" --exit-status
+```
+
+Do not report the stable release as published until both the monorepo release workflow and the downstream Homebrew formula workflow pass.
+
 ## 9. Watch LuaRocks publishing
 
 After the stable mirror tags exist, verify or watch the SDK LuaRocks workflow in the `ghosttykit.lua` mirror repo.
@@ -221,7 +241,7 @@ gh release list --exclude-drafts --limit 10 | rg '^nightly-'
 git ls-remote https://github.com/thurstonsand/ghosttykit.lua.git refs/heads/main "refs/tags/v${VERSION}" refs/tags/nightly
 git ls-remote https://github.com/thurstonsand/ghosttykit.nvim.git refs/heads/main "refs/tags/v${VERSION}" refs/tags/nightly
 
-gh api repos/thurstonsand/homebrew-ghosttykit/contents/Formula/ghosttykit.rb --jq .download_url
+gh api repos/thurstonsand/homebrew-tap/contents/Formula/ghosttykit.rb --jq .download_url
 luarocks search ghosttykit
 npm view @thurstonsand/ghosttykit version dist-tags --json
 npm view @thurstonsand/pi-paste version dist-tags --json
@@ -231,7 +251,7 @@ For Homebrew, inspect the formula if needed:
 
 ```sh
 tmpdir="$(mktemp -d)"
-git clone --depth 1 https://github.com/thurstonsand/homebrew-ghosttykit.git "${tmpdir}/tap"
+git clone --depth 1 https://github.com/thurstonsand/homebrew-tap.git "${tmpdir}/tap"
 sed -n '1,220p' "${tmpdir}/tap/Formula/ghosttykit.rb"
 rm -rf "${tmpdir}"
 ```
@@ -246,6 +266,6 @@ Report:
 - Homebrew formula status
 - Lua mirror tags and LuaRocks status
 - TypeScript SDK and Pi paste npm package status, if included
-- workflows watched and whether they passed
+- monorepo and exact-commit downstream Homebrew workflows watched and whether they passed
 - any manual test evidence from the user
 - any follow-up work, such as improving this skill after the release
