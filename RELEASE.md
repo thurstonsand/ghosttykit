@@ -2,6 +2,27 @@
 
 # Release notes
 
+## 0.5.0
+
+Remote bootstrap that works from a real install.
+
+### Added
+
+- `gty ssh` now bootstraps a remote host by downloading the `gty` asset from the release the local binary came from, so Homebrew and `go install` builds can reach Linux hosts instead of only source checkouts.
+- Release archives for Linux `amd64` and `arm64` carrying `gty` alone, and an `on_linux` branch in the Homebrew formula.
+- `go install github.com/thurstonsand/ghosttykit/cli/gty@vX.Y.Z` binaries include their release tag from build info, so they report a real version and bootstrap like any other release build.
+
+### Changed
+
+- Homebrew moved to the shared `thurstonsand/tap`: `brew install thurstonsand/tap/ghosttykit`.
+- Bootstrap installs to `${XDG_DATA_HOME:-$HOME/.local/share}/ghosttykit/bin/gty` instead of the remote `PATH`. A `gty` you installed yourself is preferred and never overwritten while its version matches.
+
+### Fixed
+
+- A stale `gty` on the remote `PATH` no longer triggers a fresh bootstrap on every connection.
+- Hosts configured with `RequestTTY` in `ssh_config` no longer corrupt GhosttyKit's own SSH probes; version and `remote-init` replies parse again.
+- Remote commands run under `/bin/sh`, so accounts whose login shell is csh or tcsh can be bootstrapped.
+
 ## 0.4.0
 
 Deterministic terminal targeting and hardened Ghostty control.

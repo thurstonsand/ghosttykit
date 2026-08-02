@@ -1,7 +1,5 @@
 # Install
 
-Status: stable `v0.4.0` is published.
-
 The primary install path is the shared `thurstonsand/homebrew-tap` Homebrew tap. Stable releases follow `v*` tags:
 
 ```sh
