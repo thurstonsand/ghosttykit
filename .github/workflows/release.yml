@@ -190,6 +190,7 @@ jobs:
         uses: jdx/mise-action@v4
         with:
           install: true
+          install_args: go
           cache: true
 
       - name: Cache Go dependencies
