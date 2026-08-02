@@ -206,6 +206,37 @@ func TestRunSSHDoesNotFallbackAfterPreparedSessionStarts(t *testing.T) {
 	}
 }
 
+func TestRunPreparedSSHResetsTerminalOnlyForPtySessions(t *testing.T) {
+	cases := []struct {
+		name          string
+		remoteCommand []string
+		resets        int
+	}{
+		{name: "interactive session", remoteCommand: nil, resets: 1},
+		{name: "remote command", remoteCommand: []string{"gty", "focus", "left"}, resets: 0},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			resets := 0
+			runner := Runner{
+				RunInteractiveCommand: func(_ string, _ ...string) error { return errors.New("connection timed out") },
+				ResetTerminal:         func() error { resets++; return nil },
+			}
+			err := runner.RunPreparedSSH(SSHOptions{}, "host", testCase.remoteCommand, PreparedBridge{
+				RemoteGTY:        "/remote/gty",
+				RemoteSocketPath: "/remote.sock",
+				LocalBridgePath:  "/local.sock",
+			})
+			if err == nil {
+				t.Fatal("RunPreparedSSH() error = nil, want ssh failure")
+			}
+			if resets != testCase.resets {
+				t.Fatalf("ResetTerminal calls = %d, want %d", resets, testCase.resets)
+			}
+		})
+	}
+}
+
 // TestGTYCandidatesScriptReportsUsableInstalls runs the remote lookup script for real, since its
 // quoting, XDG default, and exit-status handling only exist inside the shell.
 func TestGTYCandidatesScriptReportsUsableInstalls(t *testing.T) {

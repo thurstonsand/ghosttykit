@@ -7,6 +7,8 @@ import (
 	"io"
 	"os"
 	"os/exec"
+
+	"github.com/thurstonsand/ghosttykit/cli/gty/internal/osc"
 )
 
 // Runner orchestrates bridged SSH execution.
@@ -14,6 +16,7 @@ type Runner struct {
 	CreateBridge          func() (Bridge, error)
 	BootstrapSource       BootstrapSource
 	RunInteractiveCommand func(name string, args ...string) error
+	ResetTerminal         func() error
 	Stderr                io.Writer
 }
 
@@ -45,7 +48,7 @@ func (r Runner) RunSSH(sshOpts SSHOptions, args []string, dashIndex int) error {
 			return unavailable
 		}
 		warnBridgeUnavailable(r.stderr(), unavailable)
-		return r.runInteractiveCommand("ssh", PlainSSHArgs(sshOpts, host, remoteCommand)...)
+		return r.runSSHSession(remoteCommand, PlainSSHArgs(sshOpts, host, remoteCommand))
 	}
 	defer func() { _ = prepared.Close() }()
 
@@ -105,7 +108,17 @@ func (r Runner) RunPreparedSSH(sshOpts SSHOptions, host string, remoteCommand []
 	}
 	args = append(args, "-R", prepared.RemoteSocketPath+":"+prepared.LocalBridgePath, "--", host)
 	args = append(args, RunCommand(prepared.RemoteGTY, prepared.RemoteSocketPath, remoteCommand))
-	return r.runInteractiveCommand("ssh", args...)
+	return r.runSSHSession(remoteCommand, args)
+}
+
+// runSSHSession runs SSH and, for sessions that carried a remote pty, unwinds terminal modes a
+// remote full-screen application may have left set when the connection died under it.
+func (r Runner) runSSHSession(remoteCommand []string, args []string) error {
+	err := r.runInteractiveCommand("ssh", args...)
+	if len(remoteCommand) == 0 {
+		_ = r.resetTerminal()
+	}
+	return err
 }
 
 // Close releases the local bridge lease.
@@ -132,6 +145,13 @@ func (r Runner) runInteractiveCommand(name string, args ...string) error {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
+}
+
+func (r Runner) resetTerminal() error {
+	if r.ResetTerminal != nil {
+		return r.ResetTerminal()
+	}
+	return osc.ResetInteractiveModes()
 }
 
 func (r Runner) stderr() io.Writer {
