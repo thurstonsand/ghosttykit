@@ -2,10 +2,10 @@
 actionlint = "1.7.12"
 go = "1.26.5"
 lua-language-server = "3.18.2"
-# LuaJIT publishes no git tags, so its mise plugin cannot list versions. Lua 5.1 is the runtime the
-# rocks trees target anyway. LuaRocks stays a version behind the current 3.13.0, whose tarball
-# ships an invalid rockspec.
-"asdf:mise-plugins/mise-lua" = { version = "5.1.5", install_env = { ASDF_LUA_LUAROCKS_VERSION = "3.12.2" } }
+# Neovim embeds LuaJIT, so the SDK, the plugin, and their rocks trees are all Lua 5.1. LuaJIT itself
+# publishes no git tags, which leaves its mise plugin unable to list versions, so install the 5.1
+# interpreter instead.
+lua = { version = "5.1.5", install_env = { ASDF_LUA_LUAROCKS_VERSION = "3.13.0" } }
 node = "26.5.0"
 neovim = "0.12.4"
 just = "1.56.0"
@@ -19,3 +19,6 @@ markdownlint-cli2 = "0.23.1"
 stylua = "2.5.2"
 swiftformat = "0.62.1"
 swiftlint = "0.65.0"
+
+[tool_alias]
+lua = "asdf:mise-plugins/mise-lua"

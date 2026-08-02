@@ -296,7 +296,7 @@ jobs:
           merge-multiple: true
 
       - name: Set up Homebrew
-        uses: Homebrew/actions/setup-homebrew@master
+        uses: Homebrew/actions/setup-homebrew@2026.07.29.1
 
       - name: Checkout Homebrew tap
         uses: actions/checkout@v7

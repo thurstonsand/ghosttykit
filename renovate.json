@@ -26,6 +26,11 @@
     {
       "matchManagers": ["mise"],
       "groupName": "mise tools"
+    },
+    {
+      "matchManagers": ["mise"],
+      "matchPackageNames": ["lua"],
+      "allowedVersions": "<5.2"
     }
   ]
 }

@@ -56,6 +56,14 @@ func TestSplitSSHArgsRequiresDelimiterBeforeRemoteCommand(t *testing.T) {
 	}
 }
 
+func TestControlSSHArgsRefuseATerminal(t *testing.T) {
+	for _, sshOpts := range []SSHOptions{{}, {UnmanagedSSH: true}} {
+		if indexOf(controlSSHArgs(sshOpts), "-T") == -1 {
+			t.Fatalf("controlSSHArgs(%+v) = %v, want -T", sshOpts, controlSSHArgs(sshOpts))
+		}
+	}
+}
+
 func TestPlainSSHArgsSeparatesHostFromOptions(t *testing.T) {
 	args := PlainSSHArgs(SSHOptions{}, "-oProxyCommand=touch /tmp/pwned", []string{"echo", "ok"})
 	dashDash := indexOf(args, "--")

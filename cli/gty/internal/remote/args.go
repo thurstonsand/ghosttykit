@@ -61,9 +61,11 @@ func PlainSSHArgs(sshOpts SSHOptions, host string, remoteCommand []string) []str
 	return args
 }
 
+// controlSSHArgs configures GhosttyKit's own SSH commands. `-T` overrides a host configured with
+// RequestTTY, whose pty would rewrite these machine-read replies with terminal echo and CRLF.
 func controlSSHArgs(sshOpts SSHOptions) []string {
 	args := ManagedSSHArgs(sshOpts)
-	args = append(args, "-o", "ClearAllForwardings=yes")
+	args = append(args, "-o", "ClearAllForwardings=yes", "-T")
 	return args
 }
 
