@@ -295,6 +295,9 @@ jobs:
           pattern: ghosttykit-*
           merge-multiple: true
 
+      - name: Set up Homebrew
+        uses: Homebrew/actions/setup-homebrew@master
+
       - name: Checkout Homebrew tap
         uses: actions/checkout@v7
         with:
