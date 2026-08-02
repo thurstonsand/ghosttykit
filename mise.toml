@@ -2,9 +2,10 @@
 actionlint = "1.7.12"
 go = "1.26.5"
 lua-language-server = "3.18.2"
-# TODO: remove the LuaRocks pin once LuaRocks publishes a fixed release after 3.13.0.
-# The 3.13.0 tarball currently ships an invalid rockspec
-"asdf:mise-plugins/mise-luaJIT" = { version = "2.1.ROLLING", install_env = { LUAROCKS_VERSION = "3.12.2" } }
+# LuaJIT publishes no git tags, so its mise plugin cannot list versions. Lua 5.1 is the runtime the
+# rocks trees target anyway. LuaRocks stays a version behind the current 3.13.0, whose tarball
+# ships an invalid rockspec.
+"asdf:mise-plugins/mise-lua" = { version = "5.1.5", install_env = { ASDF_LUA_LUAROCKS_VERSION = "3.12.2" } }
 node = "26.5.0"
 neovim = "0.12.4"
 just = "1.56.0"
@@ -12,7 +13,9 @@ golangci-lint = "2.12.2"
 gofumpt = "0.10.0"
 markdownlint-cli2 = "0.23.1"
 "npm:prettier" = "3.9.5"
-"npm:renovate" = "43.269.2"
+"npm:renovate" = { version = "44.5.3", trust_policy_excludes = [
+  "@yarnpkg/libzip@3.2.2",
+] }
 stylua = "2.5.2"
 swiftformat = "0.62.1"
 swiftlint = "0.65.0"
