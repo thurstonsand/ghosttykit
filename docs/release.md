@@ -10,7 +10,7 @@ Pushes to `main` publish nightly artifacts. Pushes of `v*` tags publish stable a
 
 The `Release` workflow builds Darwin archives for Apple Silicon and Intel Macs, and Linux archives for `amd64` and `arm64`. Darwin archives carry `gty` and the signed, notarized `GhosttyKitD.app`; Linux archives carry `gty` alone, since the daemon is macOS-only. Every archive stamps its own release tag into `gty` so a `gty ssh` bootstrap can download the matching remote asset.
 
-Pushes to `main` create a prerelease named `nightly-<latest-tag>-dev-<github-run-id>-<short-sha>`. Nightly archive versions use `<latest-tag>-dev-<github-run-id>-<short-sha>` so package managers can reliably detect newer builds. Each nightly gets its own release tag, so Homebrew formula URLs remain stable even after later nightlies publish.
+Pushes to `main` create a prerelease named `nightly-<next-patch>-dev-<github-run-id>-<short-sha>`, where `<next-patch>` is the latest stable tag with its patch component incremented. Nightly archive versions use `<next-patch>-dev-<github-run-id>-<short-sha>` so package managers can reliably detect newer builds, and so a nightly always sorts above the stable release it was built on top of. Each nightly gets its own release tag, so Homebrew formula URLs remain stable even after later nightlies publish.
 
 Stable releases are tag-driven. Create and push an annotated `v*` git tag; the workflow then creates the GitHub release with the `RELEASE.md` entry as the release body.
 
@@ -50,7 +50,7 @@ There is no separate Go registry publish step.
 
 The `Release` workflow publishes the TypeScript SDK from `sdk/ts` as `@thurstonsand/ghosttykit` and the Pi extension from `pi/pi-paste` as `@thurstonsand/pi-paste`. It uses npm Trusted Publishing through GitHub Actions OIDC, so the repository does not store an npm token.
 
-Stable `v*` tags publish matching package versions on the default `latest` dist-tag. Pushes to `main` publish unique prerelease versions like `X.Y.Z-nightly.<run-id>.<attempt>.<short-sha>` on the `nightly` dist-tag, leaving `latest` untouched.
+Stable `v*` tags publish matching package versions on the default `latest` dist-tag. Pushes to `main` publish unique prerelease versions like `X.Y.Z-nightly.<run-id>.<attempt>.<short-sha>` on the `nightly` dist-tag, where `X.Y.Z` is the latest stable tag with its patch component incremented, leaving `latest` untouched.
 
 The workflow runs shared CI once, publishes the TypeScript SDK first, then rewrites Pi paste's `@thurstonsand/ghosttykit` dependency to the exact SDK version from the same run before packing and publishing Pi paste. This keeps stable and nightly Pi paste packages paired with the matching SDK package.
 
