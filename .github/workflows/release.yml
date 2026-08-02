@@ -72,7 +72,7 @@ jobs:
             echo "mirror_stable=${mirror_stable}"
           } >> "${GITHUB_OUTPUT}"
 
-  build:
+  build-macos:
     strategy:
       fail-fast: true
       matrix:
@@ -160,6 +160,7 @@ jobs:
           GOOS: darwin
           GOARCH: ${{ matrix.goarch }}
           RELEASE_VERSION: ${{ needs.resolve.outputs.archive_version }}
+          RELEASE_TAG: ${{ needs.resolve.outputs.release_tag }}
           CODESIGN_IDENTITY: ${{ secrets.APPLE_CODESIGN_IDENTITY }}
         run: scripts/build-release-archive.sh
 
@@ -171,9 +172,56 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  build-linux:
+    strategy:
+      fail-fast: true
+      matrix:
+        goarch: [amd64, arm64]
+    name: Build (linux-${{ matrix.goarch }})
+    needs: resolve
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up mise
+        uses: jdx/mise-action@v4
+        with:
+          install: true
+          cache: true
+
+      - name: Cache Go dependencies
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: release-go-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('cli/gty/go.sum') }}
+          restore-keys: |
+            release-go-${{ runner.os }}-${{ runner.arch }}-
+            go-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Build release archive
+        env:
+          GOOS: linux
+          GOARCH: ${{ matrix.goarch }}
+          RELEASE_VERSION: ${{ needs.resolve.outputs.archive_version }}
+          RELEASE_TAG: ${{ needs.resolve.outputs.release_tag }}
+        run: scripts/build-release-archive.sh
+
+      - name: Upload release archive
+        uses: actions/upload-artifact@v7
+        with:
+          name: ghosttykit-linux-${{ matrix.goarch }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 7
+
   publish-release:
     name: Publish GitHub Release
-    needs: [ci, resolve, build]
+    needs: [ci, resolve, build-macos, build-linux]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -264,8 +312,10 @@ jobs:
         run: |
           set -euo pipefail
 
-          amd64_sha="$(cut -d ' ' -f 1 dist/ghosttykit_*_darwin_amd64.zip.sha256)"
-          arm64_sha="$(cut -d ' ' -f 1 dist/ghosttykit_*_darwin_arm64.zip.sha256)"
+          darwin_amd64_sha="$(cut -d ' ' -f 1 dist/ghosttykit_*_darwin_amd64.zip.sha256)"
+          darwin_arm64_sha="$(cut -d ' ' -f 1 dist/ghosttykit_*_darwin_arm64.zip.sha256)"
+          linux_amd64_sha="$(cut -d ' ' -f 1 dist/ghosttykit_*_linux_amd64.zip.sha256)"
+          linux_arm64_sha="$(cut -d ' ' -f 1 dist/ghosttykit_*_linux_arm64.zip.sha256)"
 
           if [[ "${RELEASE_REF_TYPE}" == "tag" ]]; then
             formula="homebrew-tap/Formula/ghosttykit.rb"
@@ -273,14 +323,12 @@ jobs:
             formula_version="${RELEASE_REF_NAME#v}"
             conflict_formula="ghosttykit-nightly"
             nightly_notice=""
-            nightly_spacer=""
           else
             formula="homebrew-tap/Formula/ghosttykit-nightly.rb"
             class_name="GhosttykitNightly"
             formula_version="${ASSET_VERSION}"
             conflict_formula="ghosttykit"
-            nightly_notice="      This formula tracks nightly builds from GhosttyKit main and may break."
-            nightly_spacer=""
+            nightly_notice='This formula tracks nightly builds from GhosttyKit main and may break.\n\n'
           fi
 
           cat > "${formula}" <<EOF
@@ -293,23 +341,35 @@ jobs:
             on_macos do
               if Hardware::CPU.arm?
                 url "https://github.com/thurstonsand/ghosttykit/releases/download/${RELEASE_TAG}/ghosttykit_${ASSET_VERSION}_darwin_arm64.zip"
-                sha256 "${arm64_sha}"
+                sha256 "${darwin_arm64_sha}"
               else
                 url "https://github.com/thurstonsand/ghosttykit/releases/download/${RELEASE_TAG}/ghosttykit_${ASSET_VERSION}_darwin_amd64.zip"
-                sha256 "${amd64_sha}"
+                sha256 "${darwin_amd64_sha}"
               end
             end
 
-            conflicts_with "${conflict_formula}", because: "both install gty and ghosttykitd"
+            on_linux do
+              if Hardware::CPU.arm?
+                url "https://github.com/thurstonsand/ghosttykit/releases/download/${RELEASE_TAG}/ghosttykit_${ASSET_VERSION}_linux_arm64.zip"
+                sha256 "${linux_arm64_sha}"
+              else
+                url "https://github.com/thurstonsand/ghosttykit/releases/download/${RELEASE_TAG}/ghosttykit_${ASSET_VERSION}_linux_amd64.zip"
+                sha256 "${linux_amd64_sha}"
+              end
+            end
+
+            conflicts_with "${conflict_formula}", because: "both install gty"
 
             def install
               bin.install "bin/gty"
+              return unless OS.mac?
+
               prefix.install "GhosttyKitD.app"
               bin.install_symlink prefix/"GhosttyKitD.app/Contents/MacOS/ghosttykitd" => "ghosttykitd"
             end
 
             service do
-              run [opt_prefix/"GhosttyKitD.app/Contents/MacOS/ghosttykitd"]
+              run macos: [opt_prefix/"GhosttyKitD.app/Contents/MacOS/ghosttykitd"]
               keep_alive true
               working_dir var
               log_path var/"log/ghosttykitd.log"
@@ -317,28 +377,35 @@ jobs:
             end
 
             def caveats
-              <<~EOS
-          ${nightly_notice}
-          ${nightly_spacer}
-                Start Ghostty, then start the GhosttyKit daemon:
+              notice = "${nightly_notice}"
+              if OS.mac?
+                notice + <<~EOS
+                  Start Ghostty, then start the GhosttyKit daemon:
 
-                  brew services start #{full_name}
+                    brew services start #{full_name}
 
-                On first start, macOS should ask for permission to let GhosttyKitD control Ghostty.
-                Grant access, then verify the install with:
+                  On first start, macOS should ask for permission to let GhosttyKitD control Ghostty.
+                  Grant access, then verify the install with:
 
-                  gty doctor
-              EOS
+                    gty doctor
+                EOS
+              else
+                notice + <<~EOS
+                  This installs the gty CLI only. The GhosttyKit daemon is macOS-only, so gty here
+                  serves SSH sessions bridged from a macOS host by gty ssh.
+                EOS
+              end
             end
 
             test do
               assert_match "gty ${ASSET_VERSION} protocol=", shell_output("#{bin}/gty version")
-              assert_match "ghosttykitd ${ASSET_VERSION}", shell_output("#{bin}/ghosttykitd --version")
+              assert_match "ghosttykitd ${ASSET_VERSION}", shell_output("#{bin}/ghosttykitd --version") if OS.mac?
             end
           end
           EOF
 
           ruby -c "${formula}"
+          brew style "${formula}"
 
       - name: Commit formula update
         working-directory: homebrew-tap

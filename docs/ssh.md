@@ -84,7 +84,15 @@ It creates the directory with mode `0700`, removes dead GhosttyKit socket pathna
 
 ## Bootstrap
 
-When remote `gty` is missing or reports a different `gty version` line, the wrapper bootstraps/upgrades `~/.local/bin/gty` over SSH and makes it executable.
+The remote host needs a `gty` reporting the same `gty version` line as the local one. `gty ssh` uses a `gty` already on the remote `PATH` when its version matches, and otherwise installs its own at `${XDG_DATA_HOME:-$HOME/.local/share}/ghosttykit/bin/gty`. That location stays off `PATH` on purpose: bootstrap should not add a command the host's owner did not install. A `gty` you installed yourself is never overwritten.
+
+Where the installed binary comes from depends on how the local `gty` was built:
+
+- Release builds, including Homebrew and `go install <module>@vX.Y.Z`, download the matching `linux`/`darwin` `amd64`/`arm64` asset from their own GitHub release, reporting progress on stderr. This is the only part of `gty ssh` that reaches the network.
+- Source builds (`just build-go`, `just install`) cross-compile from their checkout.
+- Anything else, such as a bare `go build`, copies itself to a host matching its own OS and architecture, and reports that it cannot serve any other.
+
+Bootstrap failure is soft: `gty ssh` continues as plain SSH unless `--require-bridge` is set. `--debug-no-bootstrap` skips the install and names the version that did not match.
 
 ## Hidden runtime hooks
 

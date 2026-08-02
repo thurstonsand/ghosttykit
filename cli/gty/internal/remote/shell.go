@@ -12,7 +12,14 @@ func RunCommand(remoteGTY, socketPath string, args []string) string {
 			parts = append(parts, ShellQuote(arg))
 		}
 	}
-	return strings.Join(parts, " ")
+	return posixShellCommand(strings.Join(parts, " "))
+}
+
+// posixShellCommand wraps a script for `ssh host <command>`, which runs it through the account's
+// login shell. That shell need not parse POSIX syntax, so GhosttyKit's own scripts run under
+// /bin/sh. An interactive session still reaches the user's shell, by way of gty ssh remote-run.
+func posixShellCommand(script string) string {
+	return "/bin/sh -c " + ShellQuote(script)
 }
 
 // ShellQuote quotes a string for POSIX shell command assembly.

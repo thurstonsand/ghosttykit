@@ -17,7 +17,7 @@ Status: stable. The Go `gty` CLI, Swift daemon, Go/TypeScript/Lua SDKs, SSH brid
 
 ## Install
 
-GhosttyKit is distributed for macOS through the shared `thurstonsand/homebrew-tap` Homebrew tap.
+GhosttyKit is distributed through the shared `thurstonsand/homebrew-tap` Homebrew tap. macOS gets `gty` and the daemon; Linux gets `gty` alone, for use as the remote end of a `gty ssh` bridge.
 
 Stable releases follow `v*` tags:
 

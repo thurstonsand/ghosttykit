@@ -54,7 +54,7 @@ func (r Runner) RunSSH(sshOpts SSHOptions, args []string, dashIndex int) error {
 
 // Prepare creates all local and remote bridge state before the final SSH session.
 func (r Runner) Prepare(sshOpts SSHOptions, host string) (PreparedBridge, error) {
-	remoteGTY, initResult, err := prepareRemote(sshOpts, host, r.bootstrapSource())
+	remoteGTY, initResult, err := prepareRemote(sshOpts, host, r.bootstrapSource(), r.stderr())
 	if err != nil {
 		return PreparedBridge{}, err
 	}
@@ -73,8 +73,8 @@ func (r Runner) Prepare(sshOpts SSHOptions, host string) (PreparedBridge, error)
 	}, nil
 }
 
-func prepareRemote(sshOpts SSHOptions, host string, source BootstrapSource) (string, InitResult, error) {
-	remoteGTY, err := ensureRemoteGTY(sshOpts, host, source)
+func prepareRemote(sshOpts SSHOptions, host string, source BootstrapSource, progress io.Writer) (string, InitResult, error) {
+	remoteGTY, err := ensureRemoteGTY(sshOpts, host, source, progress)
 	if err != nil {
 		return "", InitResult{}, err
 	}
@@ -120,7 +120,7 @@ func (r Runner) bootstrapSource() BootstrapSource {
 	if r.BootstrapSource != nil {
 		return r.BootstrapSource
 	}
-	return LocalBuildBootstrapSource{}
+	return DefaultBootstrapSource(r.stderr())
 }
 
 func (r Runner) runInteractiveCommand(name string, args ...string) error {

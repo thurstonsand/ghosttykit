@@ -67,9 +67,9 @@ func controlSSHArgs(sshOpts SSHOptions) []string {
 	return args
 }
 
-func captureSSH(sshOpts SSHOptions, host string, remoteCommand string) (string, error) {
+func captureSSH(sshOpts SSHOptions, host string, script string) (string, error) {
 	args := controlSSHArgs(sshOpts)
-	args = append(args, "--", host, remoteCommand)
+	args = append(args, "--", host, posixShellCommand(script))
 	cmd := exec.Command("ssh", args...)
 	out, err := cmd.Output()
 	if err != nil {

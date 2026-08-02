@@ -2,6 +2,8 @@ set shell := ["bash", "-euo", "pipefail", "-c"]
 
 binary := "gty"
 install_dir := env_var_or_default("HOME", ".") + "/.local/bin"
+source_root := parent_directory(parent_directory(justfile_directory()))
+source_root_flag := "-X 'github.com/thurstonsand/ghosttykit/cli/gty/internal/remote.SourceRoot=" + source_root + "'"
 
 _default:
     just --list
@@ -21,11 +23,11 @@ test:
 check: fmt lint test
 
 build:
-    go build -o {{binary}} .
+    go build -ldflags "{{source_root_flag}}" -o {{binary}} .
 
 install:
     mkdir -p {{install_dir}}
-    go build -o {{install_dir}}/{{binary}} .
+    go build -ldflags "{{source_root_flag}}" -o {{install_dir}}/{{binary}} .
 
 update-deps:
     go get -u -t ./...
