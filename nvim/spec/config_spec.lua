@@ -4,7 +4,7 @@ describe("ghosttykit.nvim.config", function()
   it("uses GhosttyKit defaults", function()
     local result = config.setup()
 
-    assert.are.equal("nvim", result.key_table)
+    assert.are.equal("bypass", result.key_table)
     assert.are.equal("previous", result.float_win_behavior)
     assert.is_false(result.notify_errors)
   end)
@@ -13,7 +13,7 @@ describe("ghosttykit.nvim.config", function()
     local result = config.setup({ float_win_behavior = "mux" })
 
     assert.are.equal("mux", result.float_win_behavior)
-    assert.are.equal("nvim", result.key_table)
+    assert.are.equal("bypass", result.key_table)
   end)
 
   it("rejects invalid float behavior", function()

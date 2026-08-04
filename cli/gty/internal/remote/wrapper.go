@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"os/signal"
 
 	"github.com/thurstonsand/ghosttykit/cli/gty/internal/osc"
 )
@@ -18,6 +19,18 @@ type Runner struct {
 	RunInteractiveCommand func(name string, args ...string) error
 	ResetTerminal         func() error
 	Stderr                io.Writer
+	Session               SessionOptions
+}
+
+// SessionOptions are transport behaviors one caller can require of its SSH session. gty ssh
+// leaves them unset; gty herdr attach needs a remote pty around its remote command, an stdout it
+// can filter, a remote gty at the path Herdr's keybindings name, and signals delivered to OpenSSH
+// so its own cleanup runs before this process exits.
+type SessionOptions struct {
+	ForcePTY          bool
+	RequireManagedGTY bool
+	Stdout            io.Writer
+	ForwardSignals    []os.Signal
 }
 
 // Bridge is a local daemon bridge and its lease.
@@ -48,7 +61,7 @@ func (r Runner) RunSSH(sshOpts SSHOptions, args []string, dashIndex int) error {
 			return unavailable
 		}
 		warnBridgeUnavailable(r.stderr(), unavailable)
-		return r.runSSHSession(remoteCommand, PlainSSHArgs(sshOpts, host, remoteCommand))
+		return r.runSSHSession(len(remoteCommand) == 0, PlainSSHArgs(sshOpts, host, remoteCommand))
 	}
 	defer func() { _ = prepared.Close() }()
 
@@ -57,7 +70,7 @@ func (r Runner) RunSSH(sshOpts SSHOptions, args []string, dashIndex int) error {
 
 // Prepare creates all local and remote bridge state before the final SSH session.
 func (r Runner) Prepare(sshOpts SSHOptions, host string) (PreparedBridge, error) {
-	remoteGTY, initResult, err := prepareRemote(sshOpts, host, r.bootstrapSource(), r.stderr())
+	remoteGTY, initResult, err := prepareRemote(sshOpts, r.Session.RequireManagedGTY, host, r.bootstrapSource(), r.stderr())
 	if err != nil {
 		return PreparedBridge{}, err
 	}
@@ -76,8 +89,14 @@ func (r Runner) Prepare(sshOpts SSHOptions, host string) (PreparedBridge, error)
 	}, nil
 }
 
-func prepareRemote(sshOpts SSHOptions, host string, source BootstrapSource, progress io.Writer) (string, InitResult, error) {
-	remoteGTY, err := ensureRemoteGTY(sshOpts, host, source, progress)
+func prepareRemote(sshOpts SSHOptions, requireManagedGTY bool, host string, source BootstrapSource, progress io.Writer) (string, InitResult, error) {
+	var remoteGTY string
+	var err error
+	if requireManagedGTY {
+		remoteGTY, err = ensureManagedRemoteGTY(sshOpts, host, source, progress)
+	} else {
+		remoteGTY, err = ensureRemoteGTY(sshOpts, host, source, progress)
+	}
 	if err != nil {
 		return "", InitResult{}, err
 	}
@@ -102,20 +121,21 @@ func remoteInit(sshOpts SSHOptions, host string, remoteGTY string) (InitResult, 
 
 // RunPreparedSSH runs the final SSH session without soft fallback.
 func (r Runner) RunPreparedSSH(sshOpts SSHOptions, host string, remoteCommand []string, prepared PreparedBridge) error {
+	usePTY := len(remoteCommand) == 0 || r.Session.ForcePTY
 	args := ManagedSSHArgs(sshOpts)
-	if len(remoteCommand) == 0 {
+	if usePTY {
 		args = append(args, "-t")
 	}
 	args = append(args, "-R", prepared.RemoteSocketPath+":"+prepared.LocalBridgePath, "--", host)
 	args = append(args, RunCommand(prepared.RemoteGTY, prepared.RemoteSocketPath, remoteCommand))
-	return r.runSSHSession(remoteCommand, args)
+	return r.runSSHSession(usePTY, args)
 }
 
 // runSSHSession runs SSH and, for sessions that carried a remote pty, unwinds terminal modes a
 // remote full-screen application may have left set when the connection died under it.
-func (r Runner) runSSHSession(remoteCommand []string, args []string) error {
+func (r Runner) runSSHSession(usePTY bool, args []string) error {
 	err := r.runInteractiveCommand("ssh", args...)
-	if len(remoteCommand) == 0 {
+	if usePTY {
 		_ = r.resetTerminal()
 	}
 	return err
@@ -143,8 +163,40 @@ func (r Runner) runInteractiveCommand(name string, args ...string) error {
 	cmd := exec.Command(name, args...)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
+	if r.Session.Stdout != nil {
+		cmd.Stdout = r.Session.Stdout
+	}
 	cmd.Stderr = os.Stderr
-	return cmd.Run()
+	if len(r.Session.ForwardSignals) == 0 {
+		return cmd.Run()
+	}
+	return runForwardingSignals(cmd, r.Session.ForwardSignals)
+}
+
+// runForwardingSignals hands signals to the SSH child instead of letting them end this process,
+// so the caller's own cleanup still runs once OpenSSH is gone.
+func runForwardingSignals(cmd *exec.Cmd, signals []os.Signal) error {
+	// Notified before the child exists: a signal arriving in the start window must not end this
+	// process with its default disposition and skip the caller's cleanup.
+	received := make(chan os.Signal, 1)
+	signal.Notify(received, signals...)
+	defer signal.Stop(received)
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	done := make(chan struct{})
+	defer close(done)
+	go func() {
+		for {
+			select {
+			case incoming := <-received:
+				_ = cmd.Process.Signal(incoming)
+			case <-done:
+				return
+			}
+		}
+	}()
+	return cmd.Wait()
 }
 
 func (r Runner) resetTerminal() error {

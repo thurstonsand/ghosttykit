@@ -293,6 +293,53 @@ func TestGTYCandidatesScriptReportsUsableInstalls(t *testing.T) {
 	}
 }
 
+// TestForcedPTYSessionKeepsTerminalHandling covers gty herdr attach, whose remote command is a
+// full-screen application: OpenSSH must allocate a pty for it, and the modes it leaves behind
+// must be unwound the same way an interactive session's are.
+func TestForcedPTYSessionKeepsTerminalHandling(t *testing.T) {
+	var args []string
+	resets := 0
+	runner := Runner{
+		Session:               SessionOptions{ForcePTY: true},
+		RunInteractiveCommand: func(_ string, given ...string) error { args = given; return nil },
+		ResetTerminal:         func() error { resets++; return nil },
+	}
+	if err := runner.RunPreparedSSH(SSHOptions{}, "host", []string{"herdr"}, PreparedBridge{
+		RemoteGTY:        "/remote/gty",
+		RemoteSocketPath: "/remote.sock",
+		LocalBridgePath:  "/local.sock",
+	}); err != nil {
+		t.Fatalf("RunPreparedSSH() error = %v", err)
+	}
+	if indexOf(args, "-t") == -1 {
+		t.Fatalf("ssh args = %v, want -t", args)
+	}
+	if resets != 1 {
+		t.Fatalf("ResetTerminal calls = %d, want 1", resets)
+	}
+}
+
+// TestManagedGTYScriptReportsWhatIsInstalled pins the preflight gty herdr attach depends on: the
+// managed path always answers, so an empty version means "install it", not "ssh failed".
+func TestManagedGTYScriptReportsWhatIsInstalled(t *testing.T) {
+	home := t.TempDir()
+	managed := filepath.Join(home, ".local/share/ghosttykit/bin/gty")
+
+	got := parseGTYCandidates(runRemoteScript(t, home, os.Getenv("PATH"), managedGTYScript, nil))
+	if want := []remoteGTY{{Path: managed}}; !slices.Equal(got, want) {
+		t.Fatalf("managed gty (absent) = %v, want %v", got, want)
+	}
+
+	if err := os.MkdirAll(filepath.Dir(managed), 0o755); err != nil {
+		t.Fatalf("MkdirAll() error = %v", err)
+	}
+	writeScript(t, managed, "#!/bin/sh\necho 'gty 1.2.3 protocol=1'\n")
+	got = parseGTYCandidates(runRemoteScript(t, home, os.Getenv("PATH"), managedGTYScript, nil))
+	if want := []remoteGTY{{Path: managed, Version: "gty 1.2.3 protocol=1"}}; !slices.Equal(got, want) {
+		t.Fatalf("managed gty (installed) = %v, want %v", got, want)
+	}
+}
+
 // TestManagedInstallScriptStagesThenRenames pins the install contract: nothing is left behind, and
 // the binary arrives executable at the XDG location.
 func TestManagedInstallScriptStagesThenRenames(t *testing.T) {

@@ -14,6 +14,10 @@ function M.in_ghostty()
   return false
 end
 
+function M.in_herdr()
+  return vim.env.HERDR_ENV == "1"
+end
+
 function M.has_bridge()
   return vim.env.GTY_SOCK ~= nil and vim.env.GTY_SOCK ~= ""
 end

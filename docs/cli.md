@@ -20,6 +20,8 @@ Every terminal-scoped command targets the caller's own terminal, resolved from `
 | `gty title <text>`                                                           | Set the terminal title via OSC (no daemon involved).                                                                                |
 | `gty clear-cache [--all]`                                                    | Drop the caller's cached tty mapping, or all mappings.                                                                              |
 | `gty ssh [flags] host [-- remote command]`                                   | SSH with a GhosttyKit bridge; see `docs/ssh.md`.                                                                                    |
+| `gty herdr attach [flags] host [-- herdr arguments]`                         | Run remote Herdr with bare-key navigation into Ghostty; see `docs/ssh.md`.                                                          |
+| `gty herdr navigate <left\|down\|up\|right>`                                 | Navigate one layer from inside a Herdr pane. Called by Herdr keybindings, not by hand.                                              |
 | `gty spawn-claim <token>` (hidden)                                           | Daemon plumbing: binds the caller's tty to a daemon-spawned terminal. Invoked by `ghosttykitd`'s spawn wrapper, not by hand.        |
 
 ## Exit codes

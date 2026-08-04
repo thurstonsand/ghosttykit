@@ -61,6 +61,14 @@ func PlainSSHArgs(sshOpts SSHOptions, host string, remoteCommand []string) []str
 	return args
 }
 
+// RequireRemoteCommand fails unless the remote host can run command.
+func RequireRemoteCommand(sshOpts SSHOptions, host string, command string) error {
+	if _, err := captureSSH(sshOpts, host, "command -v "+ShellQuote(command)); err != nil {
+		return fmt.Errorf("%s is not runnable on %s: %w", command, host, err)
+	}
+	return nil
+}
+
 // controlSSHArgs configures GhosttyKit's own SSH commands. `-T` overrides a host configured with
 // RequestTTY, whose pty would rewrite these machine-read replies with terminal echo and CRLF.
 func controlSSHArgs(sshOpts SSHOptions) []string {

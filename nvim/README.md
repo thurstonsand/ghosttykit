@@ -59,22 +59,32 @@ vim.keymap.set("n", "<C-l>", "<Plug>(GhosttyKitNavigateRight)")
 
 ## Ghostty key table
 
-Add this fragment to your Ghostty config. It makes `Ctrl-h/j/k/l` move between Ghostty splits in shells, while passing those keys through to Neovim when `ghosttykit.nvim` activates the `nvim` key table.
+Add this fragment to your Ghostty config. It makes `Ctrl-h/j/k/l` move between Ghostty splits in shells, while passing those keys through to whatever inner layer claims them — Neovim, or a remote Herdr session under `gty herdr attach`.
 
 ```ghostty
-# ctrl-hjkl navigates Ghostty splits unless this surface is in the nvim key table
+# ctrl-hjkl navigates Ghostty splits unless an inner layer owns this surface
 keybind = ctrl+h=goto_split:left
 keybind = ctrl+j=goto_split:down
 keybind = ctrl+k=goto_split:up
 keybind = ctrl+l=goto_split:right
-keybind = nvim/
-keybind = nvim/ctrl+h=text:\x08
-keybind = nvim/ctrl+j=text:\x0a
-keybind = nvim/ctrl+k=text:\x0b
-keybind = nvim/ctrl+l=text:\x0c
+keybind = bypass/
+keybind = bypass/ctrl+h=text:\x08
+keybind = bypass/ctrl+j=text:\x0a
+keybind = bypass/ctrl+k=text:\x0b
+keybind = bypass/ctrl+l=text:\x0c
 ```
 
-The key table must be named `nvim`. GhosttyKit does not edit your Ghostty config automatically.
+The key table must be named `bypass`. GhosttyKit does not edit your Ghostty config automatically.
+
+## Inside Herdr
+
+When Neovim runs in a [Herdr](https://herdr.dev) pane, the plugin detects `HERDR_ENV=1` and changes two things.
+
+At a Neovim window edge it asks Herdr to move instead of calling GhosttyKit, talking to `$HERDR_SOCKET_PATH` directly over Herdr's socket protocol. Herdr focuses a neighboring pane when the pane has one, and otherwise signals the outer Ghostty layer for `gty herdr attach` to act on. The requests are asynchronous, so the keypress never waits on the remote host, and a failed request is reported rather than silently retried against Ghostty. Internal window movement is unchanged.
+
+It also stops managing the Ghostty key table. `gty herdr attach` holds that table for the whole Herdr session; if Neovim released it on exit or suspend, the surrounding Herdr panes would stop receiving navigation keys. The `<Plug>` mappings are installed as usual.
+
+This needs no configuration: Herdr sets `HERDR_ENV`, `HERDR_SOCKET_PATH`, and `HERDR_PANE_ID` in every pane. See [`docs/ssh.md`](../docs/ssh.md#herdr-attach) for the attach command and the Herdr keybindings it expects.
 
 ## Options
 
@@ -83,14 +93,14 @@ The key table must be named `nvim`. GhosttyKit does not edit your Ghostty config
   "thurstonsand/ghosttykit.nvim",
   version = "*", -- use branch = "main" with ghosttykit-nightly
   opts = {
-    key_table = "nvim",
+    key_table = "bypass",
     float_win_behavior = "previous",
     notify_errors = false,
   },
 }
 ```
 
-- `key_table`: Ghostty key table to activate while Neovim is focused. Default: `"nvim"`.
+- `key_table`: Ghostty key table to activate while Neovim is focused. Default: `"bypass"`.
 - `float_win_behavior`: Floating window navigation. `"previous"` returns to the previous normal window. `"mux"` sends navigation to Ghostty instead. Default: `"previous"`.
 - `notify_errors`: Show daemon errors with `vim.notify()`. Navigation failures are quiet by default. Default: `false`.
 
@@ -130,4 +140,4 @@ Run:
 :checkhealth ghosttykit
 ```
 
-The health check reports Ghostty or bridge context and runs the GhosttyKit `doctor` protocol request.
+The health check reports Ghostty or bridge context, the Herdr socket and pane it would navigate through when Neovim runs in a Herdr pane, and runs the GhosttyKit `doctor` protocol request.

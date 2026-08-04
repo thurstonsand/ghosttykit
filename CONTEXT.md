@@ -11,6 +11,7 @@
 - `gty`: The primary GhosttyKit command-line interface client.
 - Client: A `gty` process, SDK caller, or integration that connects to a daemon endpoint and sends protocol requests.
 - Remote agent: An ephemeral process owned by `gty ssh remote-run` on the remote host that holds a bridge connection open for local-to-remote operations during one bridged SSH session.
+- `bypass` key table: The Ghostty key table that hands `ctrl+h/j/k/l` to whatever layer is running inside the surface instead of moving Ghostty splits. `ghosttykit.nvim` holds it while Neovim is focused; `gty herdr attach` holds it for a whole Herdr session.
 - You: the coding agent helping me build `ghosttykit`.
 - Me/Us: the developer(s) building `ghosttykit`.
 - Coding agent: tools like Amp, Pi, Claude Code, Codex, or similar processes running in terminal contexts.

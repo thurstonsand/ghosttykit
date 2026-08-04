@@ -74,22 +74,24 @@ the provided <Plug> mappings:
 GHOSTTY KEY TABLE                                  *ghosttykit.nvim-key-table*
 
 Add this fragment to your Ghostty config. It makes CTRL-h/j/k/l move between
-Ghostty splits in shells, while passing those keys through to Neovim when
-`ghosttykit.nvim` activates the `nvim` key table.
+Ghostty splits in shells, while passing those keys through to the inner
+program when the `bypass` key table is active. `ghosttykit.nvim`
+activates it while Neovim is focused; `gty herdr attach` activates it for a
+whole Herdr session.
 >
-  # ctrl-hjkl navigates Ghostty splits unless this surface is in the nvim key table
+  # ctrl-hjkl navigates Ghostty splits unless an inner layer owns the keys
   keybind = ctrl+h=goto_split:left
   keybind = ctrl+j=goto_split:down
   keybind = ctrl+k=goto_split:up
   keybind = ctrl+l=goto_split:right
-  keybind = nvim/
-  keybind = nvim/ctrl+h=text:\x08
-  keybind = nvim/ctrl+j=text:\x0a
-  keybind = nvim/ctrl+k=text:\x0b
-  keybind = nvim/ctrl+l=text:\x0c
+  keybind = bypass/
+  keybind = bypass/ctrl+h=text:\x08
+  keybind = bypass/ctrl+j=text:\x0a
+  keybind = bypass/ctrl+k=text:\x0b
+  keybind = bypass/ctrl+l=text:\x0c
 <
 
-The key table must be named `nvim`. GhosttyKit does not edit your Ghostty
+The key table must be named `bypass`. GhosttyKit does not edit your Ghostty
 config automatically.
 
 ==============================================================================
@@ -101,7 +103,7 @@ Example:
     "thurstonsand/ghosttykit.nvim",
     version = "*", -- use branch = "main" with ghosttykit-nightly
     opts = {
-      key_table = "nvim",
+      key_table = "bypass",
       float_win_behavior = "previous",
       notify_errors = false,
     },
@@ -109,7 +111,9 @@ Example:
 <
 
 `key_table`             Ghostty key table to activate while Neovim is focused.
-                        Default: "nvim".
+                        Not activated inside Herdr, where `gty herdr attach`
+                        owns the table for the whole session.
+                        Default: "bypass".
 
 `float_win_behavior`    Floating window navigation. "previous" returns to the
                         previous normal window. "mux" sends navigation to

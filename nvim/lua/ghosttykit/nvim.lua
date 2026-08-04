@@ -40,6 +40,12 @@ function M.setup(opts)
   end
   setup_done = true
 
+  -- Inside Herdr, `gty herdr attach` owns the Ghostty key table for the whole session. Neovim
+  -- exiting or suspending must not take those keys back from the Herdr panes around it.
+  if env.in_herdr() then
+    return
+  end
+
   if setup_autocmds() then
     client.activate_key_table()
   end

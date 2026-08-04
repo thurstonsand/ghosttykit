@@ -46,6 +46,7 @@ func newRootCmd() *cobra.Command {
 		spawnClaimCmd(opts),
 		titleCmd(),
 		sshCmd(opts),
+		herdrCmd(opts),
 	)
 	configureUsageErrors(root)
 	return root

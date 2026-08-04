@@ -12,16 +12,20 @@ end
 
 describe("ghosttykit.nvim autocmds", function()
   local term_program
+  local herdr_env
 
   before_each(function()
     term_program = vim.env.TERM_PROGRAM
+    herdr_env = vim.env.HERDR_ENV
     vim.env.TERM_PROGRAM = "ghostty"
+    vim.env.HERDR_ENV = nil
     pcall(vim.api.nvim_del_augroup_by_name, "ghosttykit")
     reset_ghosttykit_modules()
   end)
 
   after_each(function()
     vim.env.TERM_PROGRAM = term_program
+    vim.env.HERDR_ENV = herdr_env
     pcall(vim.api.nvim_del_augroup_by_name, "ghosttykit")
     reset_ghosttykit_modules()
   end)
@@ -51,5 +55,28 @@ describe("ghosttykit.nvim autocmds", function()
     assert.same({ activate = 2, deactivate = 1 }, calls)
     assert.are.equal(1, autocmd_count("FocusGained"))
     assert.are.equal(1, autocmd_count("VimSuspend"))
+  end)
+
+  it("leaves the key table to gty herdr attach inside Herdr", function()
+    local calls = { activate = 0, deactivate = 0 }
+    package.loaded["ghosttykit.nvim.client"] = {
+      activate_key_table = function()
+        calls.activate = calls.activate + 1
+        return true, nil
+      end,
+      deactivate_key_table = function()
+        calls.deactivate = calls.deactivate + 1
+        return true, nil
+      end,
+    }
+    vim.env.HERDR_ENV = "1"
+
+    require("ghosttykit.nvim").setup({})
+
+    assert.same({ activate = 0, deactivate = 0 }, calls)
+    assert.has_error(function()
+      vim.api.nvim_get_autocmds({ group = "ghosttykit" })
+    end)
+    assert.are_not.equal("", vim.fn.maparg("<Plug>(GhosttyKitNavigateLeft)", "n"))
   end)
 end)

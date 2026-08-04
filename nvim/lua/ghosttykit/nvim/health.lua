@@ -1,5 +1,6 @@
 local client = require("ghosttykit.nvim.client")
 local env = require("ghosttykit.nvim.env")
+local herdr = require("ghosttykit.nvim.herdr")
 
 local M = {}
 
@@ -46,6 +47,16 @@ function M.check()
     ok("GTY_SOCK bridge detected")
   else
     warn("No Ghostty UI or GTY_SOCK bridge detected")
+  end
+
+  if env.in_herdr() then
+    ok("Herdr pane detected; gty herdr attach owns the Ghostty key table")
+    local context, err = herdr.probe()
+    if context then
+      ok("Herdr socket " .. context.socket_path .. " answers for pane " .. context.pane_id)
+    else
+      error_report("Herdr navigation unavailable: " .. tostring(err))
+    end
   end
 
   local reply, err = client.doctor()

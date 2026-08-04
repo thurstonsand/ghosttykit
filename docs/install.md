@@ -52,7 +52,7 @@ This installs only the CLI. The binary reports the tag it was installed from, so
 
 ## Ghostty config for Neovim navigation
 
-Copy the Ghostty key-table fragment from the root [README](../README.md#ghostty-config-for-neovim-navigation) into your Ghostty config if you use `ghosttykit.nvim` split navigation. GhosttyKit does not modify your config automatically; the required key table name is `nvim`.
+Copy the Ghostty key-table fragment from the root [README](../README.md#ghostty-config-for-inner-layer-navigation) into your Ghostty config if you use `ghosttykit.nvim` split navigation or `gty herdr attach`. GhosttyKit does not modify your config automatically; the required key table name is `bypass`.
 
 ## Pi paste extension
 

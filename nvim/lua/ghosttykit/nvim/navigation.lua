@@ -1,5 +1,7 @@
 local client = require("ghosttykit.nvim.client")
 local config = require("ghosttykit.nvim.config")
+local env = require("ghosttykit.nvim.env")
+local herdr = require("ghosttykit.nvim.herdr")
 
 local M = {}
 
@@ -9,6 +11,15 @@ local directions = {
   up = "k",
   right = "l",
 }
+
+-- Once Neovim cannot move, the next layer outward is Herdr when Neovim runs inside it, and
+-- Ghostty otherwise. Herdr makes the rest of the decision on the remote host.
+local function leave_neovim(direction)
+  if env.in_herdr() then
+    return herdr.navigate(direction)
+  end
+  return client.focus(direction)
+end
 
 local function is_floating_window(win)
   local cfg = vim.api.nvim_win_get_config(win or 0)
@@ -75,7 +86,7 @@ function M.navigate(direction)
 
   if is_embedded_floating_window() then
     if is_floating_window_at_screen_edge(nil, direction) then
-      return client.focus(direction)
+      return leave_neovim(direction)
     end
 
     vim.cmd("wincmd " .. wincmd)
@@ -83,7 +94,7 @@ function M.navigate(direction)
   end
 
   if handle_floating_window(function()
-    return client.focus(direction)
+    return leave_neovim(direction)
   end) then
     return true, nil
   end
@@ -92,7 +103,7 @@ function M.navigate(direction)
   local target_winnr = vim.fn.winnr(wincmd)
 
   if target_winnr == current_winnr then
-    return client.focus(direction)
+    return leave_neovim(direction)
   end
 
   local target_win = vim.fn.win_getid(target_winnr)
@@ -101,7 +112,7 @@ function M.navigate(direction)
     return true, nil
   end
 
-  return client.focus(direction)
+  return leave_neovim(direction)
 end
 
 return M

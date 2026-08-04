@@ -1,7 +1,7 @@
 local M = {}
 
 local defaults = {
-  key_table = "nvim",
+  key_table = "bypass",
   float_win_behavior = "previous",
   notify_errors = false,
 }

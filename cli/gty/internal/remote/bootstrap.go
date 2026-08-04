@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -35,9 +36,9 @@ const gtyCandidatesScript = managedInstallShellVar + `for candidate in "$(comman
 	printf '%s\t%s\n' "$candidate" "$version"
 done`
 
-// managedGTYScript prints the bootstrap install and the version line it reports.
-const managedGTYScript = managedInstallShellVar + `[ -x "$gty_managed" ] || exit 1
-version="$("$gty_managed" version)" || exit 1
+// managedGTYScript prints the bootstrap install and the version line it reports, leaving the
+// version empty when that path holds nothing runnable.
+const managedGTYScript = managedInstallShellVar + `version="$("$gty_managed" version 2>/dev/null || true)"
 printf '%s\t%s\n' "$gty_managed" "$version"`
 
 // managedInstallScript writes stdin to the bootstrap install path. The unique temporary sibling
@@ -121,17 +122,44 @@ func ensureRemoteGTY(sshOpts SSHOptions, host string, source BootstrapSource, pr
 		}
 		return "", fmt.Errorf("remote gty version mismatch at %s: %s", candidates[0].Path, candidates[0].Version)
 	}
-	if err = bootstrapRemoteGTY(sshOpts, host, source, progress); err != nil {
+	return installManagedRemoteGTY(sshOpts, host, source, progress)
+}
+
+// ensureManagedRemoteGTY guarantees this version at the one remote path a caller can name ahead
+// of time, whatever else the host has on PATH.
+func ensureManagedRemoteGTY(sshOpts SSHOptions, host string, source BootstrapSource, progress io.Writer) (string, error) {
+	managed, err := managedGTY(sshOpts, host)
+	if err != nil {
+		return "", err
+	}
+	if managed.Version == localVersionLine() {
+		return managed.Path, nil
+	}
+	if sshOpts.NoBootstrap {
+		return "", fmt.Errorf("managed remote gty at %s reports %s, want %q", managed.Path, describeVersion(managed.Version), localVersionLine())
+	}
+	return installManagedRemoteGTY(sshOpts, host, source, progress)
+}
+
+func installManagedRemoteGTY(sshOpts SSHOptions, host string, source BootstrapSource, progress io.Writer) (string, error) {
+	if err := bootstrapRemoteGTY(sshOpts, host, source, progress); err != nil {
 		return "", err
 	}
 	installed, err := managedGTY(sshOpts, host)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("verify bootstrapped remote gty: %w", err)
 	}
 	if installed.Version != localVersionLine() {
-		return "", fmt.Errorf("bootstrapped remote gty reports %q, want %q", installed.Version, localVersionLine())
+		return "", fmt.Errorf("bootstrapped remote gty reports %s, want %q", describeVersion(installed.Version), localVersionLine())
 	}
 	return installed.Path, nil
+}
+
+func describeVersion(version string) string {
+	if version == "" {
+		return "nothing runnable"
+	}
+	return strconv.Quote(version)
 }
 
 func remoteGTYCandidates(sshOpts SSHOptions, host string) ([]remoteGTY, error) {
@@ -166,7 +194,7 @@ func compatibleGTY(candidates []remoteGTY) string {
 func managedGTY(sshOpts SSHOptions, host string) (remoteGTY, error) {
 	out, err := captureSSH(sshOpts, host, managedGTYScript)
 	if err != nil {
-		return remoteGTY{}, fmt.Errorf("bootstrapped remote gty is not runnable: %w", err)
+		return remoteGTY{}, err
 	}
 	installed := parseGTYCandidates(out)
 	if len(installed) != 1 {

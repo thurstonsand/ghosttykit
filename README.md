@@ -53,24 +53,24 @@ To stop the daemon:
 brew services stop thurstonsand/tap/ghosttykit
 ```
 
-## Ghostty config for Neovim navigation
+## Ghostty config for inner-layer navigation
 
-Add this fragment to your Ghostty config to make `Ctrl-h/j/k/l` move between Ghostty splits in shells, while passing those keys through to Neovim when `ghosttykit.nvim` activates the `nvim` key table:
+Add this fragment to your Ghostty config to make `Ctrl-h/j/k/l` move between Ghostty splits in shells, while passing those keys through to whatever inner layer claims them — Neovim, or a remote Herdr session under `gty herdr attach`:
 
 ```ghostty
-# ctrl-hjkl navigates Ghostty splits unless this surface is in the nvim key table
+# ctrl-hjkl navigates Ghostty splits unless an inner layer owns this surface
 keybind = ctrl+h=goto_split:left
 keybind = ctrl+j=goto_split:down
 keybind = ctrl+k=goto_split:up
 keybind = ctrl+l=goto_split:right
-keybind = nvim/
-keybind = nvim/ctrl+h=text:\x08
-keybind = nvim/ctrl+j=text:\x0a
-keybind = nvim/ctrl+k=text:\x0b
-keybind = nvim/ctrl+l=text:\x0c
+keybind = bypass/
+keybind = bypass/ctrl+h=text:\x08
+keybind = bypass/ctrl+j=text:\x0a
+keybind = bypass/ctrl+k=text:\x0b
+keybind = bypass/ctrl+l=text:\x0c
 ```
 
-The key table must be named `nvim`. That name is shared by the Ghostty config and the Neovim plugin. GhosttyKit does not edit your Ghostty config automatically.
+The key table must be named `bypass`. That name is shared by the Ghostty config, the Neovim plugin, and `gty herdr attach`. GhosttyKit does not edit your Ghostty config automatically.
 
 ## Development
 
