@@ -2,6 +2,26 @@
 
 # Release notes
 
+## 0.6.0
+
+One keymap across Ghostty splits, Herdr panes, and Neovim windows.
+
+### Added
+
+- `gty herdr attach <host>` runs a remote Herdr session with bare `ctrl+h/j/k/l` navigation that crosses every layer: Neovim windows first, then Herdr panes, then Ghostty splits. Setup is four Herdr `[[keys.command]]` bindings and the Ghostty key table; see `docs/ssh.md`.
+- `gty herdr navigate <direction>` decides which layer moves, from inside the remote pane. Called by Herdr's keybindings, not by hand.
+- `ghosttykit.nvim` speaks Herdr's socket directly when running inside a Herdr pane, so a Neovim edge costs no process spawn.
+
+### Changed
+
+- The Ghostty key table is now named `bypass`, not `nvim`. It is shared by the Neovim plugin and `gty herdr attach`.
+- Inside Herdr, `ghosttykit.nvim` leaves key-table ownership to `gty herdr attach`, which holds it for the whole session.
+
+### Fixed
+
+- A `gty ssh` session that dies while a remote full-screen application is running no longer leaves the local terminal holding that application's modes.
+- Nightly versions sort above the stable release they were built on, so channels are comparable again.
+
 ## 0.5.0
 
 Remote bootstrap that works from a real install.
