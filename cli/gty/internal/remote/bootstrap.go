@@ -258,7 +258,7 @@ func (s LocalBuildBootstrapSource) BinaryFor(target Target) (string, func(), err
 
 func (s LocalBuildBootstrapSource) build(target Target) (string, error) {
 	if s.SourceRoot == "" {
-		return "", fmt.Errorf("this gty was built by neither a release nor `just build-go`, so it can only bootstrap a %s/%s host; rebuild with `just build-go` to bootstrap %s/%s",
+		return "", fmt.Errorf("this gty was built by neither a release nor `mise run //cli/gty:build`, so it can only bootstrap a %s/%s host; rebuild with `mise run //cli/gty:build` to bootstrap %s/%s",
 			runtime.GOOS, runtime.GOARCH, target.GOOS, target.GOARCH)
 	}
 	packageDir := filepath.Join(s.SourceRoot, "cli", "gty")

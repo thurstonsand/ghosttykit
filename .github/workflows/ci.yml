@@ -6,6 +6,11 @@ on:
 permissions:
   contents: read
 
+# hk manages git hooks and publishes no darwin/amd64 build, so installing it fails
+# outright on the Intel runner. CI never commits, so skip it everywhere.
+env:
+  MISE_DISABLE_TOOLS: hk
+
 jobs:
   go:
     name: Go (${{ matrix.name }})
@@ -40,13 +45,13 @@ jobs:
 
       - name: Check Go packages
         run: |
-          just -f sdk/go/justfile fmt-check
-          just -f cli/gty/justfile fmt-check
-          just -f sdk/go/justfile lint
-          just -f cli/gty/justfile lint
-          just -f sdk/go/justfile test
-          just -f cli/gty/justfile test
-          just -f cli/gty/justfile build
+          mise run //sdk/go:fmt:check
+          mise run //cli/gty:fmt:check
+          mise run //sdk/go:lint
+          mise run //cli/gty:lint
+          mise run //sdk/go:test
+          mise run //cli/gty:test
+          mise run //cli/gty:build
 
   swift:
     name: Swift
@@ -71,16 +76,16 @@ jobs:
 
       - parallel:
           - name: Check Swift formatting
-            run: just -f daemon/ghosttykitd/justfile fmt-check
+            run: mise run //daemon/ghosttykitd:fmt:check
 
           - name: Lint Swift package
-            run: just -f daemon/ghosttykitd/justfile lint
+            run: mise run //daemon/ghosttykitd:lint
 
       - name: Test Swift package
-        run: just -f daemon/ghosttykitd/justfile test
+        run: mise run //daemon/ghosttykitd:test
 
       - name: Build Swift package
-        run: just -f daemon/ghosttykitd/justfile build
+        run: mise run //daemon/ghosttykitd:build
 
   lua-nvim:
     name: Lua / Neovim
@@ -104,25 +109,22 @@ jobs:
           path: |
             .luarocks
             .luals
-          key: lua-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('sdk/lua/ghosttykit-scm-1.rockspec', 'sdk/lua/justfile', 'nvim/ghosttykit.nvim-scm-1.rockspec', 'nvim/justfile') }}
+          key: lua-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('mise.toml', 'sdk/lua/ghosttykit-scm-1.rockspec', 'nvim/ghosttykit.nvim-scm-1.rockspec') }}
           restore-keys: |
             lua-${{ runner.os }}-${{ runner.arch }}-
 
-      - name: Ensure Lua and Neovim dependencies
-        run: just ensure-deps-nvim
-
       - name: Check Lua and Neovim packages
         run: |
-          just -f sdk/lua/justfile fmt-check
-          just -f sdk/lua/justfile lint
-          just -f sdk/lua/justfile typecheck
-          just -f sdk/lua/justfile test-all
-          just -f sdk/lua/justfile build
-          just -f nvim/justfile fmt-check
-          just -f nvim/justfile lint
-          just -f nvim/justfile typecheck
-          just -f nvim/justfile test
-          just -f nvim/justfile build
+          mise run //sdk/lua:fmt:check
+          mise run //sdk/lua:lint
+          mise run //sdk/lua:typecheck
+          mise run //sdk/lua:test
+          mise run //sdk/lua:build
+          mise run //nvim:fmt:check
+          mise run //nvim:lint
+          mise run //nvim:typecheck
+          mise run //nvim:test
+          mise run //nvim:build
 
   typescript-pi:
     name: TypeScript / Pi
@@ -148,23 +150,20 @@ jobs:
           restore-keys: |
             npm-${{ runner.os }}-${{ runner.arch }}-
 
-      - name: Ensure Node dependencies
-        run: just ensure-deps-ts
-
       - parallel:
           - name: Check TypeScript SDK
             run: |
-              just -f sdk/ts/justfile fmt-check
-              just -f sdk/ts/justfile lint
-              just -f sdk/ts/justfile typecheck
-              just -f sdk/ts/justfile test
+              mise run //sdk/ts:fmt:check
+              mise run //sdk/ts:lint
+              mise run //sdk/ts:typecheck
+              mise run //sdk/ts:test
 
           - name: Check Pi paste
             run: |
-              just -f pi/pi-paste/justfile fmt-check
-              just -f pi/pi-paste/justfile lint
-              just -f pi/pi-paste/justfile typecheck
-              just -f pi/pi-paste/justfile build
+              mise run //pi/pi-paste:fmt:check
+              mise run //pi/pi-paste:lint
+              mise run //pi/pi-paste:typecheck
+              mise run //pi/pi-paste:build
 
   docs-actions:
     name: Docs / Actions
@@ -184,7 +183,7 @@ jobs:
 
       - name: Check docs and automation config
         run: |
-          just fmt-check-docs
-          just lint-docs
-          just check-github-actions
-          just check-renovate
+          mise run docs:fmt:check
+          mise run docs:lint
+          mise run actions:lint
+          mise run renovate:lint

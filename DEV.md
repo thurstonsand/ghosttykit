@@ -10,35 +10,35 @@
 
 ## Verification commands
 
+Tasks live in `mise.toml` at the repo root and in one `mise.toml` per component. The root is a mise monorepo root, so every component task is addressable as `//<component>:<task>` from anywhere in the checkout.
+
 - Root commands:
 
 ```sh
-just --list
-just fmt # prefer this over language-native formatter binaries
-just fmt-check
-just lint
-just typecheck
-just test
-just build
-just check
-just smoke-real-daemon  # mutates the focused Ghostty window; use only when requested
-just smoke-real-daemon --bridge  # same checks through a daemon-owned bridge socket
+mise tasks --all
+mise run fmt # prefer this over language-native formatter binaries
+mise run fmt:check
+mise run lint
+mise run typecheck
+mise run test
+mise run build
+mise run check
+mise run smoke-real-daemon  # mutates the focused Ghostty window; use only when requested
+mise run smoke-real-daemon --bridge  # same checks through a daemon-owned bridge socket
 ```
 
-- Component commands:
+- Component commands. The components are `//cli/gty`, `//daemon/ghosttykitd`, `//nvim`, `//pi/pi-paste`, `//sdk/go`, `//sdk/lua`, and `//sdk/ts`:
 
 ```sh
-just fmt-{go,swift,lua,pi,ts,nvim,docs}
-just fmt-check-{go,swift,lua,pi,ts,nvim,docs}
-just lint-{go,swift,lua,pi,ts,nvim,docs}
-just typecheck-{swift,lua,pi,ts,nvim}
-just test-{go,swift,lua,ts,nvim}
-just build-{go,swift,lua,pi,ts,nvim}
+mise run //sdk/go:test          # one task in one component
+mise run //sdk/lua:check        # that component's whole check
+mise run '//...:lint'           # one task across every component that defines it
+mise run '//sdk/lua:test:*'     # every subtask in a group
 ```
 
-- Lua and Node checks require local package dependencies. Use these if dependency issues arise:
-
 ```sh
-just install-deps-lua # Lua SDK and Neovim plugin dependencies
-just install-deps-ts  # TypeScript SDK plus Pi paste dependencies
+mise run deps:lua   # shared Lua rock tree and language-server type stubs
+mise run deps:nvim  # Neovim plugin rock dependencies
+mise run deps:ts    # TypeScript SDK dependencies
+mise run deps:pi    # Pi paste dependencies
 ```

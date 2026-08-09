@@ -1,0 +1,48 @@
+[tasks.fmt]
+description = "Format Lua SDK sources"
+run = "stylua --config-path stylua.toml lua spec"
+
+[tasks."fmt:check"]
+description = "Verify Lua SDK formatting"
+run = "stylua --check --config-path stylua.toml lua spec"
+
+[tasks.lint]
+description = "Lint the Lua SDK"
+depends = ["//:deps:lua"]
+run = "luacheck lua spec"
+
+[tasks.typecheck]
+description = "Type-check the Lua SDK"
+depends = ["//:deps:lua"]
+run = "lua-language-server --check=. --configpath=.luarc.json --checklevel=Warning"
+
+[tasks.test]
+description = "Run every Lua SDK spec"
+depends = ["test:lua", "test:nvim"]
+
+[tasks."test:lua"]
+description = "Run the Lua SDK specs on the standalone interpreter"
+depends = ["//:deps:lua"]
+run = "busted spec/protocol_spec.lua spec/error_spec.lua spec/socket_spec.lua spec/client_spec.lua spec/transport_luv_spec.lua"
+
+[tasks."test:nvim"]
+description = "Run the Lua SDK specs that need a Neovim host"
+depends = ["//:deps:lua"]
+run = "busted --run=nvim spec/transport_nvim_spec.lua"
+
+[tasks.build]
+description = "Install the Lua SDK rock into the shared rock tree"
+depends = ["//:deps:lua"]
+run = 'luarocks make --tree "$GHOSTTYKIT_ROOT/.luarocks" --lua-version 5.1 ghosttykit-scm-1.rockspec'
+sources = ["ghosttykit-scm-1.rockspec", "lua/**/*.lua"]
+outputs = ["../../.luarocks/lib/luarocks/rocks-5.1/ghosttykit"]
+
+[tasks.check]
+description = "Format, lint, type-check, test, and build the Lua SDK"
+run = [
+  { task = ":fmt" },
+  { task = ":lint" },
+  { task = ":typecheck" },
+  { task = ":test" },
+  { task = ":build" },
+]

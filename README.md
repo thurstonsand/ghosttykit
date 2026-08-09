@@ -77,10 +77,10 @@ The key table must be named `bypass`. That name is shared by the Ghostty config,
 Project-local tool versions live in `mise.toml`.
 
 ```sh
-mise install    # install shared project tools; task tools install on first use
-just build      # build binaries
-just check      # format, lint, typecheck, test, build, and validate packaging/CI config
-just --list
+mise install       # install shared project tools; task tools install on first use
+mise run build     # build binaries
+mise run check     # format, lint, typecheck, test, build, and validate packaging/CI config
+mise tasks --all
 ```
 
-Component recipes are available as `*-go`, `*-swift`, `*-ts`, `*-pi`, and `*-nvim` variants.
+Each component also carries its own tasks, addressable from anywhere in the checkout as `//sdk/go:test`, `//daemon/ghosttykitd:build`, `'//...:lint'`, and so on.

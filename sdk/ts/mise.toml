@@ -1,0 +1,34 @@
+[tasks.fmt]
+description = "Format TypeScript SDK sources"
+depends = ["//:deps:ts"]
+run = "npm run fmt"
+
+[tasks."fmt:check"]
+description = "Verify TypeScript SDK formatting"
+depends = ["//:deps:ts"]
+run = "npx --no-install biome format ."
+
+[tasks.lint]
+description = "Lint the TypeScript SDK"
+depends = ["//:deps:ts"]
+run = "npm run lint"
+
+[tasks.typecheck]
+description = "Type-check the TypeScript SDK"
+depends = ["//:deps:ts"]
+run = "npm run typecheck"
+
+[tasks.test]
+description = "Run TypeScript SDK tests"
+depends = ["//:deps:ts"]
+run = "npm run test"
+
+[tasks.build]
+description = "Build the TypeScript SDK"
+depends = ["//:deps:ts"]
+run = "npm run build"
+
+[tasks.check]
+description = "Format, lint, type-check, test, and build the TypeScript SDK"
+depends = ["//:deps:ts"]
+run = ["npm run check", "npm run build"]

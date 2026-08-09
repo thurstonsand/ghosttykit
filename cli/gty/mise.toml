@@ -1,0 +1,45 @@
+[tasks.fmt]
+description = "Format gty sources"
+run = "golangci-lint fmt"
+
+[tasks."fmt:check"]
+description = "Verify gty formatting"
+run = 'diff="$(golangci-lint fmt --diff)"; printf "%s" "$diff"; test -z "$diff"'
+
+[tasks.lint]
+description = "Lint gty"
+run = "golangci-lint run ./..."
+
+[tasks.test]
+description = "Run gty unit tests"
+run = "go test ./..."
+
+# `gty ssh` cross-compiles the remote bootstrap binary out of this checkout, so a source build has to
+# record where the checkout lives. Release builds resolve the payload from the release archive instead.
+
+[tasks.build]
+description = "Build the gty binary into the package directory"
+run = '''go build -ldflags "-X 'github.com/thurstonsand/ghosttykit/cli/gty/internal/remote.SourceRoot=$GHOSTTYKIT_ROOT'" -o gty .'''
+
+[tasks.install]
+description = "Build and install gty into ~/.local/bin"
+run = [
+  'mkdir -p "$HOME/.local/bin"',
+  '''go build -ldflags "-X 'github.com/thurstonsand/ghosttykit/cli/gty/internal/remote.SourceRoot=$GHOSTTYKIT_ROOT'" -o "$HOME/.local/bin/gty" .''',
+]
+
+[tasks.check]
+description = "Format, lint, test, and build gty"
+# golangci-lint takes a machine-wide lock and aborts with "parallel golangci-lint is
+# running" rather than waiting, so the two Go components cannot lint at the same time.
+wait_for = ["//sdk/go:check"]
+run = [
+  { task = ":fmt" },
+  { task = ":lint" },
+  { task = ":test" },
+  { task = ":build" },
+]
+
+[tasks."update-deps"]
+description = "Upgrade gty modules"
+run = ["go get -u -t ./...", "go mod tidy"]

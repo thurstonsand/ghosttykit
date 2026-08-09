@@ -13,6 +13,11 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# hk manages git hooks and publishes no darwin/amd64 build, so installing it fails
+# outright on the Intel runner. Releases never commit, so skip it everywhere.
+env:
+  MISE_DISABLE_TOOLS: hk
+
 jobs:
   ci:
     name: CI

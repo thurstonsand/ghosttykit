@@ -55,13 +55,13 @@ GTY_SOCK=$sock GTY_TTY=/dev/dryrun gty doctor
 With Ghostty focused on the starting window, run:
 
 ```sh
-just smoke-real-daemon
+mise run smoke-real-daemon
 ```
 
 To run the same checks through a daemon-owned bridge socket, run:
 
 ```sh
-just smoke-real-daemon --bridge
+mise run smoke-real-daemon --bridge
 ```
 
 If `GTY_SOCK` is unset, it starts the daemon on a temporary socket and cleans it up afterward. Set `GTY_BIN`, `GHOSTTYKITD_BIN`, or `GTY_SOCK` to override defaults. It refuses a dry-run endpoint, resolves the invoking terminal's own tty through the deterministic resolution path (so it must run from a real Ghostty terminal, or `GTY_SMOKE_TTY` must name one), and exercises real daemon behavior: doctor, terminal-id cache refresh, tab count, pasteboard streaming, key-table activation/deactivation, split creation with spawn-claimed TTY reply, claim overwrite of a stale cache binding, submitted typed input, focus movement, resize, zoom toggling, and cache clearing.

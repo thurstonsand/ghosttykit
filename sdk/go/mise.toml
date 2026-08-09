@@ -1,0 +1,27 @@
+[tasks.fmt]
+description = "Format Go sources"
+run = "golangci-lint fmt"
+
+[tasks."fmt:check"]
+description = "Verify Go formatting"
+run = 'diff="$(golangci-lint fmt --diff)"; printf "%s" "$diff"; test -z "$diff"'
+
+[tasks.lint]
+description = "Lint the Go SDK"
+run = "golangci-lint run ./..."
+
+[tasks.test]
+description = "Run Go SDK unit tests"
+run = "go test ./..."
+
+[tasks."test:integration"]
+description = "Run Go SDK tests against a real daemon"
+run = "go test -tags=integration ./..."
+
+[tasks.check]
+description = "Format, lint, and test the Go SDK"
+run = [{ task = ":fmt" }, { task = ":lint" }, { task = ":test" }]
+
+[tasks."update-deps"]
+description = "Upgrade Go SDK modules"
+run = ["go get -u -t ./...", "go mod tidy"]

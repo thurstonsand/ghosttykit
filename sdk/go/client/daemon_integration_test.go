@@ -111,7 +111,7 @@ func repositoryRoot(t *testing.T) string {
 
 func buildDaemon(t *testing.T, daemonDir string) string {
 	t.Helper()
-	cmd := exec.Command("just", "build")
+	cmd := exec.Command("mise", "run", "//daemon/ghosttykitd:build")
 	cmd.Dir = daemonDir
 	var output bytes.Buffer
 	cmd.Stdout = &output

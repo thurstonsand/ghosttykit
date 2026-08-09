@@ -1,6 +1,43 @@
+min_version = "2026.8.3"
+monorepo_root = true
+
+[monorepo]
+config_roots = [
+  "cli/gty",
+  "daemon/ghosttykitd",
+  "nvim",
+  "pi/pi-paste",
+  "sdk/go",
+  "sdk/lua",
+  "sdk/ts",
+]
+
+[hooks]
+enter = "mise run --quiet bootstrap"
+
+[env]
+HK_MISE = "1"
+GHOSTTYKIT_ROOT = "{{config_root}}"
+_.path = ["{{config_root}}/.luarocks/bin"]
+LUA_PATH = "{{config_root}}/.luarocks/share/lua/5.1/?.lua;{{config_root}}/.luarocks/share/lua/5.1/?/init.lua;;"
+LUA_CPATH = "{{config_root}}/.luarocks/lib/lua/5.1/?.so;;"
+
+[task_config]
+cascade = true
+shell = "bash -c"
+
+[vars]
+busted_luacats_rev = "5ed85d0e016a5eb5eca097aa52905eedf1b180f1"
+luassert_luacats_rev = "d3528bb679302cbfdedefabb37064515ab95f7b9"
+
 [tools]
 actionlint = "1.7.12"
 go = "1.26.6"
+# Global rather than scoped to `bootstrap`, even though that is its only caller:
+# `hk install --mise` writes a pre-commit hook that invokes hk through a mise shim,
+# and a shim needs a version resolvable from anywhere in the repo. CI never commits,
+# so it disables this tool instead — hk publishes no darwin/amd64 build.
+hk = "1.54.1"
 lua-language-server = "3.19.1"
 # Neovim embeds LuaJIT, so the SDK, the plugin, and their rocks trees are all Lua 5.1. LuaJIT itself
 # publishes no git tags, which leaves its mise plugin unable to list versions, so install the 5.1
@@ -8,7 +45,6 @@ lua-language-server = "3.19.1"
 lua = { version = "5.1.5", install_env = { ASDF_LUA_LUAROCKS_VERSION = "3.13.0" } }
 node = "26.7.0"
 neovim = "0.12.4"
-just = "1.58.0"
 golangci-lint = "2.12.2"
 gofumpt = "0.11.0"
 markdownlint-cli2 = "0.23.2"
@@ -20,10 +56,127 @@ swiftlint = "0.65.0"
 [tool_alias]
 lua = "asdf:mise-plugins/mise-lua"
 
-[tasks.check-renovate]
+[tasks.bootstrap]
+description = "Install local development dependencies and git hooks"
+depends = ["deps:*"]
+run = "hk install --mise --quiet"
+sources = ["mise.toml", "hk.pkl"]
+quiet = true
+
+[tasks."deps:lua"]
+description = "Install the shared Lua rock tree and language-server type stubs"
+run = [
+  "rm -rf .luarocks .luals/addons .luals/nvim-runtime",
+  "luarocks install --tree .luarocks --lua-version 5.1 --only-deps sdk/lua/ghosttykit-scm-1.rockspec",
+  "luarocks install --tree .luarocks --lua-version 5.1 busted",
+  "luarocks install --tree .luarocks --lua-version 5.1 luacheck",
+  "luarocks install --tree .luarocks --lua-version 5.1 nlua",
+  "git clone --quiet https://github.com/LuaCATS/busted.git .luals/addons/busted",
+  "git -C .luals/addons/busted checkout --quiet {{vars.busted_luacats_rev}}",
+  "git clone --quiet https://github.com/LuaCATS/luassert.git .luals/addons/luassert",
+  "git -C .luals/addons/luassert checkout --quiet {{vars.luassert_luacats_rev}}",
+  "ln -s \"$(nvim --headless -u NONE +'lua io.write(vim.env.VIMRUNTIME)' +q 2>&1)\" .luals/nvim-runtime",
+]
+sources = ["mise.toml", "sdk/lua/ghosttykit-scm-1.rockspec"]
+outputs = [
+  ".luarocks/lib/luarocks/rocks-5.1/busted",
+  ".luals/addons/busted",
+  ".luals/nvim-runtime",
+]
+
+[tasks."deps:nvim"]
+description = "Install Neovim plugin rock dependencies"
+depends = ["//sdk/lua:build"]
+run = "luarocks install --tree .luarocks --lua-version 5.1 --only-deps nvim/ghosttykit.nvim-scm-1.rockspec"
+sources = ["mise.toml", "nvim/ghosttykit.nvim-scm-1.rockspec"]
+
+[tasks."deps:ts"]
+description = "Install TypeScript SDK dependencies"
+run = "npm --prefix sdk/ts ci --quiet --no-fund --no-audit"
+sources = ["sdk/ts/package.json", "sdk/ts/package-lock.json"]
+outputs = ["sdk/ts/node_modules/.package-lock.json"]
+
+[tasks."deps:pi"]
+description = "Install Pi paste dependencies"
+run = "npm --prefix pi/pi-paste ci --quiet --no-fund --no-audit"
+sources = ["pi/pi-paste/package.json", "pi/pi-paste/package-lock.json"]
+outputs = ["pi/pi-paste/node_modules/.package-lock.json"]
+
+[tasks."docs:fmt"]
+description = "Format Markdown"
+run = ["prettier --write \"**/*.md\"", "markdownlint-cli2 --fix"]
+
+[tasks."docs:fmt:check"]
+description = "Verify Markdown formatting"
+run = "prettier --check \"**/*.md\""
+
+[tasks."docs:lint"]
+description = "Lint Markdown"
+run = "markdownlint-cli2"
+
+[tasks."actions:lint"]
+description = "Validate GitHub Actions workflows"
+run = "actionlint"
+
+[tasks.renovate]
+description = "Run Renovate"
+run = "renovate"
+tools.node = "24.19.0"
+tools."npm:renovate" = { version = "44.32.5", trust_policy_excludes = [
+  "@yarnpkg/libzip@3.2.2",
+] }
+
+# Renovate ships a prebuilt RE2 built against one Node ABI, so it has to install and
+# run under the same Node. Scoping the tool to the tasks that use it gets that for
+# free; a global install would sit beside this project's Node 26 and fall back to RegExp.
+[tasks."renovate:lint"]
 description = "Validate dependency update configuration"
 run = "renovate-config-validator renovate.json"
 tools.node = "24.19.0"
 tools."npm:renovate" = { version = "44.32.5", trust_policy_excludes = [
   "@yarnpkg/libzip@3.2.2",
 ] }
+
+[tasks.fmt]
+description = "Format every component"
+depends = ["//...:fmt", "docs:fmt"]
+
+[tasks."fmt:check"]
+description = "Verify formatting without rewriting files"
+depends = ["//...:fmt:check", "docs:fmt:check"]
+
+[tasks.lint]
+description = "Lint every component"
+depends = ["//...:lint", "docs:lint", "actions:lint", "renovate:lint"]
+
+[tasks.typecheck]
+description = "Type-check every component that has a type checker"
+depends = ["//...:typecheck"]
+
+[tasks.test]
+description = "Test every component that has tests"
+depends = ["//...:test"]
+
+[tasks.build]
+description = "Build binaries and build-check non-binary packages"
+depends = ["//...:build"]
+
+[tasks.check]
+description = "Run every component check plus repo-wide docs and automation config"
+depends = [
+  "//...:check",
+  "docs:fmt",
+  "docs:lint",
+  "actions:lint",
+  "renovate:lint",
+]
+
+[tasks.smoke-real-daemon]
+description = "Exercise daemon/cli against the focused Ghostty window. Mutates split layout, focus, resize, zoom, key table, cache, and pasteboard."
+depends = ["//cli/gty:build", "//daemon/ghosttykitd:build"]
+run = "scripts/smoke-real-daemon.sh"
+
+[tasks."update-deps"]
+description = "Upgrade pinned tools and Go modules"
+depends = ["//...:update-deps"]
+run = "mise upgrade --bump --local"

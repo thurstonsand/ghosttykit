@@ -1,0 +1,52 @@
+[vars]
+codesign_identifier = "dev.ghosttykit.ghosttykitd"
+
+[tasks.fmt]
+description = "Format Swift sources"
+run = "swiftformat Sources Package.swift"
+
+[tasks."fmt:check"]
+description = "Verify Swift formatting"
+run = "swiftformat Sources Package.swift --lint"
+
+[tasks.lint]
+description = "Lint the daemon package"
+run = "swiftlint lint --strict Sources"
+
+[tasks.resolve]
+description = "Resolve Swift package dependencies"
+run = "swift package resolve"
+
+[tasks.typecheck]
+description = "Type-check the daemon package"
+run = "swift build"
+
+[tasks.test]
+description = "Run daemon tests"
+run = "swift test --quiet"
+
+[tasks.build]
+description = "Build and sign the daemon binary into the package directory"
+run = [
+  "swift build -c release",
+  "cp .build/release/ghosttykitd ghosttykitd",
+  'codesign --force --sign "${GHOSTTYKIT_CODESIGN_IDENTITY:--}" --identifier {{vars.codesign_identifier}} --entitlements ghosttykitd.entitlements ghosttykitd',
+]
+
+[tasks.install]
+description = "Build and install the signed daemon into ~/.local/bin"
+run = [
+  'mkdir -p "$HOME/.local/bin"',
+  "swift build -c release",
+  'cp .build/release/ghosttykitd "$HOME/.local/bin/ghosttykitd"',
+  'codesign --force --sign "${GHOSTTYKIT_CODESIGN_IDENTITY:--}" --identifier {{vars.codesign_identifier}} --entitlements ghosttykitd.entitlements "$HOME/.local/bin/ghosttykitd"',
+]
+
+[tasks.check]
+description = "Format, lint, test, and build the daemon"
+run = [
+  { task = ":fmt" },
+  { task = ":lint" },
+  { task = ":test" },
+  { task = ":build" },
+]

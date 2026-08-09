@@ -104,6 +104,5 @@ luarocks make --tree ../../.luarocks --lua-version 5.1 ghosttykit-scm-1.rockspec
 Run the development checks:
 
 ```sh
-just install-deps
-just check
+mise run //sdk/lua:check
 ```

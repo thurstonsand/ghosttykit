@@ -1,0 +1,41 @@
+[tasks.fmt]
+description = "Format Neovim plugin sources"
+run = "stylua --config-path stylua.toml lua plugin spec lazy.lua"
+
+[tasks."fmt:check"]
+description = "Verify Neovim plugin formatting"
+run = "stylua --check --config-path stylua.toml lua plugin spec lazy.lua"
+
+[tasks.lint]
+description = "Lint the Neovim plugin"
+depends = ["//:deps:nvim"]
+run = "luacheck lua plugin spec lazy.lua"
+
+[tasks.typecheck]
+description = "Type-check the Neovim plugin"
+depends = ["//:deps:nvim"]
+run = "lua-language-server --check=. --configpath=.luarc.json --checklevel=Warning"
+
+[tasks.test]
+description = "Run Neovim plugin specs"
+depends = ["//:deps:nvim"]
+run = "busted"
+
+[tasks.build]
+description = "Install the Neovim plugin rock into the shared rock tree"
+depends = ["//:deps:nvim"]
+run = 'luarocks make --tree "$GHOSTTYKIT_ROOT/.luarocks" --lua-version 5.1 ghosttykit.nvim-scm-1.rockspec'
+sources = ["ghosttykit.nvim-scm-1.rockspec", "lua/**/*.lua", "plugin/**/*.lua"]
+outputs = ["../.luarocks/lib/luarocks/rocks-5.1/ghosttykit.nvim"]
+
+[tasks.check]
+description = "Format, lint, type-check, test, and build the Neovim plugin"
+# The plugin and the SDK share one rock tree, so their `luarocks make` steps must not interleave.
+wait_for = ["//sdk/lua:check"]
+run = [
+  { task = ":fmt" },
+  { task = ":lint" },
+  { task = ":typecheck" },
+  { task = ":test" },
+  { task = ":build" },
+]

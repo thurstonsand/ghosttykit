@@ -89,7 +89,7 @@ The remote host needs a `gty` reporting the same `gty version` line as the local
 Where the installed binary comes from depends on how the local `gty` was built:
 
 - Release builds, including Homebrew and `go install <module>@vX.Y.Z`, download the matching `linux`/`darwin` `amd64`/`arm64` asset from their own GitHub release, reporting progress on stderr. This is the only part of `gty ssh` that reaches the network.
-- Source builds (`just build-go`, `just install`) cross-compile from their checkout.
+- Source builds (`mise run //cli/gty:build`, `mise run //cli/gty:install`) cross-compile from their checkout.
 - Anything else, such as a bare `go build`, copies itself to a host matching its own OS and architecture, and reports that it cannot serve any other.
 
 Bootstrap failure is soft: `gty ssh` continues as plain SSH unless `--require-bridge` is set. `--debug-no-bootstrap` skips the install and names the version that did not match.

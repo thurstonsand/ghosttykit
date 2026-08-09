@@ -56,12 +56,15 @@ EOF
 }
 
 install_tools() {
+  # Named rather than a bare `mise install` because the root config also pins the
+  # Swift tools, which have no Linux build. Renovate is likewise absent: it is
+  # scoped to the renovate tasks and installs on their first run.
   local tools=(
     actionlint
     go
     gofumpt
     golangci-lint
-    just
+    hk
     lua
     lua-language-server
     markdownlint-cli2
@@ -71,27 +74,17 @@ install_tools() {
     stylua
   )
 
-  mise trust "${repo_root}/mise.toml"
+  # Every component config has to be trusted, not just the root: tasks address as
+  # //sdk/go:test and mise reads the config that owns them.
+  mise trust --all
   mise install --yes --jobs 8 "${tools[@]}"
 }
 
 install_dependencies() {
-  local status=0
-  local lua_pid
-  local node_pid
-  local go_pid
-
-  just ensure-deps-nvim &
-  lua_pid=$!
-  just ensure-deps-ts &
-  node_pid=$!
-  go mod download &
-  go_pid=$!
-
-  wait "${lua_pid}" || status=1
-  wait "${node_pid}" || status=1
-  wait "${go_pid}" || status=1
-  return "${status}"
+  # bootstrap depends on every deps:* task and installs the git hooks. mise runs
+  # the dependency tasks in parallel and skips the ones whose sources are
+  # unchanged, which is what the hand-rolled background jobs here used to do.
+  mise run bootstrap
 }
 
 run_step 'system packages' install_system_packages

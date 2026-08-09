@@ -99,15 +99,8 @@ The npm workflow sets package versions during publication, so normal release pre
 If `sdk/ts` or `pi/pi-paste` has release-relevant changes, verify the package before committing release prep:
 
 ```sh
-cd sdk/ts
-npm ci
-npm run check
-cd ../..
-
-cd pi/pi-paste
-npm ci
-npm run check
-cd ../..
+mise run //sdk/ts:check
+mise run //pi/pi-paste:check
 ```
 
 Do not manually bump the dependency during release prep. The publish workflow rewrites it to the exact SDK version from the same stable or nightly run before packing Pi paste.

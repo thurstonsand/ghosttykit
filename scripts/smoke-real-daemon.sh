@@ -31,11 +31,11 @@ for arg in "$@"; do
 done
 
 if [[ ! -x "$GTY_BIN" ]]; then
-  echo "smoke-real-daemon: gty not found at $GTY_BIN; run just build-go or set GTY_BIN" >&2
+  echo "smoke-real-daemon: gty not found at $GTY_BIN; run mise run //cli/gty:build or set GTY_BIN" >&2
   exit 2
 fi
 if [[ ! -x "$GHOSTTYKITD_BIN" ]]; then
-  echo "smoke-real-daemon: ghosttykitd not found at $GHOSTTYKITD_BIN; run just build-swift or set GHOSTTYKITD_BIN" >&2
+  echo "smoke-real-daemon: ghosttykitd not found at $GHOSTTYKITD_BIN; run mise run //daemon/ghosttykitd:build or set GHOSTTYKITD_BIN" >&2
   exit 2
 fi
 

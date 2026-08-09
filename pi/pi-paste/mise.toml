@@ -1,0 +1,28 @@
+[tasks.fmt]
+description = "Format Pi paste sources"
+depends = ["//:deps:pi"]
+run = "npm run fmt"
+
+[tasks."fmt:check"]
+description = "Verify Pi paste formatting"
+depends = ["//:deps:pi"]
+run = "npx --no-install biome format ."
+
+[tasks.lint]
+description = "Lint Pi paste"
+depends = ["//:deps:pi"]
+run = "npm run lint"
+
+[tasks.typecheck]
+description = "Type-check Pi paste"
+depends = ["//:deps:pi"]
+run = "npm run typecheck"
+
+[tasks.build]
+description = "Build-check Pi paste"
+depends = [":typecheck"]
+
+[tasks.check]
+description = "Format, lint, and type-check Pi paste"
+depends = ["//:deps:pi"]
+run = "npm run check"

@@ -402,7 +402,7 @@ func TestUnstampedBuildBootstrapsOnlyMatchingHosts(t *testing.T) {
 	}
 
 	_, _, err = source.BinaryFor(Target{GOOS: "plan9", GOARCH: "mips"})
-	if err == nil || !strings.Contains(err.Error(), "just build-go") {
+	if err == nil || !strings.Contains(err.Error(), "mise run //cli/gty:build") {
 		t.Fatalf("BinaryFor(cross target) error = %v, want rebuild guidance", err)
 	}
 }
