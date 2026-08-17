@@ -13,12 +13,17 @@ golangci-lint = "2.12.2"
 gofumpt = "0.10.0"
 markdownlint-cli2 = "0.23.1"
 "npm:prettier" = "3.9.5"
-"npm:renovate" = { version = "44.5.3", trust_policy_excludes = [
-  "@yarnpkg/libzip@3.2.2",
-] }
 stylua = "2.5.2"
 swiftformat = "0.62.1"
 swiftlint = "0.65.0"
 
 [tool_alias]
 lua = "asdf:mise-plugins/mise-lua"
+
+[tasks.check-renovate]
+description = "Validate dependency update configuration"
+run = "renovate-config-validator renovate.json"
+tools.node = "24.11.0"
+tools."npm:renovate" = { version = "44.5.3", trust_policy_excludes = [
+  "@yarnpkg/libzip@3.2.2",
+] }

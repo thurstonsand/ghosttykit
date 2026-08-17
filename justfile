@@ -143,7 +143,7 @@ check-github-actions:
 
 # Validate dependency update configuration.
 check-renovate:
-    renovate-config-validator renovate.json
+    mise run check-renovate
 
 # Run all checks.
 check: fmt lint typecheck test build check-github-actions check-renovate

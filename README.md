@@ -77,7 +77,7 @@ The key table must be named `bypass`. That name is shared by the Ghostty config,
 Project-local tool versions live in `mise.toml`.
 
 ```sh
-mise install    # install project tools
+mise install    # install shared project tools; task tools install on first use
 just build      # build binaries
 just check      # format, lint, typecheck, test, build, and validate packaging/CI config
 just --list

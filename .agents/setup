@@ -1,0 +1,104 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "${repo_root}"
+
+run_step() {
+  local name="$1"
+  shift
+  local start="${SECONDS}"
+
+  printf '\n==> %s\n' "${name}"
+  "$@"
+  printf '<== %s (%ss)\n' "${name}" "$((SECONDS - start))"
+}
+
+install_system_packages() {
+  if dpkg-query -W -f='${Status}' cmake 2>/dev/null | grep -q '^install ok installed$'; then
+    return
+  fi
+
+  local apt=(apt-get)
+  if ((EUID != 0)); then
+    apt=(sudo apt-get)
+  fi
+
+  "${apt[@]}" update -qq
+  "${apt[@]}" install -y --no-install-recommends cmake
+}
+
+install_mise() {
+  if command -v mise >/dev/null 2>&1; then
+    return
+  fi
+
+  curl -fsSL https://mise.run | sh
+}
+
+configure_mise_path() {
+  local profile="${HOME}/.bash_profile"
+  local marker='# GhosttyKit mise shims'
+
+  touch "${profile}"
+  if grep -Fqx "${marker}" "${profile}"; then
+    return
+  fi
+
+  cat >>"${profile}" <<'EOF'
+
+# GhosttyKit mise shims
+case ":${PATH}:" in
+  *":${HOME}/.local/share/mise/shims:"*) ;;
+  *) export PATH="${HOME}/.local/share/mise/shims:${PATH}" ;;
+esac
+EOF
+}
+
+install_tools() {
+  local tools=(
+    actionlint
+    go
+    gofumpt
+    golangci-lint
+    just
+    lua
+    lua-language-server
+    markdownlint-cli2
+    neovim
+    node
+    npm:prettier
+    stylua
+  )
+
+  mise trust "${repo_root}/mise.toml"
+  mise install --yes --jobs 8 "${tools[@]}"
+}
+
+install_dependencies() {
+  local status=0
+  local lua_pid
+  local node_pid
+  local go_pid
+
+  just ensure-deps-nvim &
+  lua_pid=$!
+  just ensure-deps-ts &
+  node_pid=$!
+  go mod download &
+  go_pid=$!
+
+  wait "${lua_pid}" || status=1
+  wait "${node_pid}" || status=1
+  wait "${go_pid}" || status=1
+  return "${status}"
+}
+
+run_step 'system packages' install_system_packages
+run_step 'mise' install_mise
+configure_mise_path
+export PATH="${HOME}/.local/share/mise/shims:${HOME}/.local/bin:${PATH}"
+run_step 'portable toolchain' install_tools
+run_step 'project dependencies' install_dependencies
+
+printf '\nOrb setup complete. Swift checks remain macOS-only.\n'
