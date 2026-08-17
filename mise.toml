@@ -1,18 +1,18 @@
 [tools]
 actionlint = "1.7.12"
-go = "1.26.5"
-lua-language-server = "3.18.2"
+go = "1.26.6"
+lua-language-server = "3.19.1"
 # Neovim embeds LuaJIT, so the SDK, the plugin, and their rocks trees are all Lua 5.1. LuaJIT itself
 # publishes no git tags, which leaves its mise plugin unable to list versions, so install the 5.1
 # interpreter instead.
 lua = { version = "5.1.5", install_env = { ASDF_LUA_LUAROCKS_VERSION = "3.13.0" } }
-node = "26.5.0"
+node = "26.7.0"
 neovim = "0.12.4"
-just = "1.56.0"
+just = "1.58.0"
 golangci-lint = "2.12.2"
-gofumpt = "0.10.0"
-markdownlint-cli2 = "0.23.1"
-"npm:prettier" = "3.9.5"
+gofumpt = "0.11.0"
+markdownlint-cli2 = "0.23.2"
+"npm:prettier" = "3.9.6"
 stylua = "2.5.2"
 swiftformat = "0.62.1"
 swiftlint = "0.65.0"
@@ -23,7 +23,7 @@ lua = "asdf:mise-plugins/mise-lua"
 [tasks.check-renovate]
 description = "Validate dependency update configuration"
 run = "renovate-config-validator renovate.json"
-tools.node = "24.11.0"
-tools."npm:renovate" = { version = "44.5.3", trust_policy_excludes = [
+tools.node = "24.19.0"
+tools."npm:renovate" = { version = "44.32.5", trust_policy_excludes = [
   "@yarnpkg/libzip@3.2.2",
 ] }

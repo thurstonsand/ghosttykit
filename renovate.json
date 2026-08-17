@@ -29,7 +29,7 @@
     },
     {
       "matchManagers": ["mise"],
-      "matchPackageNames": ["lua"],
+      "matchDepNames": ["lua"],
       "allowedVersions": "<5.2"
     }
   ]
