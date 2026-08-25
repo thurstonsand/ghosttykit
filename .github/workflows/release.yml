@@ -13,11 +13,6 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-# hk manages git hooks and publishes no darwin/amd64 build, so installing it fails
-# outright on the Intel runner. Releases never commit, so skip it everywhere.
-env:
-  MISE_DISABLE_TOOLS: hk
-
 jobs:
   ci:
     name: CI
@@ -84,9 +79,6 @@ jobs:
           - name: darwin-arm64
             runner: macos-26
             goarch: arm64
-          - name: darwin-amd64
-            runner: macos-26-intel
-            goarch: amd64
     name: Build (${{ matrix.name }})
     needs: resolve
     runs-on: ${{ matrix.runner }}
@@ -320,7 +312,6 @@ jobs:
         run: |
           set -euo pipefail
 
-          darwin_amd64_sha="$(cut -d ' ' -f 1 dist/ghosttykit_*_darwin_amd64.zip.sha256)"
           darwin_arm64_sha="$(cut -d ' ' -f 1 dist/ghosttykit_*_darwin_arm64.zip.sha256)"
           linux_amd64_sha="$(cut -d ' ' -f 1 dist/ghosttykit_*_linux_amd64.zip.sha256)"
           linux_arm64_sha="$(cut -d ' ' -f 1 dist/ghosttykit_*_linux_arm64.zip.sha256)"
@@ -347,13 +338,10 @@ jobs:
             license "MIT"
 
             on_macos do
-              if Hardware::CPU.arm?
-                url "https://github.com/thurstonsand/ghosttykit/releases/download/${RELEASE_TAG}/ghosttykit_${ASSET_VERSION}_darwin_arm64.zip"
-                sha256 "${darwin_arm64_sha}"
-              else
-                url "https://github.com/thurstonsand/ghosttykit/releases/download/${RELEASE_TAG}/ghosttykit_${ASSET_VERSION}_darwin_amd64.zip"
-                sha256 "${darwin_amd64_sha}"
-              end
+              depends_on arch: :arm64
+
+              url "https://github.com/thurstonsand/ghosttykit/releases/download/${RELEASE_TAG}/ghosttykit_${ASSET_VERSION}_darwin_arm64.zip"
+              sha256 "${darwin_arm64_sha}"
             end
 
             on_linux do
