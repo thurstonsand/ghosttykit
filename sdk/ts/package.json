@@ -33,7 +33,7 @@
     "prepare": "npm run build"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.5.8",
+    "@biomejs/biome": "^2.5.10",
     "@types/mime-types": "^3.0.1",
     "@types/node": "^24.13.3",
     "@types/sanitize-filename": "^1.1.28",
