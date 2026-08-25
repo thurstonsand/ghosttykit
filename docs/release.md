@@ -8,7 +8,7 @@ Pushes to `main` publish nightly artifacts. Pushes of `v*` tags publish stable a
 
 ### GitHub releases
 
-The `Release` workflow builds Darwin archives for Apple Silicon and Intel Macs, and Linux archives for `amd64` and `arm64`. Darwin archives carry `gty` and the signed, notarized `GhosttyKitD.app`; Linux archives carry `gty` alone, since the daemon is macOS-only. Every archive stamps its own release tag into `gty` so a `gty ssh` bootstrap can download the matching remote asset.
+The `Release` workflow builds a Darwin archive for Apple Silicon, and Linux archives for `amd64` and `arm64`. Intel Macs are not supported; the Homebrew formula refuses to install on one. Darwin archives carry `gty` and the signed, notarized `GhosttyKitD.app`; Linux archives carry `gty` alone, since the daemon is macOS-only. Every archive stamps its own release tag into `gty` so a `gty ssh` bootstrap can download the matching remote asset.
 
 Pushes to `main` create a prerelease named `nightly-<next-patch>-dev-<github-run-id>-<short-sha>`, where `<next-patch>` is the latest stable tag with its patch component incremented. Nightly archive versions use `<next-patch>-dev-<github-run-id>-<short-sha>` so package managers can reliably detect newer builds, and so a nightly always sorts above the stable release it was built on top of. Each nightly gets its own release tag, so Homebrew formula URLs remain stable even after later nightlies publish.
 

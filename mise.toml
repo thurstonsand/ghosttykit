@@ -35,8 +35,7 @@ actionlint = "1.7.12"
 go = "1.26.6"
 # Global rather than scoped to `bootstrap`, even though that is its only caller:
 # `hk install --mise` writes a pre-commit hook that invokes hk through a mise shim,
-# and a shim needs a version resolvable from anywhere in the repo. CI never commits,
-# so it disables this tool instead — hk publishes no darwin/amd64 build.
+# and a shim needs a version resolvable from anywhere in the repo.
 hk = "1.54.1"
 lua-language-server = "3.19.1"
 # Neovim embeds LuaJIT, so the SDK, the plugin, and their rocks trees are all Lua 5.1. LuaJIT itself
