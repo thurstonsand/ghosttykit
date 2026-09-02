@@ -119,7 +119,7 @@ run = "actionlint"
 
 [tasks.renovate]
 description = "Run Renovate"
-run = "renovate"
+run = "PATH=\"{{ tools.node.path }}/bin:$PATH\" renovate"
 tools.node = "24"
 tools."npm:renovate" = { version = "44.39.1", allow_builds = [
   "re2",
@@ -130,9 +130,13 @@ tools."npm:renovate" = { version = "44.39.1", allow_builds = [
 # Renovate ships a prebuilt RE2 built against one Node ABI, so it has to install and
 # run under the same Node. Scoping the tool to the tasks that use it keeps the two
 # declared together, so a Node bump here cannot silently drop Renovate to RegExp.
+# Declaring it is not enough, though: Renovate's bin shim ends in `exec node`, and mise
+# builds a task's PATH from the shell's pre-activation ordering, which on a Homebrew
+# machine starts at /opt/homebrew/bin -- ahead of the node named here. Naming the
+# interpreter outright is what keeps the compile and the load on the same ABI.
 [tasks."renovate:lint"]
 description = "Validate dependency update configuration"
-run = "renovate-config-validator renovate.json"
+run = "PATH=\"{{ tools.node.path }}/bin:$PATH\" renovate-config-validator renovate.json"
 tools.node = "24"
 tools."npm:renovate" = { version = "44.39.1", allow_builds = [
   "re2",
