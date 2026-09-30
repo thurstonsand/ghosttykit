@@ -50,10 +50,23 @@ markdownlint-cli2 = "0.23.2"
 "npm:prettier" = "3.9.6"
 stylua = "2.5.2"
 swiftformat = "0.62.1"
-swiftlint = "0.65.1"
+
+# The Linux release archive pairs a glibc 2.38 build, which Debian bookworm cannot load, with a
+# static one; swapping the names puts the static build on PATH as `swiftlint`. The aqua backend
+# ignores rename_exe, and the github backend's macOS autodetection lands on the Windows zip, hence
+# the explicit macOS asset.
+[tools.swiftlint]
+version = "0.65.1"
+
+[tools.swiftlint.platforms]
+linux-x64.rename_exe = { "swiftlint" = "swiftlint-glibc", "swiftlint-static" = "swiftlint" }
+linux-arm64.rename_exe = { "swiftlint" = "swiftlint-glibc", "swiftlint-static" = "swiftlint" }
+macos-x64.asset_pattern = "portable_swiftlint.zip"
+macos-arm64.asset_pattern = "portable_swiftlint.zip"
 
 [tool_alias]
 lua = "asdf:mise-plugins/mise-lua"
+swiftlint = "github:realm/SwiftLint"
 
 [tasks.bootstrap]
 description = "Install local development dependencies and git hooks"

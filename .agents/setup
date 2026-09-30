@@ -59,46 +59,7 @@ install_tools() {
   # Every component config has to be trusted, not just the root: tasks address as
   # //sdk/go:test and mise reads the config that owns them.
   mise trust --all
-
-  local renovate
-  renovate="$(task_tool renovate:lint npm:renovate)"
-
-  # Named rather than a bare `mise install` because the root config also pins the
-  # Swift tools, which have no Linux build.
-  local tools=(
-    actionlint
-    go
-    gofumpt
-    golangci-lint
-    hk
-    lua
-    lua-language-server
-    markdownlint-cli2
-    neovim
-    node
-    npm:prettier
-    stylua
-    "${renovate}"
-  )
-
-  mise install --yes --jobs 8 "${tools[@]}"
-}
-
-# A task-scoped tool named bare resolves to its latest release and drops the install
-# options its task declares, such as Renovate's re2 build, so read the task's own spec
-# and spell it inline.
-task_tool() {
-  local task="$1"
-  local tool="$2"
-
-  mise tasks info "${task}" --json | jq -er --arg tool "${tool}" '
-    .tools[$tool]
-    | .version as $version
-    | del(.version)
-    | to_entries
-    | map("\(.key)=\(.value | if length == 1 then .[0] else error("inline tool options take one value") end)")
-    | "\($tool)[\(join(","))]@\($version)"
-  '
+  mise install --yes --jobs 8 --include-task-tools
 }
 
 install_dependencies() {
@@ -115,4 +76,4 @@ export PATH="${HOME}/.local/share/mise/shims:${HOME}/.local/bin:${PATH}"
 run_step 'portable toolchain' install_tools
 run_step 'project dependencies' install_dependencies
 
-printf '\nOrb setup complete. Swift checks remain macOS-only.\n'
+printf '\nOrb setup complete. Swift builds and tests remain macOS-only.\n'
