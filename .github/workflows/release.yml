@@ -304,7 +304,6 @@ jobs:
       - name: Update formula
         env:
           RELEASE_REF_TYPE: ${{ github.ref_type }}
-          RELEASE_REF_NAME: ${{ github.ref_name }}
           RELEASE_SHA: ${{ github.sha }}
           RELEASE_RUN_ID: ${{ github.run_id }}
           RELEASE_TAG: ${{ needs.resolve.outputs.release_tag }}
@@ -319,7 +318,7 @@ jobs:
           if [[ "${RELEASE_REF_TYPE}" == "tag" ]]; then
             formula="homebrew-tap/Formula/ghosttykit.rb"
             class_name="Ghosttykit"
-            formula_version="${RELEASE_REF_NAME#v}"
+            formula_version=""
             conflict_formula="ghosttykit-nightly"
             nightly_notice=""
           else
@@ -334,7 +333,11 @@ jobs:
           class ${class_name} < Formula
             desc "Ghostty terminal companion toolkit"
             homepage "https://github.com/thurstonsand/ghosttykit"
-            version "${formula_version}"
+          EOF
+          if [[ -n "${formula_version}" ]]; then
+            printf '  version "%s"\n' "${formula_version}" >> "${formula}"
+          fi
+          cat >> "${formula}" <<EOF
             license "MIT"
 
             on_macos do
