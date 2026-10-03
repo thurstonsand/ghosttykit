@@ -36,6 +36,11 @@
     },
     {
       "matchManagers": ["mise"],
+      "matchUpdateTypes": ["lockFileMaintenance"],
+      "enabled": false
+    },
+    {
+      "matchManagers": ["mise"],
       "matchDepNames": ["lua"],
       "allowedVersions": "<5.2"
     },
