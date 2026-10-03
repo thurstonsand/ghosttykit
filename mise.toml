@@ -36,7 +36,7 @@ go = "1.27.1"
 # Global rather than scoped to `bootstrap`, even though that is its only caller:
 # `hk install --mise` writes a pre-commit hook that invokes hk through a mise shim,
 # and a shim needs a version resolvable from anywhere in the repo.
-hk = "1.58.1"
+hk = "2.4.0"
 lua-language-server = "3.19.1"
 # Neovim embeds LuaJIT, so the SDK, the plugin, and their rocks trees are all Lua 5.1. LuaJIT itself
 # publishes no git tags, which leaves its mise plugin unable to list versions, so install the 5.1
