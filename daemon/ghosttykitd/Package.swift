@@ -10,7 +10,7 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.8.2"),
-        .package(url: "https://github.com/apple/swift-nio.git", from: "2.101.3")
+        .package(url: "https://github.com/apple/swift-nio.git", from: "2.103.0")
     ],
     targets: [
         .executableTarget(
