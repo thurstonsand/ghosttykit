@@ -32,11 +32,11 @@ luassert_luacats_rev = "d3528bb679302cbfdedefabb37064515ab95f7b9"
 
 [tools]
 actionlint = "1.7.12"
-go = "1.27.0"
+go = "1.27.1"
 # Global rather than scoped to `bootstrap`, even though that is its only caller:
 # `hk install --mise` writes a pre-commit hook that invokes hk through a mise shim,
 # and a shim needs a version resolvable from anywhere in the repo.
-hk = "1.56.1"
+hk = "1.58.1"
 lua-language-server = "3.19.1"
 # Neovim embeds LuaJIT, so the SDK, the plugin, and their rocks trees are all Lua 5.1. LuaJIT itself
 # publishes no git tags, which leaves its mise plugin unable to list versions, so install the 5.1
@@ -44,12 +44,12 @@ lua-language-server = "3.19.1"
 lua = { version = "5.1.5", install_env = { ASDF_LUA_LUAROCKS_VERSION = "3.13.0" } }
 node = "24"
 neovim = "0.12.5"
-golangci-lint = "2.13.1"
-gofumpt = "0.11.0"
-markdownlint-cli2 = "0.23.2"
-"npm:prettier" = "3.9.6"
+golangci-lint = "2.14.0"
+gofumpt = "0.12.0"
+markdownlint-cli2 = "0.23.3"
+"npm:prettier" = "3.9.9"
 stylua = "2.5.2"
-swiftformat = "0.62.1"
+swiftformat = "0.63.1"
 
 # The Linux release archive pairs a glibc 2.38 build, which Debian bookworm cannot load, with a
 # static one; swapping the names puts the static build on PATH as `swiftlint`. The aqua backend
@@ -134,7 +134,7 @@ run = "actionlint"
 description = "Run Renovate"
 run = "PATH=\"{{ tools.node.path }}/bin:$PATH\" renovate"
 tools.node = "24"
-tools."npm:renovate" = { version = "44.39.1", allow_builds = [
+tools."npm:renovate" = { version = "44.125.2", allow_builds = [
   "re2",
 ], trust_policy_excludes = [
   "@yarnpkg/libzip@3.2.2",
@@ -151,7 +151,7 @@ tools."npm:renovate" = { version = "44.39.1", allow_builds = [
 description = "Validate dependency update configuration"
 run = "PATH=\"{{ tools.node.path }}/bin:$PATH\" renovate-config-validator renovate.json"
 tools.node = "24"
-tools."npm:renovate" = { version = "44.39.1", allow_builds = [
+tools."npm:renovate" = { version = "44.125.2", allow_builds = [
   "re2",
 ], trust_policy_excludes = [
   "@yarnpkg/libzip@3.2.2",
