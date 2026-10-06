@@ -36,7 +36,7 @@ go = "1.27.1"
 # Global rather than scoped to `bootstrap`, even though that is its only caller:
 # `hk install --mise` writes a pre-commit hook that invokes hk through a mise shim,
 # and a shim needs a version resolvable from anywhere in the repo.
-hk = "2.4.0"
+hk = "2.5.0"
 lua-language-server = "3.19.1"
 # Neovim embeds LuaJIT, so the SDK, the plugin, and their rocks trees are all Lua 5.1. LuaJIT itself
 # publishes no git tags, which leaves its mise plugin unable to list versions, so install the 5.1
@@ -134,7 +134,7 @@ run = "actionlint"
 description = "Run Renovate"
 run = "PATH=\"{{ tools.node.path }}/bin:$PATH\" renovate"
 tools.node = "24"
-tools."npm:renovate" = { version = "44.125.2", allow_builds = [
+tools."npm:renovate" = { version = "44.132.2", allow_builds = [
   "re2",
 ], trust_policy_excludes = [
   "@yarnpkg/libzip@3.2.2",
@@ -151,7 +151,7 @@ tools."npm:renovate" = { version = "44.125.2", allow_builds = [
 description = "Validate dependency update configuration"
 run = "PATH=\"{{ tools.node.path }}/bin:$PATH\" renovate-config-validator renovate.json"
 tools.node = "24"
-tools."npm:renovate" = { version = "44.125.2", allow_builds = [
+tools."npm:renovate" = { version = "44.132.2", allow_builds = [
   "re2",
 ], trust_policy_excludes = [
   "@yarnpkg/libzip@3.2.2",

@@ -36,7 +36,6 @@
     "@biomejs/biome": "^2.5.10",
     "@types/mime-types": "^3.0.1",
     "@types/node": "^24.13.3",
-    "@types/sanitize-filename": "^1.1.28",
     "typescript": "^7.0.0"
   },
   "dependencies": {
