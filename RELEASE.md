@@ -2,6 +2,19 @@
 
 # Release notes
 
+## 0.7.0
+
+Apple Silicon only, and Pi paste on Pi 1.0.
+
+### Changed
+
+- Intel Macs are no longer supported. Releases carry no `darwin/amd64` archive, the Homebrew formula refuses to install on Intel, and `gty ssh` cannot bootstrap an Intel Mac remote. Linux `amd64` remotes are unaffected.
+- Pi paste is built and verified against Pi 1.0. Its text and file paste behavior is unchanged.
+
+### Fixed
+
+- The stable Homebrew formula no longer declares a version that its archive URL already implies, so it passes Homebrew's strict audit.
+
 ## 0.6.0
 
 One keymap across Ghostty splits, Herdr panes, and Neovim windows.
