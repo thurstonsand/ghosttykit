@@ -562,7 +562,7 @@ jobs:
         env:
           SDK_VERSION: ${{ needs.resolve.outputs.npm_version }}
         run: |
-          for _ in {1..24}; do
+          for _ in {1..120}; do
             if npm view "@thurstonsand/ghosttykit@${SDK_VERSION}" version >/dev/null 2>&1; then
               npm install "@thurstonsand/ghosttykit@${SDK_VERSION}" --save-exact --package-lock-only
               exit 0
