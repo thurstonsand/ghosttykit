@@ -2,6 +2,18 @@
 
 # Release notes
 
+## 0.7.1
+
+Pi paste shows pasted text right away, on Pi 1.3.
+
+### Changed
+
+- Pi paste is built and verified against Pi 1.3.
+
+### Fixed
+
+- Text pasted with Pi paste appears in the editor immediately, instead of staying hidden until the next keypress.
+
 ## 0.7.0
 
 Apple Silicon only, and Pi paste on Pi 1.0.
