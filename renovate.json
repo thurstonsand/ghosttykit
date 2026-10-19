@@ -50,9 +50,10 @@
       "allowedVersions": "<25"
     },
     {
-      "description": "pi-paste tracks Pi releases as they ship, so Pi skips the npm minimum release age that holds back everything else.",
+      "description": "pi-paste tracks Pi releases as they ship, so Pi skips the npm minimum release age that holds back everything else, and each update raises the package.json floor to the Pi it was built against.",
       "matchPackageNames": ["@earendil-works/**"],
-      "minimumReleaseAge": null
+      "minimumReleaseAge": null,
+      "rangeStrategy": "bump"
     }
   ]
 }
