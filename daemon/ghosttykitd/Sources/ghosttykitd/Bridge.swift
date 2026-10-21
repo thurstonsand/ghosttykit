@@ -137,10 +137,7 @@ final class BridgeLease: @unchecked Sendable {
 
     func accept(token: String) throws -> ConnectionHold {
         try lock.withLock {
-            guard token == self.token else {
-                throw RequestValidationError.invalidRequest("bridge lease rejected")
-            }
-            guard !active, !released else {
+            guard token == self.token, !active, !released else {
                 throw RequestValidationError.invalidRequest("bridge lease rejected")
             }
             active = true

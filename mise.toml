@@ -49,7 +49,7 @@ gofumpt = "0.12.0"
 markdownlint-cli2 = "0.23.3"
 "npm:prettier" = "3.9.10"
 stylua = "2.6.0"
-swiftformat = "0.63.1"
+swiftformat = "0.64.0"
 
 # The Linux release archive pairs a glibc 2.38 build, which Debian bookworm cannot load, with a
 # static one; swapping the names puts the static build on PATH as `swiftlint`. The aqua backend
@@ -134,7 +134,7 @@ run = "actionlint"
 description = "Run Renovate"
 run = "PATH=\"{{ tools.node.path }}/bin:$PATH\" renovate"
 tools.node = "24"
-tools."npm:renovate" = { version = "44.164.10", allow_builds = [
+tools."npm:renovate" = { version = "44.166.0", allow_builds = [
   "re2",
 ], trust_policy_excludes = [
   "@yarnpkg/libzip@3.2.2",
@@ -151,7 +151,7 @@ tools."npm:renovate" = { version = "44.164.10", allow_builds = [
 description = "Validate dependency update configuration"
 run = "PATH=\"{{ tools.node.path }}/bin:$PATH\" renovate-config-validator renovate.json"
 tools.node = "24"
-tools."npm:renovate" = { version = "44.164.10", allow_builds = [
+tools."npm:renovate" = { version = "44.166.0", allow_builds = [
   "re2",
 ], trust_policy_excludes = [
   "@yarnpkg/libzip@3.2.2",
