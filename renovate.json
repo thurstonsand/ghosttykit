@@ -5,10 +5,11 @@
     "customManagers:biomeVersions",
     ":configMigration",
     ":maintainLockFilesWeekly",
-    "security:minimumReleaseAgeNpm",
     "abandonments:recommended",
     ":enableVulnerabilityAlertsWithAdditionalLabel(security)"
   ],
+  "minimumReleaseAge": "3 days",
+  "internalChecksFilter": "strict",
   "ignorePaths": ["sdk/lua/.github/workflows/**", "nvim/.github/workflows/**"],
   "dependencyDashboard": true,
   "timezone": "America/New_York",
@@ -50,7 +51,12 @@
       "allowedVersions": "<25"
     },
     {
-      "description": "pi-paste tracks Pi releases as they ship, so Pi skips the npm minimum release age that holds back everything else, and each update raises the package.json floor to the Pi it was built against.",
+      "description": "Pi's extension loader swaps in the typebox it bundles, so pi-paste pins that exact version by hand and realigns it when Pi moves.",
+      "matchPackageNames": ["typebox"],
+      "enabled": false
+    },
+    {
+      "description": "pi-paste tracks Pi releases as they ship, so Pi skips the minimum release age that holds back everything else, and each update raises the package.json floor to the Pi it was built against.",
       "matchPackageNames": ["@earendil-works/**"],
       "minimumReleaseAge": null,
       "rangeStrategy": "bump"
