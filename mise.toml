@@ -32,11 +32,11 @@ luassert_luacats_rev = "d3528bb679302cbfdedefabb37064515ab95f7b9"
 
 [tools]
 actionlint = "1.7.12"
-go = "1.27.2"
+go = "1.27.3"
 # Global rather than scoped to `bootstrap`, even though that is its only caller:
 # `hk install --mise` writes a pre-commit hook that invokes hk through a mise shim,
 # and a shim needs a version resolvable from anywhere in the repo.
-hk = "2.7.1"
+hk = "2.8.0"
 lua-language-server = "3.19.2"
 # Neovim embeds LuaJIT, so the SDK, the plugin, and their rocks trees are all Lua 5.1. LuaJIT itself
 # publishes no git tags, which leaves its mise plugin unable to list versions, so install the 5.1
@@ -46,10 +46,10 @@ node = "24"
 neovim = "0.12.6"
 golangci-lint = "2.15.0"
 gofumpt = "0.12.0"
-markdownlint-cli2 = "0.23.3"
+markdownlint-cli2 = "0.24.0"
 "npm:prettier" = "3.9.10"
 stylua = "2.6.0"
-swiftformat = "0.64.0"
+swiftformat = "0.64.1"
 
 # The Linux release archive pairs a glibc 2.38 build, which Debian bookworm cannot load, with a
 # static one; swapping the names puts the static build on PATH as `swiftlint`. The aqua backend
@@ -134,7 +134,7 @@ run = "actionlint"
 description = "Run Renovate"
 run = "PATH=\"{{ tools.node.path }}/bin:$PATH\" renovate"
 tools.node = "24"
-tools."npm:renovate" = { version = "44.168.2", allow_builds = [
+tools."npm:renovate" = { version = "44.178.5", allow_builds = [
   "re2",
 ], trust_policy_excludes = [
   "@yarnpkg/libzip@3.2.2",
@@ -151,7 +151,7 @@ tools."npm:renovate" = { version = "44.168.2", allow_builds = [
 description = "Validate dependency update configuration"
 run = "PATH=\"{{ tools.node.path }}/bin:$PATH\" renovate-config-validator renovate.json"
 tools.node = "24"
-tools."npm:renovate" = { version = "44.168.2", allow_builds = [
+tools."npm:renovate" = { version = "44.178.5", allow_builds = [
   "re2",
 ], trust_policy_excludes = [
   "@yarnpkg/libzip@3.2.2",
