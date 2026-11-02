@@ -10,22 +10,26 @@ import (
 	"github.com/thurstonsand/ghosttykit/sdk/go/tty"
 )
 
-// TerminalOptions selects the terminal affected by terminal-scoped operations. TTY is derived
-// (GTY_TTY, then the process's controlling terminal) when empty.
+// TerminalOptions selects the terminal affected by terminal-scoped operations. An empty TTY
+// targets the caller's own terminal.
 type TerminalOptions struct {
 	TTY string
 }
 
-// ResolveTTY normalizes an explicit tty value, or derives the caller's: GTY_TTY first, then the
-// process's own controlling terminal.
-func ResolveTTY(value string) (string, error) {
+// ResolveTarget makes value, or else GTY_TTY, an explicit target. Without either it names the
+// process's own controlling terminal as the caller's, and a process with no terminal names
+// none: whether its endpoint needs one is the daemon's decision.
+func ResolveTarget(value string) protocol.Target {
+	if value == "" {
+		value = os.Getenv("GTY_TTY")
+	}
 	if value != "" {
-		return tty.Normalize(value), nil
+		return protocol.Target{TTY: tty.Normalize(value)}
 	}
-	if env := os.Getenv("GTY_TTY"); env != "" {
-		return tty.Normalize(env), nil
+	if current, err := tty.Current(); err == nil {
+		return protocol.Target{CallerTTY: current}
 	}
-	return tty.Current()
+	return protocol.Target{}
 }
 
 // TerminalIDOptions selects the terminal-id lookup behavior.
@@ -78,16 +82,12 @@ type ZoomOptions struct {
 	AckOptions
 }
 
-// SpawnClaimOptions identifies a pending daemon spawn to claim.
-type SpawnClaimOptions struct {
-	TTY   string
-	Token string
-}
-
-// ClearCacheOptions controls cache clearing.
+// ClearCacheOptions controls cache clearing: the terminal's own mapping, or every mapping when
+// All is set.
 type ClearCacheOptions struct {
+	TerminalOptions
 	AckOptions
-	TTY string
+	All bool
 }
 
 // KeyTableOptions selects a Ghostty key table operation.
@@ -115,11 +115,8 @@ func (c Client) Doctor() (protocol.DoctorReply, error) {
 
 // TerminalID resolves a Ghostty terminal id.
 func (c Client) TerminalID(opts TerminalIDOptions) (string, error) {
-	ttyPath, err := ResolveTTY(opts.TTY)
-	if err != nil {
-		return "", err
-	}
-	reply, err := Call[protocol.FrameReply](c, protocol.NewTerminalIDRequest(ttyPath, opts.Refresh))
+	target := ResolveTarget(opts.TTY)
+	reply, err := Call[protocol.FrameReply](c, protocol.NewTerminalIDRequest(target, opts.Refresh))
 	if err != nil {
 		return "", err
 	}
@@ -128,11 +125,8 @@ func (c Client) TerminalID(opts TerminalIDOptions) (string, error) {
 
 // TabTerminalCount returns the number of terminals in the caller's Ghostty tab.
 func (c Client) TabTerminalCount(opts TerminalOptions) (int, error) {
-	ttyPath, err := ResolveTTY(opts.TTY)
-	if err != nil {
-		return 0, err
-	}
-	reply, err := Call[protocol.FrameReply](c, protocol.NewTabTerminalCountRequest(ttyPath))
+	target := ResolveTarget(opts.TTY)
+	reply, err := Call[protocol.FrameReply](c, protocol.NewTabTerminalCountRequest(target))
 	if err != nil {
 		return 0, err
 	}
@@ -145,22 +139,16 @@ func (c Client) TabTerminalCount(opts TerminalOptions) (int, error) {
 
 // Focus moves Ghostty focus in a direction.
 func (c Client) Focus(opts FocusOptions) error {
-	ttyPath, err := ResolveTTY(opts.TTY)
-	if err != nil {
-		return err
-	}
-	request := protocol.NewFocusRequest(ttyPath, opts.Direction, opts.Wait)
+	target := ResolveTarget(opts.TTY)
+	request := protocol.NewFocusRequest(target, opts.Direction, opts.Wait)
 	return NotifyAck(c, request, opts.Wait)
 }
 
 // Split creates a Ghostty split. Returns the new terminal's TTY
 // when Waited.
 func (c Client) Split(opts SplitOptions) (string, error) {
-	ttyPath, err := ResolveTTY(opts.TTY)
-	if err != nil {
-		return "", err
-	}
-	request := protocol.NewSplitRequest(ttyPath, opts.Direction, opts.CWD, opts.CommandText, opts.Focus, opts.Wait)
+	target := ResolveTarget(opts.TTY)
+	request := protocol.NewSplitRequest(target, opts.Direction, opts.CWD, opts.CommandText, opts.Focus, opts.Wait)
 	if !opts.Wait {
 		return "", Notify(c, request)
 	}
@@ -173,77 +161,53 @@ func (c Client) Split(opts SplitOptions) (string, error) {
 
 // Input sends text to a terminal as pasted input; Submit follows it with an enter keypress.
 func (c Client) Input(opts InputOptions) error {
-	ttyPath, err := ResolveTTY(opts.TTY)
-	if err != nil {
-		return err
-	}
-	request := protocol.NewInputRequest(ttyPath, opts.Text, opts.Submit, opts.Wait)
+	target := ResolveTarget(opts.TTY)
+	request := protocol.NewInputRequest(target, opts.Text, opts.Submit, opts.Wait)
 	return NotifyAck(c, request, opts.Wait)
 }
 
 // Resize resizes a Ghostty split.
 func (c Client) Resize(opts ResizeOptions) error {
-	ttyPath, err := ResolveTTY(opts.TTY)
-	if err != nil {
-		return err
-	}
-	request := protocol.NewResizeRequest(ttyPath, opts.Direction, opts.Amount, opts.Wait)
+	target := ResolveTarget(opts.TTY)
+	request := protocol.NewResizeRequest(target, opts.Direction, opts.Amount, opts.Wait)
 	return NotifyAck(c, request, opts.Wait)
 }
 
 // Zoom toggles split zoom.
 func (c Client) Zoom(opts ZoomOptions) error {
-	ttyPath, err := ResolveTTY(opts.TTY)
-	if err != nil {
-		return err
-	}
-	request := protocol.NewZoomRequest(ttyPath, opts.Wait)
+	target := ResolveTarget(opts.TTY)
+	request := protocol.NewZoomRequest(target, opts.Wait)
 	return NotifyAck(c, request, opts.Wait)
 }
 
 // ActivateKeyTable activates a Ghostty key table.
 func (c Client) ActivateKeyTable(opts KeyTableOptions) error {
-	ttyPath, err := ResolveTTY(opts.TTY)
-	if err != nil {
-		return err
-	}
-	request := protocol.NewKeyTableActivateRequest(ttyPath, opts.Table, opts.Wait)
+	target := ResolveTarget(opts.TTY)
+	request := protocol.NewKeyTableActivateRequest(target, opts.Table, opts.Wait)
 	return NotifyAck(c, request, opts.Wait)
 }
 
 // DeactivateKeyTable deactivates the current Ghostty key table.
 func (c Client) DeactivateKeyTable(opts KeyTableOptions) error {
-	ttyPath, err := ResolveTTY(opts.TTY)
-	if err != nil {
-		return err
-	}
-	request := protocol.NewKeyTableDeactivateRequest(ttyPath, opts.Wait)
+	target := ResolveTarget(opts.TTY)
+	request := protocol.NewKeyTableDeactivateRequest(target, opts.Wait)
 	return NotifyAck(c, request, opts.Wait)
-}
-
-// SpawnClaim binds the caller TTY to the terminal the daemon spawned with Token.
-func (c Client) SpawnClaim(opts SpawnClaimOptions) error {
-	ttyPath, err := ResolveTTY(opts.TTY)
-	if err != nil {
-		return err
-	}
-	_, err = Call[protocol.FrameReply](c, protocol.NewSpawnClaimRequest(ttyPath, opts.Token))
-	return err
 }
 
 // ClearCache removes cached terminal mappings.
 func (c Client) ClearCache(opts ClearCacheOptions) error {
-	request := protocol.NewClearCacheRequest(opts.TTY, opts.Wait)
+	var target protocol.Target
+	if !opts.All {
+		target = ResolveTarget(opts.TTY)
+	}
+	request := protocol.NewClearCacheRequest(target, opts.All, opts.Wait)
 	return NotifyAck(c, request, opts.Wait)
 }
 
 // Bridge creates a daemon-owned bridge and holds its lease until Close.
 func (c Client) Bridge(opts BridgeOptions) (*Bridge, error) {
-	ttyPath, err := ResolveTTY(opts.TTY)
-	if err != nil {
-		return nil, err
-	}
-	reply, err := Call[protocol.BridgeCreateReply](c, protocol.NewBridgeCreateRequest(ttyPath))
+	target := ResolveTarget(opts.TTY)
+	reply, err := Call[protocol.BridgeCreateReply](c, protocol.NewBridgeCreateRequest(target))
 	if err != nil {
 		return nil, err
 	}

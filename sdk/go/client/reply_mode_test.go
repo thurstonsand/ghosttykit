@@ -10,17 +10,17 @@ func TestReplyModeOf(t *testing.T) {
 	if got := protocol.ReplyModeOf(protocol.NewDoctorRequest()); got != protocol.ReplyModeFrame {
 		t.Fatalf("doctor reply mode = %v, want frame", got)
 	}
-	if got := protocol.ReplyModeOf(protocol.NewFocusRequest("", "", false)); got != protocol.ReplyModeNone {
+	if got := protocol.ReplyModeOf(protocol.NewFocusRequest(protocol.Target{}, "", false)); got != protocol.ReplyModeNone {
 		t.Fatalf("focus without ack reply mode = %v, want none", got)
 	}
-	focusRequest := protocol.NewFocusRequest("", "", true)
+	focusRequest := protocol.NewFocusRequest(protocol.Target{}, "", true)
 	if got := protocol.ReplyModeOf(focusRequest); got != protocol.ReplyModeFrame {
 		t.Fatalf("focus with ack reply mode = %v, want frame", got)
 	}
-	if got := protocol.ReplyModeOf(protocol.NewSplitRequest("", "", "", "", "", false)); got != protocol.ReplyModeNone {
+	if got := protocol.ReplyModeOf(protocol.NewSplitRequest(protocol.Target{}, "", "", "", "", false)); got != protocol.ReplyModeNone {
 		t.Fatalf("split without ack reply mode = %v, want none", got)
 	}
-	if got := protocol.ReplyModeOf(protocol.NewPasteRequest("")); got != protocol.ReplyModeStream {
+	if got := protocol.ReplyModeOf(protocol.NewPasteRequest()); got != protocol.ReplyModeStream {
 		t.Fatalf("paste reply mode = %v, want stream", got)
 	}
 	if got := protocol.ReplyModeOf(protocol.NewBridgeLeaseRequest("")); got != protocol.ReplyModeHold {

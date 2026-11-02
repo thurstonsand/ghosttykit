@@ -12,7 +12,6 @@ import {
   type BridgeCreateReply,
   bridgeCreateRequest,
   bridgeLeaseRequest,
-  type ClearCacheOptions,
   clearCacheRequest,
   type Direction,
   type DoctorCheck,
@@ -25,7 +24,6 @@ import {
   inputRequest,
   keyTableActivateRequest,
   keyTableDeactivateRequest,
-  type PasteOptions,
   type PasteStreamFrameHeader,
   type PasteStreamHeader,
   pasteRequest,
@@ -39,7 +37,7 @@ import {
   zoomRequest,
 } from "./protocol.js";
 import { dial, socketPath as resolveSocketPath } from "./socket.js";
-import { resolveTTY } from "./tty.js";
+import { resolveTarget } from "./tty.js";
 
 export interface ClientOptions {
   socketPath?: string;
@@ -72,6 +70,10 @@ export interface TerminalOptions {
 
 export interface TerminalCommandOptions extends TerminalOptions {
   ack?: boolean;
+}
+
+export interface ClearCacheCommandOptions extends TerminalCommandOptions {
+  all?: boolean;
 }
 
 export interface TerminalIdOptions extends TerminalOptions {
@@ -163,13 +165,13 @@ export class GhosttyKitClient {
   }
 
   async terminalId(options: TerminalIdOptions = {}): Promise<string> {
-    const reply = await this.call(terminalIdRequest({ ...options, tty: resolveTTY(options.tty) }));
+    const reply = await this.call(terminalIdRequest({ ...options, ...resolveTarget(options.tty) }));
     return requiredReplyValue(reply, "terminal-id reply missing terminal ID");
   }
 
   async tabTerminalCount(options: TerminalOptions = {}): Promise<number> {
     const reply = await this.call(
-      tabTerminalCountRequest({ ...options, tty: resolveTTY(options.tty) }),
+      tabTerminalCountRequest({ ...options, ...resolveTarget(options.tty) }),
     );
     const value = Number.parseInt(
       requiredReplyValue(reply, "tab-terminal-count reply missing count"),
@@ -181,14 +183,15 @@ export class GhosttyKitClient {
     return value;
   }
 
-  async clearCache(options: ClearCacheOptions = {}): Promise<void> {
-    await this.send(clearCacheRequest(options), options.ack);
+  async clearCache(options: ClearCacheCommandOptions = {}): Promise<void> {
+    const target = options.all ? {} : resolveTarget(options.tty);
+    await this.send(clearCacheRequest({ ...options, ...target }), options.ack);
   }
 
   async keyTableActivate(table: string, options: TerminalCommandOptions = {}): Promise<void> {
     const requestOptions = {
       ...options,
-      tty: resolveTTY(options.tty),
+      ...resolveTarget(options.tty),
       table,
     };
     await this.send(keyTableActivateRequest(requestOptions), options.ack);
@@ -196,21 +199,21 @@ export class GhosttyKitClient {
 
   async keyTableDeactivate(options: TerminalCommandOptions = {}): Promise<void> {
     await this.send(
-      keyTableDeactivateRequest({ ...options, tty: resolveTTY(options.tty) }),
+      keyTableDeactivateRequest({ ...options, ...resolveTarget(options.tty) }),
       options.ack,
     );
   }
 
   async focus(direction: Direction, options: TerminalCommandOptions = {}): Promise<void> {
     await this.send(
-      focusRequest({ ...options, tty: resolveTTY(options.tty), direction }),
+      focusRequest({ ...options, ...resolveTarget(options.tty), direction }),
       options.ack,
     );
   }
 
   /** Creates a split and returns the new terminal's TTY when ack is true. */
   async split(direction: Direction, options: SplitCommandOptions): Promise<string | undefined> {
-    const requestOptions = { ...options, tty: resolveTTY(options.tty), direction };
+    const requestOptions = { ...options, ...resolveTarget(options.tty), direction };
     const reply = await this.send(splitRequest(requestOptions), options.ack);
     return reply?.value;
   }
@@ -220,7 +223,7 @@ export class GhosttyKitClient {
    * Bridge sockets target their bound terminal.
    */
   async input(options: InputCommandOptions): Promise<void> {
-    await this.send(inputRequest({ ...options, tty: resolveTTY(options.tty) }), options.ack);
+    await this.send(inputRequest({ ...options, ...resolveTarget(options.tty) }), options.ack);
   }
 
   async resize(
@@ -229,23 +232,23 @@ export class GhosttyKitClient {
     options: TerminalCommandOptions = {},
   ): Promise<void> {
     await this.send(
-      resizeRequest({ ...options, tty: resolveTTY(options.tty), direction, amount }),
+      resizeRequest({ ...options, ...resolveTarget(options.tty), direction, amount }),
       options.ack,
     );
   }
 
   async zoom(options: TerminalCommandOptions = {}): Promise<void> {
-    await this.send(zoomRequest({ ...options, tty: resolveTTY(options.tty) }), options.ack);
+    await this.send(zoomRequest({ ...options, ...resolveTarget(options.tty) }), options.ack);
   }
 
-  async paste(options: PasteOptions = {}): Promise<Paste> {
-    const result = await this.stream<PasteStreamFrameHeader>(pasteRequest(options));
+  async paste(): Promise<Paste> {
+    const result = await this.stream<PasteStreamFrameHeader>(pasteRequest());
     return pasteFromStream(normalizePasteHeader(result.header), result.body, result.close);
   }
 
   async bridge(options: TerminalOptions = {}): Promise<Bridge> {
     const reply = await this.call<BridgeCreateReply>(
-      bridgeCreateRequest({ ...options, tty: resolveTTY(options.tty) }),
+      bridgeCreateRequest({ ...options, ...resolveTarget(options.tty) }),
     );
     if (!reply.socketPath || !reply.leaseToken) {
       throw new InvalidReplyError("bridge-create reply missing socket path or lease token");

@@ -85,30 +85,14 @@ func clearCacheCmd(opts *options) *cobra.Command {
 		Short: "Clear cached TTY-to-terminal mappings",
 		Args:  cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
-			tty := ""
-			if !all {
-				value, err := client.ResolveTTY(opts.tty)
-				if err != nil {
-					return err
-				}
-				tty = value
-			}
-			return client.New().ClearCache(client.ClearCacheOptions{TTY: tty, AckOptions: client.AckOptions{Wait: wait}})
+			return client.New().ClearCache(client.ClearCacheOptions{
+				TerminalOptions: client.TerminalOptions{TTY: opts.tty},
+				AckOptions:      client.AckOptions{Wait: wait},
+				All:             all,
+			})
 		},
 	}
 	cmd.Flags().BoolVar(&all, "all", false, "clear all cached terminal mappings")
 	cmd.Flags().BoolVar(&wait, "wait", false, "wait for acknowledgement")
 	return cmd
-}
-
-func spawnClaimCmd(opts *options) *cobra.Command {
-	return &cobra.Command{
-		Use:    "spawn-claim <token>",
-		Short:  "Bind a spawned terminal to its TTY",
-		Hidden: true,
-		Args:   cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			return client.New().SpawnClaim(client.SpawnClaimOptions{TTY: opts.tty, Token: args[0]})
-		},
-	}
 }

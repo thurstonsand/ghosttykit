@@ -3,12 +3,13 @@ import OSLog
 @testable import ghosttykitd
 
 final class StubBridgeSessionManager: BridgeSessionManaging {
-    func createBridge(terminal _: TerminalContext) throws -> BridgeCreateReply {
+    func createBridge(tty _: String) throws -> BridgeCreateReply {
         BridgeCreateReply.ok(socketPath: "/tmp/bridge.sock", leaseToken: "token")
     }
 }
 
 final class SpyGhosttyController: GhosttyControlling {
+    private let splitTTY: String
     private let splitResult: TerminalContext
     private let resolvedTerminal: TerminalContext?
     private(set) var resolvedTTYs: [String] = []
@@ -18,22 +19,34 @@ final class SpyGhosttyController: GhosttyControlling {
     private(set) var inputText: String?
     private(set) var inputSubmit: Bool?
     private(set) var inputCallCount = 0
+    private(set) var verifiedBindings: [String] = []
+    var cachedBindingsAreLive = true
     var nextActionError: Error?
+    var ghosttyVersion: String? = "1.4.0"
 
     init(
+        splitTTY: String = "/dev/ttys020",
         splitResult: TerminalContext = splitTerminal(),
         resolvedTerminal: TerminalContext? = mainTerminal()
     ) {
+        self.splitTTY = splitTTY
         self.splitResult = splitResult
         self.resolvedTerminal = resolvedTerminal
     }
 
-    func preflightAutomationPermission() throws -> Bool { true }
+    func preflightAutomationPermission() throws -> String? { ghosttyVersion }
+
+    func accessibilityGranted() -> Bool { true }
 
     func terminalContext(forTTY tty: String) throws -> TerminalContext {
         resolvedTTYs.append(tty)
         guard let resolvedTerminal else { throw GhosttyKitError.terminalNotFound(tty) }
         return resolvedTerminal
+    }
+
+    func isBound(_ terminal: TerminalContext, to tty: String) throws -> Bool {
+        verifiedBindings.append("\(terminal.terminalID)@\(tty)")
+        return cachedBindingsAreLive
     }
 
     func readPasteboardContent() throws -> FrameStreamReply {
@@ -82,12 +95,12 @@ final class SpyGhosttyController: GhosttyControlling {
         command: String?,
         focus _: FocusTarget,
         terminal: TerminalContext
-    ) throws -> TerminalContext {
+    ) throws -> (tty: String, terminal: TerminalContext) {
         controlledTerminal = terminal
         splitCommand = command
         splitCallCount += 1
         try consumeActionError()
-        return splitResult
+        return (tty: splitTTY, terminal: splitResult)
     }
 
     func resize(direction _: Direction, amount _: ResizeAmount, terminal: TerminalContext) throws {
@@ -105,18 +118,4 @@ func bridgeTerminal() -> TerminalContext {
 
 func splitTerminal() -> TerminalContext {
     TerminalContext(terminalID: "split-terminal", windowID: "main-window", tabID: "main-tab")
-}
-
-func escrow(_ rendezvous: SpawnRendezvous, terminal: TerminalContext) -> String {
-    let token = UUID().uuidString.lowercased()
-    rendezvous.escrow(token: token, terminal: terminal)
-    return token
-}
-
-func testSpawnWrapper() -> SpawnWrapper {
-    SpawnWrapper(
-        gtyPath: "/opt/ghosttykit/bin/gty",
-        socketPath: "/opt/run/gk.sock",
-        loginShell: { "/bin/zsh" }
-    )
 }

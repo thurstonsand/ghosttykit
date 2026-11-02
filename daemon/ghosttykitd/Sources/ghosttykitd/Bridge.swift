@@ -2,11 +2,11 @@ import Foundation
 import OSLog
 
 protocol BridgeSessionManaging: AnyObject {
-    func createBridge(terminal: TerminalContext) throws -> BridgeCreateReply
+    func createBridge(tty: String) throws -> BridgeCreateReply
 }
 
 final class BridgeSessionManager: BridgeSessionManaging {
-    typealias RequestHandler = @Sendable (TerminalContext, BridgeLease, any CommandRequest) -> CommandResult
+    typealias RequestHandler = @Sendable (String, BridgeLease, any CommandRequest) -> CommandResult
 
     private let logger: Logger
     private let rootDirectory: URL
@@ -24,7 +24,7 @@ final class BridgeSessionManager: BridgeSessionManaging {
         self.requestHandler = requestHandler
     }
 
-    func createBridge(terminal: TerminalContext) throws -> BridgeCreateReply {
+    func createBridge(tty: String) throws -> BridgeCreateReply {
         try FileManager.default.createDirectory(
             at: rootDirectory,
             withIntermediateDirectories: true
@@ -38,7 +38,7 @@ final class BridgeSessionManager: BridgeSessionManaging {
             id: sessionID,
             socketPath: socketPath,
             leaseToken: leaseToken,
-            terminal: terminal,
+            tty: tty,
             logger: logger,
             requestHandler: requestHandler
         ) { [weak self] id in
@@ -53,7 +53,7 @@ final class BridgeSessionManager: BridgeSessionManaging {
             throw error
         }
 
-        logger.ghosttykit("bridge created id=\(sessionID) socket=\(socketPath) terminal=\(terminal.terminalID)")
+        logger.ghosttykit("bridge created id=\(sessionID) socket=\(socketPath) tty=\(tty)")
         return BridgeCreateReply.ok(socketPath: socketPath, leaseToken: leaseToken)
     }
 
@@ -66,7 +66,7 @@ final class BridgeSessionManager: BridgeSessionManaging {
 final class BridgeSession {
     private let id: String
     private let socketPath: String
-    private let terminal: TerminalContext
+    private let tty: String
     private let logger: Logger
     private let requestHandler: BridgeSessionManager.RequestHandler
     private let onClose: @Sendable (String) -> Void
@@ -78,14 +78,14 @@ final class BridgeSession {
         id: String,
         socketPath: String,
         leaseToken: String,
-        terminal: TerminalContext,
+        tty: String,
         logger: Logger,
         requestHandler: @escaping BridgeSessionManager.RequestHandler,
         onClose: @escaping @Sendable (String) -> Void
     ) {
         self.id = id
         self.socketPath = socketPath
-        self.terminal = terminal
+        self.tty = tty
         self.logger = logger
         self.requestHandler = requestHandler
         self.onClose = onClose
@@ -103,7 +103,7 @@ final class BridgeSession {
                     "bridge lease is not active"
                 )))
             }
-            return requestHandler(terminal, lease, request)
+            return requestHandler(tty, lease, request)
         }
         daemonTask = try daemon.startDetached()
         self.daemon = daemon

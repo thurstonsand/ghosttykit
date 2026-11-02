@@ -16,8 +16,6 @@ const (
 	CodeInvalidRequest = "invalid_request"
 	// CodeTerminalNotFound means no Ghostty terminal matches the request target.
 	CodeTerminalNotFound = "terminal_not_found"
-	// CodeSpawnTokenNotFound means the spawn token is unknown, already claimed, or expired.
-	CodeSpawnTokenNotFound = "spawn_token_not_found"
 	// CodeGhosttyUnavailable means Ghostty cannot be reached or controlled.
 	CodeGhosttyUnavailable = "ghostty_unavailable"
 	// CodePasteEmpty means the clipboard has no supported paste content.
@@ -110,8 +108,6 @@ func (r FrameReply) Err() error {
 		return &InvalidRequestError{protocolError: base}
 	case CodeTerminalNotFound:
 		return &TerminalNotFoundError{protocolError: base}
-	case CodeSpawnTokenNotFound:
-		return &SpawnTokenNotFoundError{protocolError: base}
 	case CodeGhosttyUnavailable:
 		return &GhosttyUnavailableError{protocolError: base}
 	case CodePasteEmpty:
@@ -158,9 +154,6 @@ type InvalidRequestError struct{ protocolError }
 // TerminalNotFoundError means no Ghostty terminal matches the request target.
 type TerminalNotFoundError struct{ protocolError }
 
-// SpawnTokenNotFoundError means the spawn token is unknown, already claimed, or expired.
-type SpawnTokenNotFoundError struct{ protocolError }
-
 // GhosttyUnavailableError means Ghostty cannot be reached or controlled.
 type GhosttyUnavailableError struct{ protocolError }
 
@@ -202,20 +195,29 @@ type DoctorCheck struct {
 	Message string `json:"message,omitempty"`
 }
 
+// Target names the terminal a terminal-scoped request acts on. TTY is an explicit target;
+// CallerTTY is the terminal the client detected for itself. The main daemon prefers TTY and
+// rejects a request with neither. A bridge acts only on the terminal that created it: it
+// rejects TTY and ignores CallerTTY, which names a terminal on the remote host.
+type Target struct {
+	TTY       string `json:"tty,omitempty"`
+	CallerTTY string `json:"callerTty,omitempty"`
+}
+
 // TerminalIDRequest asks the daemon to resolve the caller's Ghostty terminal id.
 type TerminalIDRequest struct {
 	FrameEnvelope
-	TTY     string `json:"tty"`
-	Refresh bool   `json:"refresh,omitempty"`
+	Target
+	Refresh bool `json:"refresh,omitempty"`
 }
 
 func (TerminalIDRequest) isRequest() {}
 
 // NewTerminalIDRequest returns a terminal-id request.
-func NewTerminalIDRequest(tty string, refresh bool) TerminalIDRequest {
+func NewTerminalIDRequest(target Target, refresh bool) TerminalIDRequest {
 	return TerminalIDRequest{
 		FrameEnvelope: NewFrameEnvelope("terminal-id"),
-		TTY:           tty,
+		Target:        target,
 		Refresh:       refresh,
 	}
 }
@@ -223,32 +225,32 @@ func NewTerminalIDRequest(tty string, refresh bool) TerminalIDRequest {
 // TabTerminalCountRequest asks for the terminal count in the caller's Ghostty tab.
 type TabTerminalCountRequest struct {
 	FrameEnvelope
-	TTY string `json:"tty"`
+	Target
 }
 
 func (TabTerminalCountRequest) isRequest() {}
 
 // NewTabTerminalCountRequest returns a tab-terminal-count request.
-func NewTabTerminalCountRequest(tty string) TabTerminalCountRequest {
+func NewTabTerminalCountRequest(target Target) TabTerminalCountRequest {
 	return TabTerminalCountRequest{
 		FrameEnvelope: NewFrameEnvelope("tab-terminal-count"),
-		TTY:           tty,
+		Target:        target,
 	}
 }
 
 // BridgeCreateRequest asks the local daemon to create a per-SSH-session bridge.
 type BridgeCreateRequest struct {
 	FrameEnvelope
-	TTY string `json:"tty"`
+	Target
 }
 
 func (BridgeCreateRequest) isRequest() {}
 
 // NewBridgeCreateRequest returns a bridge-create request.
-func NewBridgeCreateRequest(tty string) BridgeCreateRequest {
+func NewBridgeCreateRequest(target Target) BridgeCreateRequest {
 	return BridgeCreateRequest{
 		FrameEnvelope: NewFrameEnvelope("bridge-create"),
-		TTY:           tty,
+		Target:        target,
 	}
 }
 
@@ -272,36 +274,19 @@ func NewBridgeLeaseRequest(token string) BridgeLeaseRequest {
 	return BridgeLeaseRequest{FrameEnvelope: NewFrameEnvelope("bridge-lease"), Token: token}
 }
 
-// SpawnClaimRequest binds the caller TTY to the pending daemon spawn identified by SpawnToken.
-type SpawnClaimRequest struct {
-	FrameEnvelope
-	TTY        string `json:"tty"`
-	SpawnToken string `json:"spawnToken"`
-}
-
-func (SpawnClaimRequest) isRequest() {}
-
-// NewSpawnClaimRequest returns a spawn-claim request.
-func NewSpawnClaimRequest(tty, spawnToken string) SpawnClaimRequest {
-	return SpawnClaimRequest{
-		FrameEnvelope: NewFrameEnvelope("spawn-claim"),
-		TTY:           tty,
-		SpawnToken:    spawnToken,
-	}
-}
-
-// ClearCacheRequest removes one TTY mapping, or all mappings when TTY is empty.
+// ClearCacheRequest removes the target's cached mapping, or every mapping when All is set.
 type ClearCacheRequest struct {
 	FrameEnvelope
-	TTY string `json:"tty,omitempty"`
-	Ack bool   `json:"ack,omitempty"`
+	Target
+	All bool `json:"all,omitempty"`
+	Ack bool `json:"ack,omitempty"`
 }
 
 func (ClearCacheRequest) isRequest() {}
 
 // NewClearCacheRequest returns a clear-cache request.
-func NewClearCacheRequest(tty string, ack bool) ClearCacheRequest {
-	return ClearCacheRequest{FrameEnvelope: NewFrameEnvelope("clear-cache"), TTY: tty, Ack: ack}
+func NewClearCacheRequest(target Target, all, ack bool) ClearCacheRequest {
+	return ClearCacheRequest{FrameEnvelope: NewFrameEnvelope("clear-cache"), Target: target, All: all, Ack: ack}
 }
 
 func (r ClearCacheRequest) replyMode() ReplyMode { return ackReplyMode(r.Ack) }
@@ -309,7 +294,7 @@ func (r ClearCacheRequest) replyMode() ReplyMode { return ackReplyMode(r.Ack) }
 // KeyTableActivateRequest activates a Ghostty key table for the caller TTY.
 type KeyTableActivateRequest struct {
 	FrameEnvelope
-	TTY   string `json:"tty"`
+	Target
 	Table string `json:"table"`
 	Ack   bool   `json:"ack,omitempty"`
 }
@@ -317,10 +302,10 @@ type KeyTableActivateRequest struct {
 func (KeyTableActivateRequest) isRequest() {}
 
 // NewKeyTableActivateRequest returns a key-table-activate request.
-func NewKeyTableActivateRequest(tty, table string, ack bool) KeyTableActivateRequest {
+func NewKeyTableActivateRequest(target Target, table string, ack bool) KeyTableActivateRequest {
 	return KeyTableActivateRequest{
 		FrameEnvelope: NewFrameEnvelope("key-table-activate"),
-		TTY:           tty,
+		Target:        target,
 		Table:         table,
 		Ack:           ack,
 	}
@@ -331,17 +316,17 @@ func (r KeyTableActivateRequest) replyMode() ReplyMode { return ackReplyMode(r.A
 // KeyTableDeactivateRequest deactivates the current Ghostty key table for the caller TTY.
 type KeyTableDeactivateRequest struct {
 	FrameEnvelope
-	TTY string `json:"tty"`
-	Ack bool   `json:"ack,omitempty"`
+	Target
+	Ack bool `json:"ack,omitempty"`
 }
 
 func (KeyTableDeactivateRequest) isRequest() {}
 
 // NewKeyTableDeactivateRequest returns a key-table-deactivate request.
-func NewKeyTableDeactivateRequest(tty string, ack bool) KeyTableDeactivateRequest {
+func NewKeyTableDeactivateRequest(target Target, ack bool) KeyTableDeactivateRequest {
 	return KeyTableDeactivateRequest{
 		FrameEnvelope: NewFrameEnvelope("key-table-deactivate"),
-		TTY:           tty,
+		Target:        target,
 		Ack:           ack,
 	}
 }
@@ -351,7 +336,7 @@ func (r KeyTableDeactivateRequest) replyMode() ReplyMode { return ackReplyMode(r
 // FocusRequest moves Ghostty focus in a direction for the caller TTY.
 type FocusRequest struct {
 	FrameEnvelope
-	TTY       string `json:"tty"`
+	Target
 	Direction string `json:"direction"`
 	Ack       bool   `json:"ack,omitempty"`
 }
@@ -359,10 +344,10 @@ type FocusRequest struct {
 func (FocusRequest) isRequest() {}
 
 // NewFocusRequest returns a focus request.
-func NewFocusRequest(tty, direction string, ack bool) FocusRequest {
+func NewFocusRequest(target Target, direction string, ack bool) FocusRequest {
 	return FocusRequest{
 		FrameEnvelope: NewFrameEnvelope("focus"),
-		TTY:           tty,
+		Target:        target,
 		Direction:     direction,
 		Ack:           ack,
 	}
@@ -373,7 +358,7 @@ func (r FocusRequest) replyMode() ReplyMode { return ackReplyMode(r.Ack) }
 // SplitRequest creates a Ghostty split from the caller TTY terminal.
 type SplitRequest struct {
 	FrameEnvelope
-	TTY         string `json:"tty"`
+	Target
 	Direction   string `json:"direction"`
 	CWD         string `json:"cwd,omitempty"`
 	CommandText string `json:"commandText,omitempty"`
@@ -384,10 +369,10 @@ type SplitRequest struct {
 func (SplitRequest) isRequest() {}
 
 // NewSplitRequest returns a split request.
-func NewSplitRequest(tty, direction, cwd, commandText, focus string, ack bool) SplitRequest {
+func NewSplitRequest(target Target, direction, cwd, commandText, focus string, ack bool) SplitRequest {
 	return SplitRequest{
 		FrameEnvelope: NewFrameEnvelope("split"),
-		TTY:           tty,
+		Target:        target,
 		Direction:     direction,
 		CWD:           cwd,
 		CommandText:   commandText,
@@ -401,7 +386,7 @@ func (r SplitRequest) replyMode() ReplyMode { return ackReplyMode(r.Ack) }
 // InputRequest sends text to a terminal as pasted input, optionally submitted with enter.
 type InputRequest struct {
 	FrameEnvelope
-	TTY    string `json:"tty"`
+	Target
 	Text   string `json:"text"`
 	Submit bool   `json:"submit,omitempty"`
 	Ack    bool   `json:"ack,omitempty"`
@@ -410,10 +395,10 @@ type InputRequest struct {
 func (InputRequest) isRequest() {}
 
 // NewInputRequest returns an input request.
-func NewInputRequest(tty, text string, submit, ack bool) InputRequest {
+func NewInputRequest(target Target, text string, submit, ack bool) InputRequest {
 	return InputRequest{
 		FrameEnvelope: NewFrameEnvelope("input"),
-		TTY:           tty,
+		Target:        target,
 		Text:          text,
 		Submit:        submit,
 		Ack:           ack,
@@ -425,7 +410,7 @@ func (r InputRequest) replyMode() ReplyMode { return ackReplyMode(r.Ack) }
 // ResizeRequest resizes a Ghostty split adjacent to the caller TTY terminal.
 type ResizeRequest struct {
 	FrameEnvelope
-	TTY       string       `json:"tty"`
+	Target
 	Direction string       `json:"direction"`
 	Amount    ResizeAmount `json:"amount"`
 	Ack       bool         `json:"ack,omitempty"`
@@ -434,10 +419,10 @@ type ResizeRequest struct {
 func (ResizeRequest) isRequest() {}
 
 // NewResizeRequest returns a resize request.
-func NewResizeRequest(tty, direction string, amount ResizeAmount, ack bool) ResizeRequest {
+func NewResizeRequest(target Target, direction string, amount ResizeAmount, ack bool) ResizeRequest {
 	return ResizeRequest{
 		FrameEnvelope: NewFrameEnvelope("resize"),
-		TTY:           tty,
+		Target:        target,
 		Direction:     direction,
 		Amount:        amount,
 		Ack:           ack,
@@ -455,15 +440,15 @@ type ResizeAmount struct {
 // ZoomRequest toggles split zoom for the caller TTY terminal.
 type ZoomRequest struct {
 	FrameEnvelope
-	TTY string `json:"tty"`
-	Ack bool   `json:"ack,omitempty"`
+	Target
+	Ack bool `json:"ack,omitempty"`
 }
 
 func (ZoomRequest) isRequest() {}
 
 // NewZoomRequest returns a zoom request.
-func NewZoomRequest(tty string, ack bool) ZoomRequest {
-	return ZoomRequest{FrameEnvelope: NewFrameEnvelope("zoom"), TTY: tty, Ack: ack}
+func NewZoomRequest(target Target, ack bool) ZoomRequest {
+	return ZoomRequest{FrameEnvelope: NewFrameEnvelope("zoom"), Target: target, Ack: ack}
 }
 
 func (r ZoomRequest) replyMode() ReplyMode { return ackReplyMode(r.Ack) }
@@ -471,14 +456,13 @@ func (r ZoomRequest) replyMode() ReplyMode { return ackReplyMode(r.Ack) }
 // PasteRequest asks the daemon to read the local clipboard for text or file-like content.
 type PasteRequest struct {
 	FrameEnvelope
-	TTY string `json:"tty,omitempty"`
 }
 
 func (PasteRequest) isRequest() {}
 
 // NewPasteRequest returns a paste request.
-func NewPasteRequest(tty string) PasteRequest {
-	return PasteRequest{FrameEnvelope: NewFrameEnvelope("paste"), TTY: tty}
+func NewPasteRequest() PasteRequest {
+	return PasteRequest{FrameEnvelope: NewFrameEnvelope("paste")}
 }
 
 func (PasteRequest) replyMode() ReplyMode { return ReplyModeStream }

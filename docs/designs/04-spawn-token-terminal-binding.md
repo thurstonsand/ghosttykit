@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Superseded. Ghostty 1.4.0 shipped the terminal `tty` AppleScript property, so the daemon now reads a new terminal's tty straight from the split reply and caches its binding there. Spawn tokens, the spawn wrapper, and `gty spawn-claim` are removed. `gty input` and the split reply's tty survive unchanged.
 
 ## Decision Summary
 

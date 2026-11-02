@@ -63,11 +63,7 @@ func runHerdrAttach(opts *options, attach attachOptions, args []string, dashInde
 	}
 
 	gty := client.New()
-	tty, err := client.ResolveTTY(opts.tty)
-	if err != nil {
-		return err
-	}
-	terminal := client.TerminalOptions{TTY: tty}
+	terminal := client.TerminalOptions{TTY: opts.tty}
 	if _, err = gty.TerminalID(client.TerminalIDOptions{TerminalOptions: terminal}); err != nil {
 		return fmt.Errorf("herdr attach needs this terminal to resolve through GhosttyKit: %w", err)
 	}

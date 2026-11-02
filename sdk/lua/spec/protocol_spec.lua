@@ -15,10 +15,11 @@ describe("ghosttykit.protocol", function()
     assert.is_nil(decoded._reply_mode)
   end)
 
-  it("requires resolved ttys", function()
-    assert.has_error(function()
-      protocol.terminal_id()
-    end, "tty is required")
+  it("encodes the caller's own terminal apart from an explicit target", function()
+    local decoded = json.decode(protocol.encode_request(protocol.zoom({ caller_tty = "/dev/pts/3" }), json))
+
+    assert.are.equal("/dev/pts/3", decoded.callerTty)
+    assert.is_nil(decoded.tty)
   end)
 
   it("reports reply modes", function()

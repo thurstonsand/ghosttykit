@@ -1,28 +1,27 @@
 import { execFileSync } from "node:child_process";
+import type { TerminalTargetOptions } from "./protocol.js";
 
-let derivedTTY: string | undefined;
+let derivedTTY: string | null | undefined;
 
 /**
- * Normalizes an explicit tty value, or derives the caller's: GTY_TTY first, then the process's
- * own controlling terminal. The daemon requires a tty on every terminal-targeted request.
+ * Makes `value`, or else GTY_TTY, an explicit target. Without either it names the process's own
+ * controlling terminal as the caller's, and a process with no terminal names none: whether its
+ * endpoint needs one is the daemon's decision.
  */
-export function resolveTTY(value?: string): string {
-  if (value) {
-    return normalizeTTY(value);
-  }
-  const env = process.env.GTY_TTY;
-  if (env) {
-    return normalizeTTY(env);
+export function resolveTarget(value?: string): TerminalTargetOptions {
+  const explicit = value || process.env.GTY_TTY;
+  if (explicit) {
+    return { tty: normalizeTTY(explicit) };
   }
   derivedTTY ??= currentTTY();
-  return derivedTTY;
+  return derivedTTY ? { callerTty: derivedTTY } : {};
 }
 
 function normalizeTTY(value: string): string {
   return value.startsWith("/dev/") ? value : `/dev/${value}`;
 }
 
-function currentTTY(): string {
+function currentTTY(): string | null {
   for (const fd of [0, 1, 2]) {
     try {
       const output = execFileSync("tty", { stdio: [fd, "pipe", "ignore"] })
@@ -35,5 +34,5 @@ function currentTTY(): string {
       // try the next descriptor
     }
   }
-  throw new Error("no tty: pass tty explicitly or set GTY_TTY");
+  return null;
 }

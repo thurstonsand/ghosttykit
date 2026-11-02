@@ -6,7 +6,7 @@ local M = {}
 
 local function target()
   return {
-    tty = tty.current(),
+    caller_tty = tty.current(),
   }
 end
 

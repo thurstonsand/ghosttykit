@@ -9,8 +9,6 @@ fi
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 GTY_BIN="${GTY_BIN:-$repo_root/cli/gty/gty}"
 GHOSTTYKITD_BIN="${GHOSTTYKITD_BIN:-$repo_root/daemon/ghosttykitd/ghosttykitd}"
-# The daemon resolves gty from its install layout; in-repo they live apart, so pin it for spawn wrapping.
-export GTY_BIN
 
 bridge_mode=0
 for arg in "$@"; do
@@ -75,8 +73,8 @@ if [[ -z "${GTY_SOCK:-}" ]]; then
   start_local_daemon
 fi
 
-# Deterministic resolution rendezvouses over the pty device, so the smoke tty must be real — the
-# caller's own terminal by default.
+# The daemon resolves ttys through Ghostty's terminal tty property, so the smoke tty must belong to
+# a real Ghostty terminal — the caller's own by default.
 SMOKE_TTY="${GTY_SMOKE_TTY:-$(tty 2>/dev/null || true)}"
 if [[ -z "$SMOKE_TTY" || "$SMOKE_TTY" == "not a tty" ]]; then
   echo "smoke-real-daemon: requires a real tty; run from a Ghostty terminal or set GTY_SMOKE_TTY" >&2
@@ -132,22 +130,23 @@ shift
 command="$*"
 : "$host"
 
-if [[ "$command" == "command -v gty"* ]]; then
-  printf '%s\n' "$GTY_BIN"
-  exit 0
-fi
-
+# No socket is actually forwarded, so the remote side dials the local bridge directly. The
+# replacement stays unquoted: bash 3.2 would keep quotes in it literally.
 if [[ -n "$remote_forward" ]]; then
   remote_socket="${remote_forward%%:*}"
   local_socket="${remote_forward#*:}"
-  if [[ "$command" =~ ^GTY_SOCK=[^[:space:]]+[[:space:]](.*)$ ]]; then
-    command="GTY_SOCK=$(printf '%q' "$local_socket") ${BASH_REMATCH[1]}"
-  fi
+  command="${command//"$remote_socket"/$local_socket}"
 fi
 
-exec /bin/sh -lc "$command"
+# The "remote" is this Mac, whose per-user TMPDIR would push the remote bridge socket path past
+# the 104-byte sun_path limit; a Linux remote's runtime dir is under /tmp. A real remote never
+# inherits the local GTY_TTY either.
+export TMPDIR=/tmp
+exec env -u GTY_TTY /bin/sh -c "$command"
 EOF
   chmod 755 "$fake_ssh_dir/ssh"
+  # The remote gty lookup must find the gty under test, not an installed one on PATH.
+  ln -s "$GTY_BIN" "$fake_ssh_dir/gty"
   export PATH="$fake_ssh_dir:$PATH"
   export GTY_BIN
 }
@@ -227,6 +226,25 @@ printf 'terminal-id: %s\n' "$terminal_id" >&2
 cached_terminal_id="$(run terminal-id)"
 expect cached-terminal-id "$cached_terminal_id" "$terminal_id"
 
+if [[ "$bridge_mode" -eq 1 ]]; then
+  # A remote command without a pty names no terminal; the bridge acts on the one that created it.
+  notty_terminal_id="$("$GTY_BIN" ssh --require-bridge --debug-no-bootstrap ghosttykit-smoke -- "$GTY_BIN" terminal-id </dev/null 2>&1)"
+  expect notty-terminal-id "$notty_terminal_id" "$terminal_id"
+  explicit_error="$(run terminal-id --tty "$SMOKE_TTY" 2>&1 || true)"
+  if [[ "$explicit_error" != *invalid_request* ]]; then
+    echo "smoke-real-daemon: bridge accepted an explicit tty: $explicit_error" >&2
+    exit 1
+  fi
+  printf 'bridge: untargeted request used its terminal; explicit tty rejected\n' >&2
+else
+  untargeted_error="$(env -u GTY_TTY "$GTY_BIN" terminal-id </dev/null 2>&1 || true)"
+  if [[ "$untargeted_error" != *invalid_request* ]]; then
+    echo "smoke-real-daemon: main endpoint accepted a request naming no terminal: $untargeted_error" >&2
+    exit 1
+  fi
+  printf 'main: request naming no terminal rejected\n' >&2
+fi
+
 count_before="$(run tab-terminal-count)"
 expect_int tab-terminal-count "$count_before"
 printf 'tab-terminal-count before split: %s\n' "$count_before" >&2
@@ -268,6 +286,8 @@ run focus right --wait >/dev/null
 run focus left --wait >/dev/null
 run resize right --pixels 10 --wait >/dev/null
 run resize left --pixels 10 --wait >/dev/null
+run resize right --percent 5 --wait >/dev/null
+run resize left --percent 5 --wait >/dev/null
 run zoom --wait >/dev/null
 run zoom --wait >/dev/null
 run clear-cache --wait >/dev/null
@@ -277,17 +297,17 @@ if [[ "$bridge_mode" -eq 0 ]]; then
   sleep 2
 
   # A fresh split usually recycles the just-freed pty, whose cache entry is now stale — the
-  # spawn claim must overwrite it.
+  # split must overwrite it.
   second_tty="$(run split right --focus original --wait)"
   expect_nonempty second-split-tty "$second_tty"
   second_id="$(run terminal-id --tty "$second_tty")"
   expect_nonempty second-split-terminal-id "$second_id"
   if [[ "$second_tty" == "$split_tty" ]]; then
     if [[ "$second_id" == "$split_terminal_id" ]]; then
-      echo "smoke-real-daemon: recycled pty kept its stale binding; claim did not overwrite" >&2
+      echo "smoke-real-daemon: recycled pty kept its stale binding; split did not overwrite" >&2
       exit 1
     fi
-    printf 'claim overwrote stale binding on recycled pty %s\n' "$second_tty" >&2
+    printf 'split overwrote stale binding on recycled pty %s\n' "$second_tty" >&2
   else
     printf 'pty not recycled (%s -> %s); overwrite path not exercised this run\n' "$split_tty" "$second_tty" >&2
   fi

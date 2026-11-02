@@ -82,11 +82,6 @@ extension CommandResult {
         guard case let .reply(.frame(frame)) = self else { return nil }
         return frame as? FrameReply
     }
-
-    var deferredReply: (@Sendable () async -> ReplyBody)? {
-        guard case let .deferred(makeReply) = self else { return nil }
-        return makeReply
-    }
 }
 
 extension ReplyBody {

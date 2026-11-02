@@ -14,7 +14,7 @@ import (
 )
 
 func TestCallRejectsStreamRequest(t *testing.T) {
-	_, err := Call[protocol.FrameReply](ForSocket("unused.sock"), protocol.NewPasteRequest(""))
+	_, err := Call[protocol.FrameReply](ForSocket("unused.sock"), protocol.NewPasteRequest())
 	if !errors.Is(err, ErrStreamReplyMode) {
 		t.Fatalf("Call(PasteRequest) error = %v, want %v", err, ErrStreamReplyMode)
 	}
@@ -28,7 +28,7 @@ func TestStreamRejectsFrameRequest(t *testing.T) {
 }
 
 func TestStreamRejectsNoReplyRequest(t *testing.T) {
-	_, _, err := Stream[protocol.PasteStreamFrameHeader](ForSocket("unused.sock"), protocol.NewFocusRequest("", "", false))
+	_, _, err := Stream[protocol.PasteStreamFrameHeader](ForSocket("unused.sock"), protocol.NewFocusRequest(protocol.Target{}, "", false))
 	if !errors.Is(err, ErrNoReplyMode) {
 		t.Fatalf("Stream(FocusRequest) error = %v, want %v", err, ErrNoReplyMode)
 	}
@@ -130,7 +130,7 @@ func TestStreamPreservesPayloadBufferedWithHeader(t *testing.T) {
 		_, _ = conn.Write([]byte(`{"version":1,"code":"ok","kind":"text","bytes":11}` + "\nhello world"))
 	}()
 
-	header, body, err := Stream[protocol.PasteStreamFrameHeader](ForSocket(socketPath), protocol.NewPasteRequest(""))
+	header, body, err := Stream[protocol.PasteStreamFrameHeader](ForSocket(socketPath), protocol.NewPasteRequest())
 	if err != nil {
 		t.Fatalf("Stream() error = %v", err)
 	}

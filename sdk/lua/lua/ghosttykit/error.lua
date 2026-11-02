@@ -10,7 +10,6 @@ local names = {
   unknown_command = "UnknownCommandError",
   invalid_request = "InvalidRequestError",
   terminal_not_found = "TerminalNotFoundError",
-  spawn_token_not_found = "SpawnTokenNotFoundError",
   ghostty_unavailable = "GhosttyUnavailableError",
   paste_empty = "PasteEmptyError",
   paste_unsupported = "PasteUnsupportedError",

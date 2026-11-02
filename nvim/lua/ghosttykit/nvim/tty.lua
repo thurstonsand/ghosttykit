@@ -38,11 +38,6 @@ function M.current()
     return cached_tty
   end
 
-  if vim.env.GTY_TTY and vim.env.GTY_TTY ~= "" then
-    cached_tty = vim.env.GTY_TTY
-    return cached_tty
-  end
-
   local pid = tui_pid()
   if not pid then
     return nil

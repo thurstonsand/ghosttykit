@@ -50,7 +50,7 @@ const gty = client({ socketPath: "/path/to/ghosttykit.sock" });
 
 ## Commands
 
-Terminal-scoped methods derive `tty` from `GTY_TTY`, then the process's controlling terminal, when it is omitted. Pass `tty` explicitly to override it. Raw protocol request builders require a resolved `tty`.
+Terminal-scoped methods target the process's own terminal, sent as `callerTty`. Pass `tty`, or set `GTY_TTY`, to target another terminal explicitly. A bridge socket acts on its own terminal and rejects an explicit `tty`; see [protocol.md](../../docs/protocol.md). Raw protocol request builders send whichever of `tty` and `callerTty` they are given.
 
 ```ts
 await gty.doctor(); // DoctorStatus

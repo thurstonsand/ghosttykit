@@ -29,6 +29,8 @@ A remote command must follow `--`:
 gty ssh host -- gty focus left
 ```
 
+Remote `gty` commands act on the local terminal that ran `gty ssh`, with or without a remote pty. The bridge rejects `--tty` and `GTY_TTY` with `invalid_request`: a remote command can never target another local terminal.
+
 `gty ssh` does not support ad hoc OpenSSH flags. Put stable connection details such as `Port`, `User`, `ProxyCommand`, or `IdentityFile` in SSH config.
 
 GhosttyKit applies these OpenSSH options internally:

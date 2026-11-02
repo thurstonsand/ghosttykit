@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { GhosttyKitClient } from "../src/client.js";
-import { InvalidReplyModeError, PasteEmptyError, SpawnTokenNotFoundError } from "../src/errors.js";
+import { InvalidReplyModeError, PasteEmptyError } from "../src/errors.js";
 import { Paste } from "../src/paste.js";
 import {
   doctorRequest,
@@ -34,19 +34,6 @@ test("call maps protocol errors", async () => {
     async (socketPathValue) => {
       const client = new GhosttyKitClient({ socketPath: socketPathValue });
       await assert.rejects(client.call(doctorRequest()), PasteEmptyError);
-    },
-  );
-});
-
-test("call maps spawn token errors", async () => {
-  await withServer(
-    async (socket) => {
-      await readRequest(socket);
-      socket.end('{"version":1,"code":"spawn_token_not_found","error":"expired"}\n');
-    },
-    async (socketPathValue) => {
-      const client = new GhosttyKitClient({ socketPath: socketPathValue });
-      await assert.rejects(client.call(doctorRequest()), SpawnTokenNotFoundError);
     },
   );
 });
@@ -197,6 +184,7 @@ test("input sends typed input as ack-style command", async () => {
       const request = await readRequest(socket);
       assert.equal(request.command, "input");
       assert.equal(request.tty, "/dev/ttys001");
+      assert.equal(request.callerTty, undefined);
       assert.equal(request.text, "echo hi");
       assert.equal(request.submit, true);
       assert.equal(request.ack, true);

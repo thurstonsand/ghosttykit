@@ -333,7 +333,7 @@ function Paste:close()
 end
 
 function PasteClient:get(opts)
-  local result, err = self.ops.stream(self.client, protocol.paste(opts))
+  local result, err = self.ops.stream(self.client, protocol.paste())
   if err then
     return nil, err
   end

@@ -10,8 +10,9 @@ struct DoctorRequest: CommandRequest {
         var checks = [DoctorCheck.ok(name: "daemon", message: "socket reachable")]
 
         do {
-            if try context.ghostty.preflightAutomationPermission() {
+            if let version = try context.ghostty.preflightAutomationPermission() {
                 checks.append(.ok(name: "automation", message: "Ghostty accepted Apple Events"))
+                checks.append(ghosttyVersionCheck(version))
             } else {
                 checks.append(.warning(
                     name: "automation",
@@ -22,8 +23,33 @@ struct DoctorRequest: CommandRequest {
             checks.append(.failure(name: "automation", message: error.localizedDescription))
         }
 
+        if context.ghostty.accessibilityGranted() {
+            checks.append(.ok(
+                name: "accessibility",
+                message: "Accessibility granted; percent resize can read window sizes"
+            ))
+        } else {
+            checks.append(.warning(
+                name: "accessibility",
+                message: "Accessibility not granted; resize --percent fails until ghosttykitd is allowed in " +
+                    "System Settings → Privacy & Security"
+            ))
+        }
+
         return .frame(DoctorReply(checks: checks))
     }
+}
+
+private let minimumGhosttyVersion = [1, 4, 0]
+
+/// Tip builds carry suffixes such as `1.4.0-dev+abc`; only the leading numbers of each component count.
+private func ghosttyVersionCheck(_ version: String) -> DoctorCheck {
+    let components = version.split(separator: ".").map { Int($0.prefix { $0.isNumber }) ?? 0 }
+    guard components.lexicographicallyPrecedes(minimumGhosttyVersion) else {
+        return .ok(name: "ghostty", message: "Ghostty \(version)")
+    }
+    let minimum = minimumGhosttyVersion.map(String.init).joined(separator: ".")
+    return .failure(name: "ghostty", message: "Ghostty \(version) is older than the required \(minimum)")
 }
 
 struct DoctorReply: Codable {

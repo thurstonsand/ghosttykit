@@ -29,7 +29,6 @@ enum ProtocolCode {
     static let unknownCommand = "unknown_command"
     static let invalidRequest = "invalid_request"
     static let terminalNotFound = "terminal_not_found"
-    static let spawnTokenNotFound = "spawn_token_not_found"
     static let ghosttyUnavailable = "ghostty_unavailable"
     static let pasteEmpty = "paste_empty"
     static let pasteUnsupported = "paste_unsupported"
@@ -47,8 +46,6 @@ enum CommandResult {
     case none
     case reply(ReplyBody)
     case hold(HoldReplyBody)
-    /// The reply is not ready at dispatch time; the connection awaits it off the command queue.
-    case deferred(@Sendable () async -> ReplyBody)
 }
 
 enum ReplyBody {
@@ -78,7 +75,6 @@ protocol CommandRequest: Decodable {
     var command: String { get }
     var tty: String? { get }
     var replyMode: ReplyMode { get }
-    var retriesStaleBinding: Bool { get }
     func dispatch(using context: CommandContext) -> CommandResult
     func reply(using context: CommandContext) throws -> ReplyBody
     func errorReply(for error: Error) -> ReplyBody
@@ -89,31 +85,16 @@ extension CommandRequest {
         .frame
     }
 
-    var retriesStaleBinding: Bool {
-        false
-    }
-
     func dispatch(using context: CommandContext) -> CommandResult {
         .reply(commandReply(using: context))
     }
 
     func commandReply(using context: CommandContext) -> ReplyBody {
         do {
-            return try retryingStaleBinding(using: context) { try reply(using: $0) }
+            return try reply(using: context)
         } catch {
-            context.cache.clear(tty: tty)
             context.logger.ghosttykit("\(logSummary) failed error=\(error.localizedDescription)")
             return errorReply(for: error)
-        }
-    }
-
-    func retryingStaleBinding<T>(using context: CommandContext, _ body: (CommandContext) throws -> T) throws -> T {
-        do {
-            return try body(context)
-        } catch let error where retriesStaleBinding && error.isGhosttyObjectNotFound {
-            guard let tty, context.recoverTerminalBinding(for: tty) else { throw error }
-            context.logger.ghosttykit("\(logSummary) retrying after stale terminal binding")
-            return try body(context)
         }
     }
 
@@ -140,25 +121,20 @@ extension AckCommandRequest {
     }
 }
 
+/// `explicitTTY` is a terminal the client was told to target; `callerTTY` is the terminal the
+/// client detected for itself. The command context decides which one, if either, it honors.
 protocol TerminalCommandRequest: CommandRequest {
-    var rawTTY: String { get }
-}
-
-protocol StaleBindingRetryableRequest: TerminalCommandRequest {}
-
-extension StaleBindingRetryableRequest {
-    var retriesStaleBinding: Bool {
-        true
-    }
+    var explicitTTY: String? { get }
+    var callerTTY: String? { get }
 }
 
 extension TerminalCommandRequest {
     var tty: String? {
-        normalizeTTY(rawTTY)
+        (explicitTTY ?? callerTTY).map(normalizeTTY)
     }
 
     func terminal(using context: CommandContext) throws -> TerminalContext {
-        try context.terminal(for: normalizeTTY(rawTTY))
+        try context.terminal(explicitTTY: explicitTTY.map(normalizeTTY), callerTTY: callerTTY.map(normalizeTTY))
     }
 }
 
@@ -175,33 +151,37 @@ struct ResizeAmount: Decodable {
 struct TerminalIDRequest: TerminalCommandRequest {
     let version: Int
     let command: String
-    let rawTTY: String
+    let explicitTTY: String?
+    let callerTTY: String?
     @DefaultFalse var refresh: Bool
 
     enum CodingKeys: String, CodingKey {
         case version
         case command
-        case rawTTY = "tty"
+        case explicitTTY = "tty"
+        case callerTTY = "callerTty"
         case refresh
     }
 
     func reply(using context: CommandContext) throws -> ReplyBody {
         if refresh {
-            context.cache.clear(tty: tty)
+            try context.clearBinding(explicitTTY: explicitTTY.map(normalizeTTY), callerTTY: callerTTY.map(normalizeTTY))
         }
         return try .frame(FrameReply.ok(terminal(using: context).terminalID))
     }
 }
 
-struct TabTerminalCountRequest: StaleBindingRetryableRequest {
+struct TabTerminalCountRequest: TerminalCommandRequest {
     let version: Int
     let command: String
-    let rawTTY: String
+    let explicitTTY: String?
+    let callerTTY: String?
 
     enum CodingKeys: String, CodingKey {
         case version
         case command
-        case rawTTY = "tty"
+        case explicitTTY = "tty"
+        case callerTTY = "callerTty"
     }
 
     func reply(using context: CommandContext) throws -> ReplyBody {
@@ -210,47 +190,53 @@ struct TabTerminalCountRequest: StaleBindingRetryableRequest {
     }
 }
 
-struct ClearCacheRequest: AckCommandRequest {
+struct ClearCacheRequest: TerminalCommandRequest, AckCommandRequest {
     let version: Int
     let command: String
-    let rawTTY: String?
+    let explicitTTY: String?
+    let callerTTY: String?
+    @DefaultFalse var all: Bool
     @DefaultFalse var ack: Bool
 
     enum CodingKeys: String, CodingKey {
         case version
         case command
-        case rawTTY = "tty"
+        case explicitTTY = "tty"
+        case callerTTY = "callerTty"
+        case all
         case ack
     }
 
-    var tty: String? {
-        rawTTY.map(normalizeTTY)
-    }
-
     var logSummary: String {
-        if tty == nil {
+        if all {
             return "command=\(command) scope=all"
         }
         return "command=\(command) tty=\(tty ?? "")"
     }
 
     func reply(using context: CommandContext) throws -> ReplyBody {
-        context.cache.clear(tty: tty)
+        if all {
+            context.cache.clear(tty: nil)
+        } else {
+            try context.clearBinding(explicitTTY: explicitTTY.map(normalizeTTY), callerTTY: callerTTY.map(normalizeTTY))
+        }
         return .frame(FrameReply.ok())
     }
 }
 
-struct KeyTableActivateRequest: StaleBindingRetryableRequest, AckCommandRequest {
+struct KeyTableActivateRequest: TerminalCommandRequest, AckCommandRequest {
     let version: Int
     let command: String
-    let rawTTY: String
+    let explicitTTY: String?
+    let callerTTY: String?
     let table: String
     @DefaultFalse var ack: Bool
 
     enum CodingKeys: String, CodingKey {
         case version
         case command
-        case rawTTY = "tty"
+        case explicitTTY = "tty"
+        case callerTTY = "callerTty"
         case table
         case ack
     }
@@ -265,16 +251,18 @@ struct KeyTableActivateRequest: StaleBindingRetryableRequest, AckCommandRequest 
     }
 }
 
-struct KeyTableDeactivateRequest: StaleBindingRetryableRequest, AckCommandRequest {
+struct KeyTableDeactivateRequest: TerminalCommandRequest, AckCommandRequest {
     let version: Int
     let command: String
-    let rawTTY: String
+    let explicitTTY: String?
+    let callerTTY: String?
     @DefaultFalse var ack: Bool
 
     enum CodingKeys: String, CodingKey {
         case version
         case command
-        case rawTTY = "tty"
+        case explicitTTY = "tty"
+        case callerTTY = "callerTty"
         case ack
     }
 
@@ -284,17 +272,19 @@ struct KeyTableDeactivateRequest: StaleBindingRetryableRequest, AckCommandReques
     }
 }
 
-struct FocusRequest: StaleBindingRetryableRequest, AckCommandRequest {
+struct FocusRequest: TerminalCommandRequest, AckCommandRequest {
     let version: Int
     let command: String
-    let rawTTY: String
+    let explicitTTY: String?
+    let callerTTY: String?
     let direction: Direction
     @DefaultFalse var ack: Bool
 
     enum CodingKeys: String, CodingKey {
         case version
         case command
-        case rawTTY = "tty"
+        case explicitTTY = "tty"
+        case callerTTY = "callerTty"
         case direction
         case ack
     }
@@ -312,7 +302,8 @@ struct FocusRequest: StaleBindingRetryableRequest, AckCommandRequest {
 struct SplitRequest: TerminalCommandRequest, AckCommandRequest {
     let version: Int
     let command: String
-    let rawTTY: String
+    let explicitTTY: String?
+    let callerTTY: String?
     let direction: Direction
     let cwd: String?
     let commandText: String?
@@ -322,7 +313,8 @@ struct SplitRequest: TerminalCommandRequest, AckCommandRequest {
     enum CodingKeys: String, CodingKey {
         case version
         case command
-        case rawTTY = "tty"
+        case explicitTTY = "tty"
+        case callerTTY = "callerTty"
         case direction
         case cwd
         case commandText
@@ -334,58 +326,26 @@ struct SplitRequest: TerminalCommandRequest, AckCommandRequest {
         "command=\(command) tty=\(tty ?? "") direction=\(direction)"
     }
 
-    /// Only reached when ack is true: parks the reply on the spawn rendezvous so it can carry the
-    /// claimed tty. The wait happens off the command queue — the claim it waits for dispatches there.
-    func dispatch(using context: CommandContext) -> CommandResult {
-        do {
-            guard let token = try performSplit(using: context) else {
-                return .reply(.frame(FrameReply.ok()))
-            }
-            let (claims, continuation) = AsyncStream<String?>.makeStream()
-            context.spawnRendezvous.park(token: token) { tty in
-                continuation.yield(tty)
-                continuation.finish()
-            }
-            return .deferred {
-                var claimed: String?
-                for await tty in claims {
-                    claimed = tty
-                }
-                return .frame(FrameReply.ok(claimed))
-            }
-        } catch {
-            context.cache.clear(tty: tty)
-            context.logger.ghosttykit("\(logSummary) failed error=\(error.localizedDescription)")
-            return .reply(errorReply(for: error))
-        }
-    }
-
+    /// Replies with the new terminal's tty, and caches its binding so the new terminal's first
+    /// request needs no resolution.
     func reply(using context: CommandContext) throws -> ReplyBody {
-        _ = try performSplit(using: context)
-        return .frame(FrameReply.ok())
-    }
-
-    private func performSplit(using context: CommandContext) throws -> String? {
-        let origin = try terminal(using: context)
-        let spawn = context.spawnWrapper?.mint(wrapping: commandText)
-        let newTerminal = try context.ghostty.split(
+        let split = try context.ghostty.split(
             direction: direction,
             cwd: cwd,
-            command: spawn?.command ?? commandText,
+            command: commandText,
             focus: focus ?? .new,
-            terminal: origin
+            terminal: terminal(using: context)
         )
-        if let spawn {
-            context.spawnRendezvous.escrow(token: spawn.token, terminal: newTerminal)
-        }
-        return spawn?.token
+        context.cache.store(terminal: split.terminal, for: split.tty)
+        return .frame(FrameReply.ok(split.tty))
     }
 }
 
 struct InputRequest: TerminalCommandRequest, AckCommandRequest {
     let version: Int
     let command: String
-    let rawTTY: String
+    let explicitTTY: String?
+    let callerTTY: String?
     let text: String
     @DefaultFalse var submit: Bool
     @DefaultFalse var ack: Bool
@@ -393,7 +353,8 @@ struct InputRequest: TerminalCommandRequest, AckCommandRequest {
     enum CodingKeys: String, CodingKey {
         case version
         case command
-        case rawTTY = "tty"
+        case explicitTTY = "tty"
+        case callerTTY = "callerTty"
         case text
         case submit
         case ack
@@ -410,10 +371,11 @@ struct InputRequest: TerminalCommandRequest, AckCommandRequest {
     }
 }
 
-struct ResizeCommandRequest: StaleBindingRetryableRequest, AckCommandRequest {
+struct ResizeCommandRequest: TerminalCommandRequest, AckCommandRequest {
     let version: Int
     let command: String
-    let rawTTY: String
+    let explicitTTY: String?
+    let callerTTY: String?
     let direction: Direction
     let amount: ResizeAmount
     @DefaultFalse var ack: Bool
@@ -421,7 +383,8 @@ struct ResizeCommandRequest: StaleBindingRetryableRequest, AckCommandRequest {
     enum CodingKeys: String, CodingKey {
         case version
         case command
-        case rawTTY = "tty"
+        case explicitTTY = "tty"
+        case callerTTY = "callerTty"
         case direction
         case amount
         case ack
@@ -439,16 +402,18 @@ struct ResizeCommandRequest: StaleBindingRetryableRequest, AckCommandRequest {
     }
 }
 
-struct ZoomRequest: StaleBindingRetryableRequest, AckCommandRequest {
+struct ZoomRequest: TerminalCommandRequest, AckCommandRequest {
     let version: Int
     let command: String
-    let rawTTY: String
+    let explicitTTY: String?
+    let callerTTY: String?
     @DefaultFalse var ack: Bool
 
     enum CodingKeys: String, CodingKey {
         case version
         case command
-        case rawTTY = "tty"
+        case explicitTTY = "tty"
+        case callerTTY = "callerTty"
         case ack
     }
 
@@ -461,12 +426,14 @@ struct ZoomRequest: StaleBindingRetryableRequest, AckCommandRequest {
 struct CreateBridgeRequest: TerminalCommandRequest {
     let version: Int
     let command: String
-    let rawTTY: String
+    let explicitTTY: String?
+    let callerTTY: String?
 
     enum CodingKeys: String, CodingKey {
         case version
         case command
-        case rawTTY = "tty"
+        case explicitTTY = "tty"
+        case callerTTY = "callerTty"
     }
 
     var logSummary: String {
@@ -477,43 +444,10 @@ struct CreateBridgeRequest: TerminalCommandRequest {
         guard let context = context as? MainCommandContext else {
             throw RequestValidationError.invalidRequest("bridge creation is not accepted by this endpoint")
         }
-        return try .frame(context.createBridge(terminal: terminal(using: context)))
-    }
-}
-
-struct SpawnClaimRequest: CommandRequest {
-    let version: Int
-    let command: String
-    let rawTTY: String
-    let spawnToken: String
-
-    enum CodingKeys: String, CodingKey {
-        case version
-        case command
-        case rawTTY = "tty"
-        case spawnToken
-    }
-
-    var tty: String? {
-        normalizeTTY(rawTTY)
-    }
-
-    /// Skips commandReply: a failed claim must leave the tty's existing cache entry untouched.
-    func dispatch(using context: CommandContext) -> CommandResult {
-        do {
-            return try .reply(reply(using: context))
-        } catch {
-            context.logger.ghosttykit("\(logSummary) failed error=\(error.localizedDescription)")
-            return .reply(errorReply(for: error))
-        }
-    }
-
-    func reply(using context: CommandContext) throws -> ReplyBody {
-        guard let context = context as? MainCommandContext else {
-            throw RequestValidationError.invalidRequest("spawn claims are not accepted by this endpoint")
-        }
-        _ = try context.claimSpawn(token: spawnToken, tty: normalizeTTY(rawTTY))
-        return .frame(FrameReply.ok())
+        return try .frame(context.createBridge(
+            explicitTTY: explicitTTY.map(normalizeTTY),
+            callerTTY: callerTTY.map(normalizeTTY)
+        ))
     }
 }
 
@@ -546,16 +480,9 @@ struct BridgeLeaseRequest: CommandRequest {
 struct PasteRequest: CommandRequest {
     let version: Int
     let command: String
-    let rawTTY: String?
-
-    enum CodingKeys: String, CodingKey {
-        case version
-        case command
-        case rawTTY = "tty"
-    }
 
     var tty: String? {
-        rawTTY.map(normalizeTTY)
+        nil
     }
 
     var replyMode: ReplyMode {
@@ -600,8 +527,6 @@ func responseForError(_ error: Error) -> FrameReply {
         return .failure(code: ProtocolCode.invalidRequest, decodingErrorMessage(decodingError))
     case let validationError as RequestValidationError:
         return .failure(code: validationError.protocolCode, message)
-    case let claimError as SpawnClaimError:
-        return .failure(code: claimError.protocolCode, message)
     case let ghosttyError as GhosttyKitError:
         return .failure(code: ghosttyError.protocolCode, message)
     case let pasteboardError as PasteboardError:
@@ -666,7 +591,6 @@ private let commandDecoders: [String: (Data) throws -> any CommandRequest] = [
     "clear-cache": { try JSONDecoder().decode(ClearCacheRequest.self, from: $0) },
     "bridge-create": { try JSONDecoder().decode(CreateBridgeRequest.self, from: $0) },
     "bridge-lease": { try JSONDecoder().decode(BridgeLeaseRequest.self, from: $0) },
-    "spawn-claim": { try JSONDecoder().decode(SpawnClaimRequest.self, from: $0) },
     "key-table-activate": { try JSONDecoder().decode(KeyTableActivateRequest.self, from: $0) },
     "key-table-deactivate": { try JSONDecoder().decode(KeyTableDeactivateRequest.self, from: $0) },
     "focus": { try JSONDecoder().decode(FocusRequest.self, from: $0) },

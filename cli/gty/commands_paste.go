@@ -11,7 +11,7 @@ import (
 	"github.com/thurstonsand/ghosttykit/sdk/go/client"
 )
 
-func pasteCmd(opts *options) *cobra.Command {
+func pasteCmd() *cobra.Command {
 	var outputDir string
 	var jsonOutput bool
 	cmd := &cobra.Command{
@@ -19,7 +19,7 @@ func pasteCmd(opts *options) *cobra.Command {
 		Short: "Print clipboard content, materializing copied files to disk",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runPaste(cmd.OutOrStdout(), opts, outputDir, jsonOutput)
+			return runPaste(cmd.OutOrStdout(), outputDir, jsonOutput)
 		},
 	}
 	cmd.Flags().StringVar(&outputDir, "output-dir", "/tmp/pi-paste-file", "directory for materialized clipboard files")
@@ -27,12 +27,12 @@ func pasteCmd(opts *options) *cobra.Command {
 	return cmd
 }
 
-func runPaste(out io.Writer, opts *options, outputDir string, jsonOutput bool) error {
+func runPaste(out io.Writer, outputDir string, jsonOutput bool) error {
 	if strings.TrimSpace(outputDir) == "" {
 		return usageError{err: errors.New("--output-dir is required")}
 	}
 	gtyClient := client.New()
-	pasteOpts := client.PasteOptions{TTY: opts.tty, OutputDir: outputDir}
+	pasteOpts := client.PasteOptions{OutputDir: outputDir}
 	if !jsonOutput {
 		result, err := gtyClient.WritePasteText(out, pasteOpts)
 		if err != nil {

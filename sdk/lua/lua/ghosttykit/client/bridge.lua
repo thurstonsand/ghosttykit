@@ -11,10 +11,7 @@ Bridge.__index = Bridge
 
 function BridgeClient:create(opts)
   local err
-  opts, err = self.ops.resolve_terminal_options(opts)
-  if err then
-    return nil, err
-  end
+  opts = self.ops.resolve_terminal_options(opts)
   local reply
   reply, err = self.ops.call(self.client, protocol.bridge_create(opts))
   if err then

@@ -38,7 +38,7 @@ local client = ghosttykit.client({
 
 ## Commands
 
-Commands are grouped by domain. Terminal-scoped methods derive `tty` from `GTY_TTY`, then the process's controlling terminal, when it is omitted; pass `tty` explicitly to override it. Most methods return `value, err`; methods that only need acknowledgement return `ok, err` when `ack = true`, or send a notification without waiting when `ack` is omitted.
+Commands are grouped by domain. Terminal-scoped methods target the caller's own terminal, sent as `callerTty`: `caller_tty` when the caller knows it (Neovim passes its TUI's tty), else the process's controlling terminal. Pass `tty`, or set `GTY_TTY`, to target another terminal explicitly. A bridge socket acts on its own terminal and rejects an explicit `tty`; see [protocol.md](../../docs/protocol.md). Most methods return `value, err`; methods that only need acknowledgement return `ok, err` when `ack = true`, or send a notification without waiting when `ack` is omitted.
 
 ```lua
 client:doctor()

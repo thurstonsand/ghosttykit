@@ -16,7 +16,6 @@ import (
 
 // PasteOptions controls clipboard paste retrieval.
 type PasteOptions struct {
-	TTY       string
 	OutputDir string
 }
 
@@ -66,7 +65,7 @@ func (c Client) Paste(opts PasteOptions) (PasteResult, error) {
 
 // WritePasteText receives clipboard content. Text content streams to out; file content streams to OutputDir.
 func (c Client) WritePasteText(out io.Writer, opts PasteOptions) (PasteResult, error) {
-	header, body, err := Stream[protocol.PasteStreamFrameHeader](c, protocol.NewPasteRequest(opts.TTY))
+	header, body, err := Stream[protocol.PasteStreamFrameHeader](c, protocol.NewPasteRequest())
 	if err != nil {
 		return nil, noPasteContentError(err)
 	}

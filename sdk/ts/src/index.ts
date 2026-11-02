@@ -1,5 +1,6 @@
 export type {
   Bridge,
+  ClearCacheCommandOptions,
   ClientOptions,
   DoctorStatus,
   HoldResult,
@@ -24,7 +25,6 @@ export {
   PasteUnsupportedError,
   ProtocolVersionMismatchError,
   ReplyError,
-  SpawnTokenNotFoundError,
   StreamFailedError,
   TerminalNotFoundError,
   TransportError,
@@ -48,4 +48,4 @@ export type {
 } from "./protocol.js";
 export * as protocol from "./protocol.js";
 export { defaultSocketPath, dial, socketPath } from "./socket.js";
-export { resolveTTY } from "./tty.js";
+export { resolveTarget } from "./tty.js";

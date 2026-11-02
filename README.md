@@ -17,7 +17,7 @@ Status: stable. The Go `gty` CLI, Swift daemon, Go/TypeScript/Lua SDKs, SSH brid
 
 ## Install
 
-GhosttyKit is distributed through the shared `thurstonsand/homebrew-tap` Homebrew tap. macOS gets `gty` and the daemon; Linux gets `gty` alone, for use as the remote end of a `gty ssh` bridge.
+GhosttyKit is distributed through the shared `thurstonsand/homebrew-tap` Homebrew tap. macOS gets `gty` and the daemon; Linux gets `gty` alone, for use as the remote end of a `gty ssh` bridge. The daemon requires Ghostty 1.4.0 or newer.
 
 Stable releases follow `v*` tags:
 
@@ -45,7 +45,11 @@ You should get an Automation prompt from macOS. Grant access so GhosttyKitD can 
 > gty doctor
 daemon: ok - socket reachable
 automation: ok - Ghostty accepted Apple Events
+ghostty: ok - Ghostty 1.4.0
+accessibility: ok - Accessibility granted; percent resize can read window sizes
 ```
+
+The accessibility line is a warning until you allow GhosttyKitD under System Settings → Privacy & Security; only `gty resize --percent` needs it. See [docs/tcc-macos.md](docs/tcc-macos.md).
 
 To stop the daemon:
 

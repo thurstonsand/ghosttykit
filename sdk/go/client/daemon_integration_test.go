@@ -43,8 +43,8 @@ func TestIntegrationDryRunDaemonE2E(t *testing.T) {
 		t.Fatalf("doctor healthy = false, checks = %#v", doctorReply.Checks)
 	}
 
-	tty := "/dev/ghosttykit-sdk-integration"
-	terminalIDRequest := protocol.NewTerminalIDRequest(tty, true)
+	target := protocol.Target{CallerTTY: "/dev/ghosttykit-sdk-integration"}
+	terminalIDRequest := protocol.NewTerminalIDRequest(target, true)
 	reply, err := Call[protocol.FrameReply](c, terminalIDRequest)
 	if err != nil {
 		t.Fatalf("terminal-id Call() error = %v", err)
@@ -53,7 +53,7 @@ func TestIntegrationDryRunDaemonE2E(t *testing.T) {
 		t.Fatalf("terminal-id value = %q, want %q", got, want)
 	}
 
-	tabTerminalCountRequest := protocol.NewTabTerminalCountRequest(tty)
+	tabTerminalCountRequest := protocol.NewTabTerminalCountRequest(target)
 	reply, err = Call[protocol.FrameReply](c, tabTerminalCountRequest)
 	if err != nil {
 		t.Fatalf("tab-terminal-count Call() error = %v", err)
@@ -62,7 +62,7 @@ func TestIntegrationDryRunDaemonE2E(t *testing.T) {
 		t.Fatalf("tab-terminal-count value = %q, want %q", got, want)
 	}
 
-	focusRequest := protocol.NewFocusRequest(tty, "left", true)
+	focusRequest := protocol.NewFocusRequest(target, "left", true)
 	reply, err = Call[protocol.FrameReply](c, focusRequest)
 	if err != nil {
 		t.Fatalf("ack focus Call() error = %v", err)
@@ -71,14 +71,14 @@ func TestIntegrationDryRunDaemonE2E(t *testing.T) {
 		t.Fatalf("ack focus code = %q, want %q", got, want)
 	}
 
-	notifyRequest := protocol.NewFocusRequest(tty, "right", false)
+	notifyRequest := protocol.NewFocusRequest(target, "right", false)
 	if err := Notify(c, notifyRequest); err != nil {
 		t.Fatalf("no-ack focus Notify() error = %v", err)
 	}
 
 	header, body, err := Stream[protocol.PasteStreamFrameHeader](
 		c,
-		protocol.NewPasteRequest(""),
+		protocol.NewPasteRequest(),
 	)
 	if err != nil {
 		t.Fatalf("paste Stream() error = %v", err)

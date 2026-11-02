@@ -32,8 +32,11 @@ end
 
 describe("ghosttykit client", function()
   before_each(function()
-    rawset(tty, "resolve", function(value)
-      return value or "/dev/ttys001"
+    rawset(tty, "resolve", function(explicit, caller)
+      if explicit then
+        return explicit, nil
+      end
+      return nil, caller or "/dev/ttys001"
     end)
   end)
 
@@ -69,22 +72,23 @@ describe("ghosttykit client", function()
     assert.is_nil(count_err)
     assert.are.equal("terminal-1", id)
     assert.are.equal(3, count)
-    assert.is_true(tx.calls[1].payload:match('"tty":"/dev/ttys001"') ~= nil)
-    assert.is_true(tx.calls[2].payload:match('"tty":"/dev/ttys001"') ~= nil)
+    assert.is_true(tx.calls[1].payload:match('"callerTty":"/dev/ttys001"') ~= nil)
+    assert.is_true(tx.calls[2].payload:match('"callerTty":"/dev/ttys001"') ~= nil)
+    assert.is_nil(tx.calls[1].payload:match('"tty"'))
   end)
 
-  it("reports tty resolution failures before transport", function()
+  it("leaves the target to the daemon when the caller has no terminal", function()
     rawset(tty, "resolve", function()
-      return nil
+      return nil, nil
     end)
-    local tx = transport({})
+    local tx = transport({ { version = 1, code = "ok", value = "bridge-terminal" } })
     local client = ghosttykit.client({ socket_path = "/tmp/gty.sock", transport = tx })
 
     local value, err = client.terminal:id()
 
-    assert.is_nil(value)
-    assert.are.equal("invalid_request", err.code)
-    assert.are.equal(0, #tx.calls)
+    assert.is_nil(err)
+    assert.are.equal("bridge-terminal", value)
+    assert.is_nil(tx.calls[1].payload:match("[Tt]ty"))
   end)
 
   it("uses domain command tables", function()

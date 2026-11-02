@@ -47,43 +47,6 @@ func TestWaitCommandUsesCall(t *testing.T) {
 	}
 }
 
-func TestSpawnClaimCommandSendsTokenAndTTY(t *testing.T) {
-	testDir, err := os.MkdirTemp("/tmp", "gty-cli-")
-	if err != nil {
-		t.Fatalf("MkdirTemp() error = %v", err)
-	}
-	defer func() { _ = os.RemoveAll(testDir) }()
-	socketPath := filepath.Join(testDir, "d.sock")
-	listener := testUnixListener(t, socketPath)
-	defer func() { _ = listener.Close() }()
-	t.Setenv("GTY_SOCK", socketPath)
-	t.Setenv("GTY_TTY", "/dev/ttys001")
-
-	requestCh := make(chan protocol.SpawnClaimRequest, 1)
-	errorCh := make(chan error, 1)
-	go serveOneRequest(listener, requestCh, errorCh)
-
-	cmd := newRootCmd()
-	cmd.SetArgs([]string{"spawn-claim", "token-1"})
-	if err := cmd.Execute(); err != nil {
-		t.Fatalf("Execute() error = %v", err)
-	}
-
-	request := <-requestCh
-	if request.Command != "spawn-claim" {
-		t.Fatalf("request.Command = %q, want spawn-claim", request.Command)
-	}
-	if request.TTY != "/dev/ttys001" {
-		t.Fatalf("request.TTY = %q, want /dev/ttys001", request.TTY)
-	}
-	if request.SpawnToken != "token-1" {
-		t.Fatalf("request.SpawnToken = %q, want token-1", request.SpawnToken)
-	}
-	if err := <-errorCh; err != nil {
-		t.Fatalf("server error = %v", err)
-	}
-}
-
 func TestInputCommandSendsTextAndSubmit(t *testing.T) {
 	testDir, err := os.MkdirTemp("/tmp", "gty-cli-")
 	if err != nil {

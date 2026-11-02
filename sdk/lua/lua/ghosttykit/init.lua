@@ -125,16 +125,12 @@ end
 
 local function resolve_terminal_options(opts)
   opts = opts or {}
-  local resolved = tty.resolve(opts.tty)
-  if not resolved then
-    return nil, errors.new("invalid_request", "no tty: pass tty explicitly or set GTY_TTY")
-  end
   local result = {}
   for key, value in pairs(opts) do
     result[key] = value
   end
-  result.tty = resolved
-  return result, nil
+  result.tty, result.caller_tty = tty.resolve(opts.tty, opts.caller_tty)
+  return result
 end
 
 local ops = {

@@ -4,11 +4,15 @@ import Foundation
 enum GhosttyKitError: Error, LocalizedError {
     case invalidResize(String)
     case terminalNotFound(String)
+    case accessibilityNotGranted
 
     var errorDescription: String? {
         switch self {
         case let .invalidResize(value): "invalid resize amount: \(value)"
         case let .terminalNotFound(value): "no Ghostty terminal is associated with \(value)"
+        case .accessibilityNotGranted:
+            "percent resize reads the window size through System Events, which needs Accessibility " +
+                "permission for ghosttykitd (System Settings → Privacy & Security)"
         }
     }
 
@@ -18,13 +22,22 @@ enum GhosttyKitError: Error, LocalizedError {
             ProtocolCode.invalidRequest
         case .terminalNotFound:
             ProtocolCode.terminalNotFound
+        case .accessibilityNotGranted:
+            ProtocolCode.ghosttyUnavailable
         }
     }
 }
 
 protocol GhosttyControlling {
-    func preflightAutomationPermission() throws -> Bool
+    /// Sends a harmless Apple Event and returns the running Ghostty's version, or nil when Ghostty
+    /// is not running.
+    func preflightAutomationPermission() throws -> String?
+    /// Percent resize reads window sizes through System Events GUI scripting, which macOS gates
+    /// behind Accessibility.
+    func accessibilityGranted() -> Bool
     func terminalContext(forTTY tty: String) throws -> TerminalContext
+    /// Whether the terminal still sits in its tab and window and still owns the tty.
+    func isBound(_ terminal: TerminalContext, to tty: String) throws -> Bool
     func readPasteboardContent() throws -> FrameStreamReply
     func activateKeyTable(_ table: String, terminal: TerminalContext) throws
     func deactivateKeyTable(terminal: TerminalContext) throws
@@ -32,14 +45,13 @@ protocol GhosttyControlling {
     func input(_ text: String, submit: Bool, terminal: TerminalContext) throws
     func toggleSplitZoom(terminal: TerminalContext) throws
     func tabTerminalCount(terminal: TerminalContext) throws -> Int
-    @discardableResult
     func split(
         direction: Direction,
         cwd: String?,
         command: String?,
         focus: FocusTarget,
         terminal: TerminalContext
-    ) throws -> TerminalContext
+    ) throws -> (tty: String, terminal: TerminalContext)
     func resize(direction: Direction, amount: ResizeAmount, terminal: TerminalContext) throws
 }
 
@@ -55,7 +67,15 @@ final class DryRunGhosttyController: GhosttyControlling {
         self.pasteText = pasteText
     }
 
-    func preflightAutomationPermission() throws -> Bool {
+    func accessibilityGranted() -> Bool {
+        true
+    }
+
+    func preflightAutomationPermission() throws -> String? {
+        "1.4.0-dry-run"
+    }
+
+    func isBound(_: TerminalContext, to _: String) throws -> Bool {
         true
     }
 
@@ -89,11 +109,14 @@ final class DryRunGhosttyController: GhosttyControlling {
         command _: String?,
         focus _: FocusTarget,
         terminal: TerminalContext
-    ) throws -> TerminalContext {
-        TerminalContext(
-            terminalID: "dry-run-split-terminal",
-            windowID: terminal.windowID,
-            tabID: terminal.tabID
+    ) throws -> (tty: String, terminal: TerminalContext) {
+        (
+            tty: "/dev/dry-run-split",
+            terminal: TerminalContext(
+                terminalID: "dry-run-split-terminal",
+                windowID: terminal.windowID,
+                tabID: terminal.tabID
+            )
         )
     }
 
@@ -101,48 +124,26 @@ final class DryRunGhosttyController: GhosttyControlling {
 }
 
 final class AppleEventGhosttyController: GhosttyControlling {
-    private static let rendezvousTimeout: TimeInterval = 2.0
-    private static let rendezvousPollInterval: useconds_t = 25000
-
     private let ghostty = GhosttyAppleEvents()
     private let windowGeometry = SystemEventsWindowGeometry()
 
-    func preflightAutomationPermission() throws -> Bool {
+    func preflightAutomationPermission() throws -> String? {
         try ghostty.preflightAutomationPermission()
     }
 
-    /// Deterministic tty→terminal resolution: direct lookup through the terminal
-    /// class's tty property where Ghostty supports it (1.4.0+), otherwise an OSC 7 rendezvous —
-    /// write a working-directory nonce to the pty, scan for the terminal that reports it, restore.
-    func terminalContext(forTTY tty: String) throws -> TerminalContext {
-        if ghostty.supportsTTYProperty() {
-            guard let terminal = try ghostty.terminalContext(matching: .tty, value: tty) else {
-                throw GhosttyKitError.terminalNotFound(tty)
-            }
-            return terminal
-        }
-        return try rendezvous(tty: tty)
+    func accessibilityGranted() -> Bool {
+        AXIsProcessTrusted()
     }
 
-    private func rendezvous(tty: String) throws -> TerminalContext {
-        let device = try TTYDevice(path: tty)
-        defer { device.close() }
-        let restore = device.foregroundProcessWorkingDirectory()
-        let nonce = "/gty-rendezvous/\(UUID().uuidString)"
-        defer { try? device.reportWorkingDirectory(restore) }
+    func isBound(_ terminal: TerminalContext, to tty: String) throws -> Bool {
+        try ghostty.isBound(terminal, to: tty)
+    }
 
-        let deadline = Date().addingTimeInterval(Self.rendezvousTimeout)
-        while true {
-            // Re-asserted every poll: the pane's own program (a starting shell, most likely) can
-            // overwrite the nonce with its own OSC 7 reports; the rendezvous wins at the first
-            // quiet gap instead of losing the whole attempt to one race.
-            try device.reportWorkingDirectory(nonce)
-            if let terminal = try ghostty.terminalContext(matching: .workingDirectory, value: nonce) {
-                return terminal
-            }
-            guard Date() < deadline else { throw GhosttyKitError.terminalNotFound(tty) }
-            usleep(Self.rendezvousPollInterval)
+    func terminalContext(forTTY tty: String) throws -> TerminalContext {
+        guard let terminal = try ghostty.terminalContext(forTTY: tty) else {
+            throw GhosttyKitError.terminalNotFound(tty)
         }
+        return terminal
     }
 
     func readPasteboardContent() throws -> FrameStreamReply {
@@ -184,7 +185,7 @@ final class AppleEventGhosttyController: GhosttyControlling {
         command: String?,
         focus: FocusTarget,
         terminal: TerminalContext
-    ) throws -> TerminalContext {
+    ) throws -> (tty: String, terminal: TerminalContext) {
         let newTerminal = try ghostty.splitTerminal(
             terminalID: terminal.terminalID,
             direction: direction,
@@ -192,15 +193,18 @@ final class AppleEventGhosttyController: GhosttyControlling {
         )
         switch focus {
         case .new:
-            try ghostty.focusTerminal(newTerminal)
+            try ghostty.focusTerminal(id: newTerminal.id)
         case .original:
             try ghostty.focusTerminal(id: terminal.terminalID)
         }
         // Splits stay in the origin terminal's window and tab.
-        return TerminalContext(
-            terminalID: newTerminal.id,
-            windowID: terminal.windowID,
-            tabID: terminal.tabID
+        return (
+            tty: newTerminal.tty,
+            terminal: TerminalContext(
+                terminalID: newTerminal.id,
+                windowID: terminal.windowID,
+                tabID: terminal.tabID
+            )
         )
     }
 
@@ -211,6 +215,9 @@ final class AppleEventGhosttyController: GhosttyControlling {
             pixels = value
         case (nil, let .some(value)):
             guard value > 0 else { throw GhosttyKitError.invalidResize("percent must be greater than 0") }
+            // Without Accessibility, System Events can stall for its two-minute Apple Event timeout
+            // instead of refusing.
+            guard accessibilityGranted() else { throw GhosttyKitError.accessibilityNotGranted }
             let windowIndex = try ghostty.windowIndex(windowID: terminal.windowID)
             let dimension = try windowGeometry.dimension(for: direction, windowIndex: windowIndex)
             pixels = max(Int(Double(dimension) * value / 100.0), 1)
@@ -234,55 +241,20 @@ private struct GhosttySurfaceConfiguration {
 
 private struct GhosttyTerminalReference {
     let id: String
-    fileprivate let descriptor: NSAppleEventDescriptor
+    let tty: String
 }
 
 private final class GhosttyAppleEvents {
-    private enum TTYPropertySupport {
-        case supported
-        case unsupported
-    }
-
     private let client = AppleEventClient(bundleIdentifier: "com.mitchellh.ghostty")
-    private var ttyPropertySupport: TTYPropertySupport?
 
-    func preflightAutomationPermission() throws -> Bool {
-        guard isGhosttyRunning() else { return false }
-        _ = try client.count(.window, in: .null(), operation: "count Ghostty windows")
-        return true
+    func preflightAutomationPermission() throws -> String? {
+        guard isGhosttyRunning() else { return nil }
+        return try client.string(from: AppleEventSpecifier.property(.version), operation: "get Ghostty version")
     }
 
-    /// Probes the terminal scripting class for the tty property Ghostty ships in 1.4.0. Memoized
-    /// for the daemon's lifetime; a Ghostty upgrade restarts the daemon's world anyway.
-    func supportsTTYProperty() -> Bool {
-        if let ttyPropertySupport {
-            return ttyPropertySupport == .supported
-        }
-        guard let windowCount = try? client.count(.window, in: .null(), operation: "count Ghostty windows"),
-              windowCount > 0
-        else { return false }
-        let firstTerminal = AppleEventSpecifier.element(
-            .terminal,
-            index: 1,
-            of: AppleEventSpecifier.element(.tab, index: 1, of: AppleEventSpecifier.element(.window, index: 1))
-        )
-        do {
-            _ = try client.string(
-                from: AppleEventSpecifier.property(.tty, of: firstTerminal),
-                operation: "probe Ghostty terminal tty property"
-            )
-            ttyPropertySupport = .supported
-        } catch AppleEventControlError.objectNotFound, AppleEventControlError.unsupportedScriptingAPI {
-            ttyPropertySupport = .unsupported
-        } catch {
-            return false
-        }
-        return ttyPropertySupport == .supported
-    }
-
-    /// Walks windows → tabs, bulk-reading one property of every terminal per tab, and returns the
-    /// terminal whose value matches. One AppleEvent per tab keeps a full scan cheap.
-    func terminalContext(matching property: AppleEventCode.Property, value: String) throws -> TerminalContext? {
+    /// Walks windows → tabs, bulk-reading the tty of every terminal per tab. One AppleEvent per tab
+    /// keeps a full scan cheap.
+    func terminalContext(forTTY tty: String) throws -> TerminalContext? {
         let windowCount = try client.count(.window, in: .null(), operation: "count Ghostty windows")
         guard windowCount > 0 else { return nil }
         for windowIndex in 1 ... windowCount {
@@ -292,11 +264,11 @@ private final class GhosttyAppleEvents {
             for tabIndex in 1 ... tabCount {
                 let tab = AppleEventSpecifier.element(.tab, index: tabIndex, of: window)
                 let terminals = AppleEventSpecifier.every(.terminal, of: tab)
-                let values = try client.stringList(
-                    from: AppleEventSpecifier.property(property, of: terminals),
-                    operation: "scan Ghostty terminals"
+                let ttys = try client.stringList(
+                    from: AppleEventSpecifier.property(.tty, of: terminals),
+                    operation: "scan Ghostty terminal ttys"
                 )
-                guard let index = values.firstIndex(of: value) else { continue }
+                guard let index = ttys.firstIndex(of: tty) else { continue }
                 let ids = try client.stringList(
                     from: AppleEventSpecifier.property(.id, of: terminals),
                     operation: "read scanned Ghostty terminal ids"
@@ -318,17 +290,27 @@ private final class GhosttyAppleEvents {
         return nil
     }
 
-    func tabTerminalCount(tabID: String?, windowID: String?) throws -> Int {
-        let window = if let windowID {
-            AppleEventSpecifier.element(.window, id: windowID)
-        } else {
-            AppleEventSpecifier.property(.frontWindow)
+    /// One Apple Event: reading the tty through the full window → tab → terminal path fails when
+    /// any link has moved or closed.
+    func isBound(_ terminal: TerminalContext, to tty: String) throws -> Bool {
+        let window = AppleEventSpecifier.element(.window, id: terminal.windowID)
+        let tab = AppleEventSpecifier.element(.tab, id: terminal.tabID, of: window)
+        do {
+            let boundTTY = try client.string(
+                from: AppleEventSpecifier.property(
+                    .tty, of: AppleEventSpecifier.element(.terminal, id: terminal.terminalID, of: tab)
+                ),
+                operation: "verify cached Ghostty terminal"
+            )
+            return boundTTY == tty
+        } catch let error where error.isGhosttyObjectNotFound {
+            return false
         }
-        let tab = if let tabID {
-            AppleEventSpecifier.element(.tab, id: tabID, of: window)
-        } else {
-            AppleEventSpecifier.property(.selectedTab, of: window)
-        }
+    }
+
+    func tabTerminalCount(tabID: String, windowID: String) throws -> Int {
+        let window = AppleEventSpecifier.element(.window, id: windowID)
+        let tab = AppleEventSpecifier.element(.tab, id: tabID, of: window)
         return try client.count(.terminal, in: tab, operation: "count Ghostty tab terminals")
     }
 
@@ -380,27 +362,18 @@ private final class GhosttyAppleEvents {
             )
         }
         let descriptor = try client.send(event, operation: "split Ghostty terminal")
-        return try terminalReference(from: descriptor, operation: "read split Ghostty terminal id")
-    }
-
-    func focusTerminal(_ terminal: GhosttyTerminalReference) throws {
-        let event = client.event(.ghostty, .focus)
-        event.setParam(terminal.descriptor, forKeyword: keyDirectObject)
-        _ = try client.send(event, operation: "focus Ghostty terminal \(terminal.id)")
+        return try terminalReference(from: descriptor)
     }
 
     func focusTerminal(id terminalID: String) throws {
-        try focusTerminal(GhosttyTerminalReference(
-            id: terminalID,
-            descriptor: AppleEventSpecifier.element(.terminal, id: terminalID)
-        ))
+        let event = client.event(.ghostty, .focus)
+        event.setParam(AppleEventSpecifier.element(.terminal, id: terminalID), forKeyword: keyDirectObject)
+        _ = try client.send(event, operation: "focus Ghostty terminal \(terminalID)")
     }
 
-    func windowIndex(windowID: String?) throws -> Int {
-        guard let windowID else { return 1 }
+    func windowIndex(windowID: String) throws -> Int {
         let count = try client.count(.window, in: .null(), operation: "count Ghostty windows")
-        guard count > 0 else { return 1 }
-        for index in 1 ... count {
+        for index in stride(from: 1, through: count, by: 1) {
             let window = AppleEventSpecifier.element(.window, index: index)
             let id = try client.string(
                 from: AppleEventSpecifier.property(.id, of: window),
@@ -410,7 +383,7 @@ private final class GhosttyAppleEvents {
                 return index
             }
         }
-        return 1
+        throw AppleEventControlError.objectNotFound(operation: "find Ghostty window \(windowID)")
     }
 
     private func surfaceConfiguration(_ configuration: GhosttySurfaceConfiguration) throws -> NSAppleEventDescriptor {
@@ -431,12 +404,17 @@ private final class GhosttyAppleEvents {
         return descriptor
     }
 
-    private func terminalReference(
-        from descriptor: NSAppleEventDescriptor,
-        operation: String
-    ) throws -> GhosttyTerminalReference {
-        let id = try client.string(from: AppleEventSpecifier.property(.id, of: descriptor), operation: operation)
-        return GhosttyTerminalReference(id: id, descriptor: descriptor)
+    private func terminalReference(from descriptor: NSAppleEventDescriptor) throws -> GhosttyTerminalReference {
+        try GhosttyTerminalReference(
+            id: client.string(
+                from: AppleEventSpecifier.property(.id, of: descriptor),
+                operation: "read split Ghostty terminal id"
+            ),
+            tty: client.string(
+                from: AppleEventSpecifier.property(.tty, of: descriptor),
+                operation: "read split Ghostty terminal tty"
+            )
+        )
     }
 
     private func isGhosttyRunning() -> Bool {
@@ -711,12 +689,10 @@ private enum AppleEventCode {
 
     enum Property: FourCharCode {
         case command = 0x4753_6343
-        case frontWindow = 0x4746_576E
         case id = 0x4944_2020
         case initialWorkingDirectory = 0x4753_6344
-        case selectedTab = 0x4757_7354
         case tty = 0x4774_7479
-        case workingDirectory = 0x4777_6472
+        case version = 0x7665_7273
     }
 
     enum Parameter: FourCharCode {

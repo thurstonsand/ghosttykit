@@ -14,13 +14,9 @@ For development and integration tests, set `GTY_SOCK` before starting both the d
 
 ## TTY resolution
 
-The daemon maps a caller's tty to its Ghostty terminal. When the running Ghostty exposes the terminal `tty` AppleScript property (1.4.0+, probed once at first resolution), it scans the scripting tree for the matching terminal directly. On older Ghostty it performs an OSC 7 rendezvous: it writes a working-directory nonce straight to the pty device, scans for the terminal whose `working directory` reports the nonce, and restores the real value (read from the tty's foreground process). Bindings are cached per tty (12h). A retry-safe action that fails because its cached terminal no longer exists clears the binding, re-resolves, and retries once. Multi-event operations such as input and split fail without replay.
+A request names its terminal with an explicit `tty` or the caller's own `callerTty`; see [protocol.md](protocol.md). The daemon maps that tty to its Ghostty terminal by scanning Ghostty's scripting tree for the terminal whose `tty` AppleScript property matches. Bindings are cached per tty (12h), and every cache hit is verified before use with one Apple Event that reads the cached terminal's `tty` through its full window → tab → terminal path. That read fails if the terminal closed or moved to another tab or window, and returns a different tty if the id now names something else; either way the daemon rescans and re-caches. A closed terminal's recycled pty or a moved tab therefore never reaches a command. A split caches the new terminal's binding from the split reply, overwriting any entry left on a recycled pty. Nothing retries: a command that fails mid-action fails.
 
-Observable side effect of a rendezvous: the pane's reported working directory is briefly a `/gty-rendezvous/<uuid>` path; on panes that have never set a title, Ghostty's pwd-derived title flashes it for the same instant.
-
-## Spawn claims
-
-When the daemon creates a terminal (`split`), it wraps the spawned command so the terminal's first act is a `gty spawn-claim` that binds its TTY to the exact terminal the daemon created — a warm cache entry with no resolution cost.
+`gty doctor` reports the running Ghostty's version and fails when it is older than 1.4.0, the first release with the `tty` property. It also warns when the daemon lacks Accessibility, which only `resize --percent` needs; see [tcc-macos.md](tcc-macos.md).
 
 ## Bridge sessions
 
@@ -39,6 +35,8 @@ Dry-run Ghostty values:
 | resolved tab id                                      | `dry-run-tab`            |
 | tab terminal count                                   | `1`                      |
 | split terminal id                                    | `dry-run-split-terminal` |
+| split terminal tty                                   | `/dev/dry-run-split`     |
+| Ghostty version                                      | `1.4.0-dry-run`          |
 | window width/height for percent resize               | `1000`                   |
 | key table, focus, split, resize, zoom, input actions | no-op success            |
 
@@ -64,6 +62,6 @@ To run the same checks through a daemon-owned bridge socket, run:
 mise run smoke-real-daemon --bridge
 ```
 
-If `GTY_SOCK` is unset, it starts the daemon on a temporary socket and cleans it up afterward. Set `GTY_BIN`, `GHOSTTYKITD_BIN`, or `GTY_SOCK` to override defaults. It refuses a dry-run endpoint, resolves the invoking terminal's own tty through the deterministic resolution path (so it must run from a real Ghostty terminal, or `GTY_SMOKE_TTY` must name one), and exercises real daemon behavior: doctor, terminal-id cache refresh, tab count, pasteboard streaming, key-table activation/deactivation, split creation with spawn-claimed TTY reply, claim overwrite of a stale cache binding, submitted typed input, focus movement, resize, zoom toggling, and cache clearing.
+If `GTY_SOCK` is unset, it starts the daemon on a temporary socket and cleans it up afterward. Set `GTY_BIN`, `GHOSTTYKITD_BIN`, or `GTY_SOCK` to override defaults. It refuses a dry-run endpoint, resolves the invoking terminal's own tty through Ghostty's `tty` property (so it must run from a real Ghostty terminal, or `GTY_SMOKE_TTY` must name one), and exercises real daemon behavior: doctor, terminal-id cache refresh, tab count, pasteboard streaming, key-table activation/deactivation, split creation with its TTY reply, split overwrite of a stale cache binding, submitted typed input, focus movement, pixel and percent resize, zoom toggling, and cache clearing. It also checks addressing: the main daemon rejects a request naming no terminal, and with `--bridge` a remote command without a pty acts on the bridge's terminal while an explicit `--tty` is rejected.
 
 This test is intentionally mutating. It changes the pasteboard temporarily and creates a short-lived split in the focused Ghostty tab.

@@ -22,23 +22,28 @@ local function current()
   return M.normalize(output)
 end
 
---- Normalizes an explicit tty value, or derives the caller's: GTY_TTY first, then the process's
---- controlling terminal. The daemon requires a tty on every terminal-targeted request; when
---- nothing is derivable this returns nil and the daemon reports the missing field.
----@param value string?
----@return string?
-function M.resolve(value)
-  if value and value ~= "" then
-    return M.normalize(value)
+--- Resolves a request target as `tty, caller_tty`. An explicit value, or else GTY_TTY, is the
+--- explicit `tty`. Otherwise the caller's own terminal is `caller`, when the caller knows it, or
+--- the process's controlling terminal. A process with no terminal names none: whether its
+--- endpoint needs one is the daemon's decision.
+---@param explicit string?
+---@param caller string?
+---@return string? tty
+---@return string? caller_tty
+function M.resolve(explicit, caller)
+  if not explicit or explicit == "" then
+    explicit = os.getenv("GTY_TTY")
   end
-  local env = os.getenv("GTY_TTY")
-  if env and env ~= "" then
-    return M.normalize(env)
+  if explicit and explicit ~= "" then
+    return M.normalize(explicit), nil
+  end
+  if caller and caller ~= "" then
+    return nil, M.normalize(caller)
   end
   if derived == nil then
     derived = current() or false
   end
-  return derived or nil
+  return nil, derived or nil
 end
 
 return M

@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Superseded. Ghostty 1.4.0 shipped the terminal `tty` AppleScript property, and GhosttyKit now requires it: the daemon resolves every tty by direct property lookup, and the OSC 7 rendezvous and its capability probe are removed. The excision of the focused claim, the required `tty` field, and self-healing retries remain in force.
 
 ## Decision Summary
 

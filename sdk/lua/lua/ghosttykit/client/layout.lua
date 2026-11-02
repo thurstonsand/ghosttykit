@@ -28,21 +28,14 @@ local function resize_options(opts)
 end
 
 function Layout:focus(opts)
-  local err
-  opts, err = self.ops.resolve_terminal_options(opts)
-  if err then
-    return nil, err
-  end
+  opts = self.ops.resolve_terminal_options(opts)
   return self.ops.notify_ack(self.client, protocol.focus(opts), opts.ack)
 end
 
 ---Creates a split and returns the new terminal's TTY when ack is true.
 function Layout:split(opts)
   local err
-  opts, err = self.ops.resolve_terminal_options(opts)
-  if err then
-    return nil, err
-  end
+  opts = self.ops.resolve_terminal_options(opts)
   local request = protocol.split(opts)
   if not opts.ack then
     return self.ops.notify(self.client, request)
@@ -57,20 +50,12 @@ function Layout:split(opts)
 end
 
 function Layout:resize(opts)
-  local err
-  opts, err = self.ops.resolve_terminal_options(opts)
-  if err then
-    return nil, err
-  end
+  opts = self.ops.resolve_terminal_options(opts)
   return self.ops.notify_ack(self.client, protocol.resize(resize_options(opts)), opts.ack)
 end
 
 function Layout:zoom(opts)
-  local err
-  opts, err = self.ops.resolve_terminal_options(opts)
-  if err then
-    return nil, err
-  end
+  opts = self.ops.resolve_terminal_options(opts)
   return self.ops.notify_ack(self.client, protocol.zoom(opts), opts.ack)
 end
 

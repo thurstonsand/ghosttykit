@@ -62,9 +62,7 @@ final class GhosttyKitDaemon {
     private let options: DaemonOptions
     private let ghostty: GhosttyControlling
     private lazy var cache = TerminalIDCache(logger: logger)
-    private lazy var spawnRendezvous = SpawnRendezvous(logger: logger)
-    private lazy var spawnWrapper = resolveSpawnWrapper()
-    private lazy var bridgeManager = BridgeSessionManager(logger: logger) { [weak self] terminal, lease, request in
+    private lazy var bridgeManager = BridgeSessionManager(logger: logger) { [weak self] tty, lease, request in
         guard let self else {
             return .reply(.frame(FrameReply.failure(code: ProtocolCode.internalError, "daemon unavailable")))
         }
@@ -72,10 +70,8 @@ final class GhosttyKitDaemon {
             cache: cache,
             ghostty: ghostty,
             logger: logger,
-            terminal: terminal,
-            lease: lease,
-            spawnRendezvous: spawnRendezvous,
-            spawnWrapper: spawnWrapper
+            tty: tty,
+            lease: lease
         )
         return commandQueue.sync { self.dispatch(request, using: context) }
     }
@@ -101,65 +97,17 @@ final class GhosttyKitDaemon {
                 cache: cache,
                 ghostty: ghostty,
                 logger: logger,
-                bridgeManager: bridgeManager,
-                spawnRendezvous: spawnRendezvous,
-                spawnWrapper: spawnWrapper
+                bridgeManager: bridgeManager
             )
             return commandQueue.sync { self.dispatch(request, using: context) }
         }
         try await daemon.start()
     }
 
-    private func resolveSpawnWrapper() -> SpawnWrapper? {
-        guard let path = resolveGtyPath() else {
-            logger.ghosttykitError("gty not found; spawned terminals bind lazily")
-            return nil
-        }
-        logger.ghosttykit("spawn wrapping enabled gty_path=\(path)")
-        return SpawnWrapper(gtyPath: path, socketPath: options.socketPath)
-    }
-
-    /// GTY_BIN override, then the release layout (`<prefix>/bin/gty` beside the app bundle),
-    /// then a sibling binary, then the daemon's own PATH. The layout branches outrank PATH
-    /// because they always name the gty that shipped with this daemon; PATH can be stale.
-    private func resolveGtyPath() -> String? {
-        let environment = ProcessInfo.processInfo.environment
-        let fileManager = FileManager.default
-        if let override = environment["GTY_BIN"], !override.isEmpty {
-            return fileManager.isExecutableFile(atPath: override) ? override : nil
-        }
-        if let executableDir = Bundle.main.executableURL?
-            .resolvingSymlinksInPath()
-            .deletingLastPathComponent() {
-            // MacOS → Contents → GhosttyKitD.app → install prefix
-            let prefixed = executableDir
-                .deletingLastPathComponent()
-                .deletingLastPathComponent()
-                .deletingLastPathComponent()
-                .appendingPathComponent("bin")
-                .appendingPathComponent("gty")
-                .path
-            if fileManager.isExecutableFile(atPath: prefixed) {
-                return prefixed
-            }
-            let sibling = executableDir.appendingPathComponent("gty").path
-            if fileManager.isExecutableFile(atPath: sibling) {
-                return sibling
-            }
-        }
-        for directory in (environment["PATH"] ?? "").split(separator: ":") {
-            let candidate = "\(directory)/gty"
-            if fileManager.isExecutableFile(atPath: candidate) {
-                return candidate
-            }
-        }
-        return nil
-    }
-
     private func preflightAutomationPermission() {
         do {
-            if try ghostty.preflightAutomationPermission() {
-                logger.ghosttykit("automation preflight completed")
+            if let version = try ghostty.preflightAutomationPermission() {
+                logger.ghosttykit("automation preflight completed ghostty_version=\(version)")
             } else {
                 logger.ghosttykit("automation preflight skipped reason=ghostty_not_running")
             }

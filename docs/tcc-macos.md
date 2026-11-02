@@ -20,6 +20,8 @@ gty doctor
 
 If macOS denies Automation access, `gty doctor` reports a failed Automation check. Check the daemon log at `$(brew --prefix)/var/log/ghosttykitd.log`.
 
+`gty resize --percent` also needs Accessibility. It reads the window size through System Events GUI scripting, which macOS gates behind Accessibility for the daemon's responsible process: `GhosttyKitD.app` under `brew services`. Allow it in System Settings → Privacy & Security; macOS 27 lists Accessibility grants under "Device Control and Data Access". A background service never gets the prompt, so add the grant by hand. Without it the daemon refuses percent resize at once, and `gty doctor` warns. Every other command, including `--pixels` resize, works without it.
+
 For manual reset during packaging tests:
 
 ```sh

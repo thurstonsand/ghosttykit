@@ -15,10 +15,7 @@ end
 
 function Terminal:id(opts)
   local err
-  opts, err = self.ops.resolve_terminal_options(opts)
-  if err then
-    return nil, err
-  end
+  opts = self.ops.resolve_terminal_options(opts)
   local reply
   reply, err = self.ops.call(self.client, protocol.terminal_id(opts))
   if err then
@@ -29,10 +26,7 @@ end
 
 function Terminal:count(opts)
   local err
-  opts, err = self.ops.resolve_terminal_options(opts)
-  if err then
-    return nil, err
-  end
+  opts = self.ops.resolve_terminal_options(opts)
   local reply
   reply, err = self.ops.call(self.client, protocol.tab_terminal_count(opts))
   if err then
@@ -54,17 +48,16 @@ end
 
 function Terminal:clear_cache(opts)
   opts = opts or {}
+  if not opts.all then
+    opts = self.ops.resolve_terminal_options(opts)
+  end
   return self.ops.notify_ack(self.client, protocol.clear_cache(opts), opts.ack)
 end
 
 ---Sends text as bracketed paste, leaving it in the line editor unless submit is true.
 ---Bridge sockets target their bound terminal.
 function Terminal:input(opts)
-  local err
-  opts, err = self.ops.resolve_terminal_options(opts)
-  if err then
-    return nil, err
-  end
+  opts = self.ops.resolve_terminal_options(opts)
   return self.ops.notify_ack(self.client, protocol.input(opts), opts.ack)
 end
 

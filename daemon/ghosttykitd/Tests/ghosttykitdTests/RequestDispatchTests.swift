@@ -13,7 +13,9 @@ final class RequestDispatchTests: XCTestCase {
     }
 
     func testCreateBridgeRequestRequiresMainContext() {
-        let request = CreateBridgeRequest(version: 1, command: "bridge-create", rawTTY: "/dev/ttys001")
+        let request = CreateBridgeRequest(
+            version: 1, command: "bridge-create", explicitTTY: nil, callerTTY: "/dev/ttys001"
+        )
         let result = request.dispatch(using: bridgeContext())
         XCTAssertEqual(result.frameReply?.code, ProtocolCode.invalidRequest)
     }
@@ -24,97 +26,105 @@ final class RequestDispatchTests: XCTestCase {
         XCTAssertEqual(result.frameReply?.code, ProtocolCode.invalidRequest)
     }
 
-    func testBridgeContextIgnoresRequestTTYForTerminalCommands() throws {
+    func testBridgeActsOnItsOwnTTYWhateverTheCallerTTY() throws {
+        let ghostty = SpyGhosttyController(resolvedTerminal: bridgeTerminal())
+        let request: FocusRequest = try decodeJSON(
+            #"{"version":1,"command":"focus","callerTty":"/dev/pts/3","direction":"left","ack":true}"#
+        )
+
+        let result = request.dispatch(using: bridgeContext(ghostty: ghostty, tty: "/dev/ttys005"))
+
+        XCTAssertEqual(result.frameReply?.code, ProtocolCode.ok)
+        XCTAssertEqual(ghostty.controlledTerminal?.terminalID, bridgeTerminal().terminalID)
+        XCTAssertEqual(ghostty.resolvedTTYs, ["/dev/ttys005"])
+    }
+
+    func testBridgeActsOnItsOwnTTYWhenCallerHasNoTTY() throws {
+        let ghostty = SpyGhosttyController(resolvedTerminal: bridgeTerminal())
+        let request: TerminalIDRequest = try decodeJSON(#"{"version":1,"command":"terminal-id"}"#)
+
+        let result = request.dispatch(using: bridgeContext(ghostty: ghostty))
+
+        XCTAssertEqual(result.frameReply?.code, ProtocolCode.ok)
+        XCTAssertEqual(result.frameReply?.value, bridgeTerminal().terminalID)
+    }
+
+    func testBridgeRejectsExplicitTTY() throws {
         let ghostty = SpyGhosttyController()
-        let terminal = bridgeTerminal()
-        let context = bridgeContext(ghostty: ghostty, terminal: terminal)
-        let request: FocusRequest = try decodeJSON(#"{"version":1,"command":"focus","tty":"/dev/remote-spoof","direction":"left","ack":true}"#)
+        let context = bridgeContext(ghostty: ghostty)
+        let input: InputRequest = try decodeJSON(
+            #"{"version":1,"command":"input","tty":"/dev/ttys009","callerTty":"/dev/pts/3","text":"whoami","ack":true}"#
+        )
+        let clearCache: ClearCacheRequest = try decodeJSON(
+            #"{"version":1,"command":"clear-cache","tty":"/dev/ttys009","ack":true}"#
+        )
+
+        XCTAssertEqual(input.dispatch(using: context).frameReply?.code, ProtocolCode.invalidRequest)
+        XCTAssertEqual(clearCache.dispatch(using: context).frameReply?.code, ProtocolCode.invalidRequest)
+        XCTAssertNil(ghostty.inputText)
+        XCTAssertNil(ghostty.controlledTerminal)
+    }
+
+    func testMainPrefersExplicitTTYOverCallerTTY() throws {
+        let ghostty = SpyGhosttyController()
+        let context = mainContext(ghostty: ghostty)
+        context.cache.store(terminal: splitTerminal(), for: "/dev/ttys009")
+        context.cache.store(terminal: mainTerminal(), for: "/dev/ttys001")
+        let request: FocusRequest = try decodeJSON(
+            #"{"version":1,"command":"focus","tty":"/dev/ttys009","callerTty":"/dev/ttys001","direction":"left","ack":true}"#
+        )
 
         let result = request.dispatch(using: context)
 
         XCTAssertEqual(result.frameReply?.code, ProtocolCode.ok)
-        XCTAssertEqual(ghostty.controlledTerminal?.terminalID, terminal.terminalID)
+        XCTAssertEqual(ghostty.controlledTerminal?.terminalID, splitTerminal().terminalID)
     }
 
-    func testSpawnClaimBindsMintedTerminal() throws {
-        let rendezvous = SpawnRendezvous(logger: testLogger())
-        let context = mainContext(spawnRendezvous: rendezvous)
-        let token = escrow(rendezvous, terminal: mainTerminal())
-        let request = spawnClaimRequest(token: token)
+    func testMainRejectsRequestNamingNoTerminal() throws {
+        let ghostty = SpyGhosttyController()
+        let request: FocusRequest = try decodeJSON(
+            #"{"version":1,"command":"focus","direction":"left","ack":true}"#
+        )
 
-        let result = request.dispatch(using: context)
+        let result = request.dispatch(using: mainContext(ghostty: ghostty))
 
-        XCTAssertEqual(result.frameReply?.code, ProtocolCode.ok)
-        XCTAssertEqual(context.cache.terminal(for: "/dev/ttys009")?.terminalID, mainTerminal().terminalID)
-    }
-
-    func testSpawnClaimOverwritesExistingCacheEntry() throws {
-        let rendezvous = SpawnRendezvous(logger: testLogger())
-        let context = mainContext(spawnRendezvous: rendezvous)
-        context.cache.store(terminal: bridgeTerminal(), for: "/dev/ttys009")
-        let token = escrow(rendezvous, terminal: mainTerminal())
-
-        let result = spawnClaimRequest(token: token).dispatch(using: context)
-
-        XCTAssertEqual(result.frameReply?.code, ProtocolCode.ok)
-        XCTAssertEqual(context.cache.terminal(for: "/dev/ttys009")?.terminalID, mainTerminal().terminalID)
-    }
-
-    func testSpawnClaimUnknownTokenFailsWithoutClearingCache() throws {
-        let context = mainContext()
-        context.cache.store(terminal: mainTerminal(), for: "/dev/ttys009")
-
-        let result = spawnClaimRequest(token: "deadbeef").dispatch(using: context)
-
-        XCTAssertEqual(result.frameReply?.code, ProtocolCode.spawnTokenNotFound)
-        XCTAssertEqual(context.cache.terminal(for: "/dev/ttys009")?.terminalID, mainTerminal().terminalID)
-    }
-
-    func testSpawnClaimBurnsToken() throws {
-        let rendezvous = SpawnRendezvous(logger: testLogger())
-        let context = mainContext(spawnRendezvous: rendezvous)
-        let token = escrow(rendezvous, terminal: mainTerminal())
-
-        XCTAssertEqual(spawnClaimRequest(token: token).dispatch(using: context).frameReply?.code, ProtocolCode.ok)
-        let replay = spawnClaimRequest(token: token).dispatch(using: context)
-
-        XCTAssertEqual(replay.frameReply?.code, ProtocolCode.spawnTokenNotFound)
-        XCTAssertEqual(context.cache.terminal(for: "/dev/ttys009")?.terminalID, mainTerminal().terminalID)
-    }
-
-    func testSpawnClaimRequiresMainContext() {
-        let request = spawnClaimRequest(token: "token")
-        let result = request.dispatch(using: bridgeContext())
         XCTAssertEqual(result.frameReply?.code, ProtocolCode.invalidRequest)
+        XCTAssertNil(ghostty.controlledTerminal)
     }
 
-    func testSplitWithWaitRepliesClaimedTTY() async throws {
-        let ghostty = SpyGhosttyController()
-        let rendezvous = SpawnRendezvous(logger: testLogger())
-        let context = mainContext(ghostty: ghostty, spawnRendezvous: rendezvous, spawnWrapper: testSpawnWrapper())
+    func testClearCacheClearsEverythingOnlyWhenAskedTo() throws {
+        let context = mainContext()
+        context.cache.store(terminal: mainTerminal(), for: "/dev/ttys001")
+        context.cache.store(terminal: splitTerminal(), for: "/dev/ttys009")
+        let untargeted: ClearCacheRequest = try decodeJSON(#"{"version":1,"command":"clear-cache","ack":true}"#)
+        let own: ClearCacheRequest = try decodeJSON(
+            #"{"version":1,"command":"clear-cache","callerTty":"/dev/ttys001","ack":true}"#
+        )
+        let all: ClearCacheRequest = try decodeJSON(#"{"version":1,"command":"clear-cache","all":true,"ack":true}"#)
+
+        XCTAssertEqual(untargeted.dispatch(using: context).frameReply?.code, ProtocolCode.invalidRequest)
+        XCTAssertNotNil(context.cache.terminal(for: "/dev/ttys001"))
+        XCTAssertEqual(own.dispatch(using: context).frameReply?.code, ProtocolCode.ok)
+        XCTAssertNil(context.cache.terminal(for: "/dev/ttys001"))
+        XCTAssertNotNil(context.cache.terminal(for: "/dev/ttys009"))
+        XCTAssertEqual(all.dispatch(using: context).frameReply?.code, ProtocolCode.ok)
+        XCTAssertNil(context.cache.terminal(for: "/dev/ttys009"))
+    }
+
+    func testSplitRepliesNewTerminalTTYAndOverwritesItsStaleBinding() throws {
+        let ghostty = SpyGhosttyController(splitTTY: "/dev/ttys020")
+        let context = mainContext(ghostty: ghostty)
+        context.cache.store(terminal: bridgeTerminal(), for: "/dev/ttys020")
 
         let result = try splitRequest().dispatch(using: context)
-        let token = try extractSpawnToken(from: ghostty.splitCommand).requireValue()
-        XCTAssertEqual(spawnClaimRequest(token: token).dispatch(using: context).frameReply?.code, ProtocolCode.ok)
 
-        let reply = try await result.deferredReply.requireValue()()
-        XCTAssertEqual(reply.frame?.code, ProtocolCode.ok)
-        XCTAssertEqual(reply.frame?.value, "/dev/ttys009")
-        XCTAssertEqual(context.cache.terminal(for: "/dev/ttys009")?.terminalID, splitTerminal().terminalID)
+        XCTAssertEqual(result.frameReply?.code, ProtocolCode.ok)
+        XCTAssertEqual(result.frameReply?.value, "/dev/ttys020")
+        XCTAssertEqual(context.cache.terminal(for: "/dev/ttys020")?.terminalID, splitTerminal().terminalID)
+        XCTAssertNil(ghostty.splitCommand)
     }
 
-    func testSplitWithWaitTimesOutWithEmptyValue() async throws {
-        let rendezvous = SpawnRendezvous(logger: testLogger(), timeout: 0.05)
-        let context = mainContext(spawnRendezvous: rendezvous, spawnWrapper: testSpawnWrapper())
-
-        let result = try splitRequest().dispatch(using: context)
-
-        let reply = try await result.deferredReply.requireValue()()
-        XCTAssertEqual(reply.frame?.code, ProtocolCode.ok)
-        XCTAssertNil(reply.frame?.value)
-    }
-
-    func testSplitWithoutWrapperRepliesImmediatelyAndPassesCommandThrough() throws {
+    func testSplitPassesCommandThrough() throws {
         let ghostty = SpyGhosttyController()
         let context = mainContext(ghostty: ghostty)
 
@@ -124,42 +134,27 @@ final class RequestDispatchTests: XCTestCase {
         XCTAssertEqual(ghostty.splitCommand, "nvim .")
     }
 
-    func testSplitWrapsGivenCommand() throws {
-        let ghostty = SpyGhosttyController()
-        let context = mainContext(ghostty: ghostty, spawnWrapper: testSpawnWrapper())
+    func testDoctorRequiresGhostty14() throws {
+        let cases: [(version: String, status: String)] = [
+            ("1.3.1", "failed"),
+            ("0.9.9", "failed"),
+            ("1.4.0", "ok"),
+            ("1.10.0", "ok"),
+            ("1.4.1-dev+abc123", "ok"),
+            ("2.0.0", "ok")
+        ]
+        for (version, status) in cases {
+            let ghostty = SpyGhosttyController()
+            ghostty.ghosttyVersion = version
 
-        _ = try splitRequest(commandText: "nvim .").dispatch(using: context)
+            let result = DoctorRequest(version: 1, command: "doctor").dispatch(using: mainContext(ghostty: ghostty))
 
-        let command = try ghostty.splitCommand.requireValue()
-        XCTAssertTrue(command.hasPrefix("/bin/sh -c "))
-        XCTAssertTrue(command.contains("spawn-claim"))
-        XCTAssertTrue(command.contains("exec\\ nvim\\ ."))
-    }
-
-    func testBareSplitWrapsLoginShell() throws {
-        let ghostty = SpyGhosttyController()
-        let context = mainContext(ghostty: ghostty, spawnWrapper: testSpawnWrapper())
-
-        _ = try splitRequest().dispatch(using: context)
-
-        let command = try ghostty.splitCommand.requireValue()
-        XCTAssertTrue(command.contains("exec\\ -l\\ /bin/zsh"))
-    }
-
-    func testSplitDoesNotRetryAfterPartialFailure() throws {
-        let ghostty = SpyGhosttyController(resolvedTerminal: splitTerminal())
-        let context = mainContext(ghostty: ghostty)
-        context.cache.store(terminal: bridgeTerminal(), for: "/dev/ttys009")
-        ghostty.nextActionError = AppleEventControlError.objectNotFound(operation: "focus split")
-        let request: SplitRequest = try decodeJSON(
-            #"{"version":1,"command":"split","tty":"/dev/ttys009","direction":"right","ack":true}"#
-        )
-
-        let result = request.dispatch(using: context)
-
-        XCTAssertNotEqual(result.frameReply?.code, ProtocolCode.ok)
-        XCTAssertEqual(ghostty.splitCallCount, 1)
-        XCTAssertTrue(ghostty.resolvedTTYs.isEmpty)
+            guard case let .reply(.frame(frame)) = result, let reply = frame as? DoctorReply else {
+                return XCTFail("doctor did not reply with a frame for \(version)")
+            }
+            XCTAssertEqual(reply.checks.first { $0.name == "ghostty" }?.status, status, version)
+            XCTAssertEqual(reply.healthy, status == "ok", version)
+        }
     }
 
     func testInputDeliversTextToBoundTerminal() throws {
@@ -188,41 +183,11 @@ final class RequestDispatchTests: XCTestCase {
         XCTAssertEqual(result.frameReply?.code, ProtocolCode.terminalNotFound)
     }
 
-    func testInputDoesNotRetryAfterPartialFailure() throws {
-        let ghostty = SpyGhosttyController(resolvedTerminal: splitTerminal())
-        let context = mainContext(ghostty: ghostty)
-        context.cache.store(terminal: bridgeTerminal(), for: "/dev/ttys009")
-        ghostty.nextActionError = AppleEventControlError.objectNotFound(operation: "send key")
-        let request: InputRequest = try decodeJSON(
-            #"{"version":1,"command":"input","tty":"/dev/ttys009","text":"nvim .","submit":true,"ack":true}"#
-        )
-
-        let result = request.dispatch(using: context)
-
-        XCTAssertNotEqual(result.frameReply?.code, ProtocolCode.ok)
-        XCTAssertEqual(ghostty.inputCallCount, 1)
-        XCTAssertTrue(ghostty.resolvedTTYs.isEmpty)
-    }
-
-    func testBridgeInputIgnoresRequestTTY() throws {
-        let ghostty = SpyGhosttyController()
-        let terminal = bridgeTerminal()
-        let context = bridgeContext(ghostty: ghostty, terminal: terminal)
-        let request: InputRequest = try decodeJSON(
-            #"{"version":1,"command":"input","tty":"/dev/remote-spoof","text":"whoami","ack":true}"#
-        )
-
-        let result = request.dispatch(using: context)
-
-        XCTAssertEqual(result.frameReply?.code, ProtocolCode.ok)
-        XCTAssertEqual(ghostty.controlledTerminal?.terminalID, terminal.terminalID)
-    }
-
     func testMainContextResolvesUnknownTTYDeterministically() throws {
         let ghostty = SpyGhosttyController(resolvedTerminal: mainTerminal())
         let context = mainContext(ghostty: ghostty)
 
-        let terminal = try context.terminal(for: "/dev/ttys001")
+        let terminal = try context.terminal(explicitTTY: nil, callerTTY: "/dev/ttys001")
 
         XCTAssertEqual(terminal.terminalID, mainTerminal().terminalID)
         XCTAssertEqual(context.cache.terminal(for: "/dev/ttys001")?.terminalID, mainTerminal().terminalID)
@@ -244,55 +209,46 @@ final class RequestDispatchTests: XCTestCase {
         XCTAssertEqual(context.cache.terminal(for: "/dev/ttys009")?.terminalID, splitTerminal().terminalID)
     }
 
-    func testStaleBindingHealsWithinOneRequest() throws {
+    func testCachedBindingIsUsedOnlyWhileGhosttyConfirmsIt() throws {
         let ghostty = SpyGhosttyController(resolvedTerminal: splitTerminal())
         let context = mainContext(ghostty: ghostty)
         context.cache.store(terminal: bridgeTerminal(), for: "/dev/ttys009")
-        ghostty.nextActionError = AppleEventControlError.objectNotFound(operation: "perform Ghostty action")
         let request: KeyTableActivateRequest = try decodeJSON(
             #"{"version":1,"command":"key-table-activate","tty":"/dev/ttys009","table":"nvim","ack":true}"#
         )
 
-        let result = request.dispatch(using: context)
+        XCTAssertEqual(request.dispatch(using: context).frameReply?.code, ProtocolCode.ok)
+        XCTAssertEqual(ghostty.controlledTerminal?.terminalID, bridgeTerminal().terminalID)
+        XCTAssertTrue(ghostty.resolvedTTYs.isEmpty)
 
-        XCTAssertEqual(result.frameReply?.code, ProtocolCode.ok)
+        ghostty.cachedBindingsAreLive = false
+        XCTAssertEqual(request.dispatch(using: context).frameReply?.code, ProtocolCode.ok)
         XCTAssertEqual(ghostty.controlledTerminal?.terminalID, splitTerminal().terminalID)
         XCTAssertEqual(context.cache.terminal(for: "/dev/ttys009")?.terminalID, splitTerminal().terminalID)
         XCTAssertEqual(ghostty.resolvedTTYs, ["/dev/ttys009"])
+        XCTAssertEqual(ghostty.verifiedBindings, ["bridge-terminal@/dev/ttys009", "bridge-terminal@/dev/ttys009"])
     }
 
-    private func mainContext(
-        ghostty: GhosttyControlling = SpyGhosttyController(),
-        spawnRendezvous: SpawnRendezvous? = nil,
-        spawnWrapper: SpawnWrapper? = nil
-    ) -> MainCommandContext {
+    private func mainContext(ghostty: GhosttyControlling = SpyGhosttyController()) -> MainCommandContext {
         MainCommandContext(
             cache: TerminalIDCache(logger: testLogger()),
             ghostty: ghostty,
             logger: testLogger(),
-            bridgeManager: StubBridgeSessionManager(),
-            spawnRendezvous: spawnRendezvous ?? SpawnRendezvous(logger: testLogger()),
-            spawnWrapper: spawnWrapper
+            bridgeManager: StubBridgeSessionManager()
         )
     }
 
     private func bridgeContext(
         ghostty: GhosttyControlling = SpyGhosttyController(),
-        terminal: TerminalContext = bridgeTerminal()
+        tty: String = "/dev/ttys005"
     ) -> BridgeCommandContext {
         BridgeCommandContext(
             cache: TerminalIDCache(logger: testLogger()),
             ghostty: ghostty,
             logger: testLogger(),
-            terminal: terminal,
-            lease: BridgeLease(token: "token", onRelease: {}),
-            spawnRendezvous: SpawnRendezvous(logger: testLogger()),
-            spawnWrapper: nil
+            tty: tty,
+            lease: BridgeLease(token: "token", onRelease: {})
         )
-    }
-
-    private func spawnClaimRequest(token: String) -> SpawnClaimRequest {
-        SpawnClaimRequest(version: 1, command: "spawn-claim", rawTTY: "/dev/ttys009", spawnToken: token)
     }
 
     private func splitRequest(commandText: String? = nil) throws -> SplitRequest {
@@ -301,11 +257,6 @@ final class RequestDispatchTests: XCTestCase {
             #"{"version":1,"command":"split","tty":"/dev/ttys001","direction":"left","ack":true"# +
                 command + "}"
         )
-    }
-
-    private func extractSpawnToken(from command: String?) -> String? {
-        guard let command, let range = command.range(of: "spawn-claim\\ ") else { return nil }
-        return String(command[range.upperBound...].prefix { $0 != "\\" })
     }
 
     private func testLogger() -> Logger {

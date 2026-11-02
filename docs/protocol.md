@@ -24,7 +24,9 @@ Every request embeds this envelope:
 
 Commands that are normally fire-and-forget may set `ack` to `true` when the caller wants a definite success/failure acknowledgement.
 
-Terminal-targeted requests carry the caller's `tty`. The daemon resolves a tty to its Ghostty terminal deterministically: through the terminal class's AppleScript `tty` property when the running Ghostty supports it (1.4.0+), otherwise through an OSC 7 rendezvous — the daemon writes a working-directory nonce to the pty device, scans Ghostty's scripting tree for the terminal reporting it, and restores the real value. Resolutions are cached per tty.
+Terminal-targeted requests name their terminal with `tty` or `callerTty`. `tty` is an explicit target: the client was told which terminal to act on. `callerTty` is the terminal the client detected for itself. The main daemon uses `tty` when present, else `callerTty`, and rejects a request with neither as `invalid_request`. It resolves a tty to its Ghostty terminal through the terminal class's AppleScript `tty` property and caches resolutions per tty, verifying each cached resolution with Ghostty before use.
+
+A bridge daemon acts only on the terminal that created it. It ignores `callerTty`, which names a terminal on the remote host, and rejects `tty` as `invalid_request`, so a remote command needs no pty and an explicit target is never silently dropped.
 
 ## Response envelope
 
@@ -52,27 +54,30 @@ See [protocol/codes.md](protocol/codes.md) for defined codes.
 
 ## Local command requests
 
-| CLI                              | Request command        | Response behavior           | Extra fields                                             |
-| -------------------------------- | ---------------------- | --------------------------- | -------------------------------------------------------- |
-| `gty doctor`                     | `doctor`               | always responds             | none                                                     |
-| `gty terminal-id`                | `terminal-id`          | always responds             | `tty`, optional `refresh`                                |
-| `gty tab-terminal-count`         | `tab-terminal-count`   | always responds             | `tty`                                                    |
-| `gty key-table activate <table>` | `key-table-activate`   | responds when `ack` is true | `tty`, `table`, optional `ack`                           |
-| `gty key-table deactivate`       | `key-table-deactivate` | responds when `ack` is true | `tty`, optional `ack`                                    |
-| `gty focus <direction>`          | `focus`                | responds when `ack` is true | `tty`, `direction`, optional `ack`                       |
-| `gty split <direction>`          | `split`                | responds when `ack` is true | `tty`, `direction`, `cwd`, `commandText`, `focus`, `ack` |
-| `gty resize <direction>`         | `resize`               | responds when `ack` is true | `tty`, `direction`, `amount`, optional `ack`             |
-| `gty zoom`                       | `zoom`                 | responds when `ack` is true | `tty`, optional `ack`                                    |
-| `gty input <text>`               | `input`                | responds when `ack` is true | `tty`, `text`, optional `submit`, optional `ack`         |
-| `gty paste`                      | `paste`                | always responds             | `tty` optional                                           |
-| `gty clear-cache`                | `clear-cache`          | responds when `ack` is true | `tty` optional, optional `ack`                           |
-| `gty spawn-claim <token>`        | `spawn-claim`          | always responds             | `tty`, `spawnToken`                                      |
-| `gty ssh` bridge setup           | `bridge-create`        | always responds             | `tty`                                                    |
-| `gty ssh` bridge lease           | `bridge-lease`         | hold after initial response | `token`                                                  |
+| CLI                              | Request command        | Response behavior           | Extra fields                                              |
+| -------------------------------- | ---------------------- | --------------------------- | --------------------------------------------------------- |
+| `gty doctor`                     | `doctor`               | always responds             | none                                                      |
+| `gty terminal-id`                | `terminal-id`          | always responds             | target, optional `refresh`                                |
+| `gty tab-terminal-count`         | `tab-terminal-count`   | always responds             | target                                                    |
+| `gty key-table activate <table>` | `key-table-activate`   | responds when `ack` is true | target, `table`, optional `ack`                           |
+| `gty key-table deactivate`       | `key-table-deactivate` | responds when `ack` is true | target, optional `ack`                                    |
+| `gty focus <direction>`          | `focus`                | responds when `ack` is true | target, `direction`, optional `ack`                       |
+| `gty split <direction>`          | `split`                | responds when `ack` is true | target, `direction`, `cwd`, `commandText`, `focus`, `ack` |
+| `gty resize <direction>`         | `resize`               | responds when `ack` is true | target, `direction`, `amount`, optional `ack`             |
+| `gty zoom`                       | `zoom`                 | responds when `ack` is true | target, optional `ack`                                    |
+| `gty input <text>`               | `input`                | responds when `ack` is true | target, `text`, optional `submit`, optional `ack`         |
+| `gty paste`                      | `paste`                | always responds             | none                                                      |
+| `gty clear-cache`                | `clear-cache`          | responds when `ack` is true | target, or `all: true`; optional `ack`                    |
+| `gty ssh` bridge setup           | `bridge-create`        | always responds             | target                                                    |
+| `gty ssh` bridge lease           | `bridge-lease`         | hold after initial response | `token`                                                   |
+
+"target" is `tty` or `callerTty`, as above.
 
 For `terminal-id`, `refresh: true` clears the tty's cached binding and re-resolves it.
 
-`spawn-claim` is daemon plumbing: `ghosttykitd` mints a single-use spawn token when it creates a terminal, and the spawned process claims it to bind its TTY to the terminal the daemon created. A claim consumes the token. Bridge endpoints reject `spawn-claim` with `invalid_request`.
+`clear-cache` drops the target's cached binding, or every binding with `all: true`. On a bridge the target is the bridge's own local tty.
+
+An acknowledged `split` replies with the new terminal's tty in `value`. Over a bridge that tty names a local terminal, which the bridge does not accept as a target.
 
 `amount` is exactly one of:
 

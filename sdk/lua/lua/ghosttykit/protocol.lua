@@ -9,7 +9,6 @@ M.codes = {
   unknown_command = "unknown_command",
   invalid_request = "invalid_request",
   terminal_not_found = "terminal_not_found",
-  spawn_token_not_found = "spawn_token_not_found",
   ghostty_unavailable = "ghostty_unavailable",
   paste_empty = "paste_empty",
   paste_unsupported = "paste_unsupported",
@@ -28,9 +27,11 @@ local function envelope(command)
   return { version = M.version, command = command }
 end
 
-local function terminal_options(opts)
-  assert(opts and opts.tty, "tty is required")
-  return opts
+---@param request table
+---@param opts table
+local function set_target(request, opts)
+  request.tty = opts.tty
+  request.callerTty = opts.caller_tty
 end
 
 local function ack_mode(ack)
@@ -59,24 +60,21 @@ function M.doctor()
 end
 
 function M.terminal_id(opts)
-  opts = terminal_options(opts)
   local request = envelope("terminal-id")
-  request.tty = opts.tty
+  set_target(request, opts)
   request.refresh = opts.refresh or nil
   return request
 end
 
 function M.tab_terminal_count(opts)
-  opts = terminal_options(opts)
   local request = envelope("tab-terminal-count")
-  request.tty = opts.tty
+  set_target(request, opts)
   return request
 end
 
 function M.bridge_create(opts)
-  opts = terminal_options(opts)
   local request = envelope("bridge-create")
-  request.tty = opts.tty
+  set_target(request, opts)
   return request
 end
 
@@ -90,23 +88,24 @@ end
 function M.clear_cache(opts)
   opts = opts or {}
   local request = envelope("clear-cache")
-  request.tty = opts.tty
+  set_target(request, opts)
+  request.all = opts.all or nil
   request.ack = opts.ack or nil
   request._reply_mode = ack_mode(opts.ack)
   return request
 end
 
 ---@class ghosttykit.protocol.KeyTableActivateOptions
----@field tty string
+---@field tty string?
+---@field caller_tty string?
 ---@field table string
 ---@field ack boolean?
 
 ---@param opts ghosttykit.protocol.KeyTableActivateOptions
 ---@return ghosttykit.Request
 function M.key_table_activate(opts)
-  opts = terminal_options(opts)
   local request = envelope("key-table-activate")
-  request.tty = opts.tty
+  set_target(request, opts)
   request.table = opts.table
   request.ack = opts.ack or nil
   request._reply_mode = ack_mode(opts.ack)
@@ -114,31 +113,31 @@ function M.key_table_activate(opts)
 end
 
 ---@class ghosttykit.protocol.KeyTableDeactivateOptions
----@field tty string
+---@field tty string?
+---@field caller_tty string?
 ---@field ack boolean?
 
 ---@param opts ghosttykit.protocol.KeyTableDeactivateOptions
 ---@return ghosttykit.Request
 function M.key_table_deactivate(opts)
-  opts = terminal_options(opts)
   local request = envelope("key-table-deactivate")
-  request.tty = opts.tty
+  set_target(request, opts)
   request.ack = opts.ack or nil
   request._reply_mode = ack_mode(opts.ack)
   return request
 end
 
 ---@class ghosttykit.protocol.FocusOptions
----@field tty string
+---@field tty string?
+---@field caller_tty string?
 ---@field direction "left"|"down"|"up"|"right"
 ---@field ack boolean?
 
 ---@param opts ghosttykit.protocol.FocusOptions
 ---@return ghosttykit.Request
 function M.focus(opts)
-  opts = terminal_options(opts)
   local request = envelope("focus")
-  request.tty = opts.tty
+  set_target(request, opts)
   request.direction = opts.direction
   request.ack = opts.ack or nil
   request._reply_mode = ack_mode(opts.ack)
@@ -146,9 +145,8 @@ function M.focus(opts)
 end
 
 function M.split(opts)
-  opts = terminal_options(opts)
   local request = envelope("split")
-  request.tty = opts.tty
+  set_target(request, opts)
   request.direction = opts.direction
   request.cwd = opts.cwd
   request.commandText = opts.command_text
@@ -159,7 +157,8 @@ function M.split(opts)
 end
 
 ---@class ghosttykit.protocol.InputOptions
----@field tty string
+---@field tty string?
+---@field caller_tty string?
 ---@field text string
 ---@field submit boolean?
 ---@field ack boolean?
@@ -167,9 +166,8 @@ end
 ---@param opts ghosttykit.protocol.InputOptions
 ---@return ghosttykit.Request
 function M.input(opts)
-  opts = terminal_options(opts)
   local request = envelope("input")
-  request.tty = opts.tty
+  set_target(request, opts)
   request.text = opts.text
   request.submit = opts.submit or nil
   request.ack = opts.ack or nil
@@ -178,9 +176,8 @@ function M.input(opts)
 end
 
 function M.resize(opts)
-  opts = terminal_options(opts)
   local request = envelope("resize")
-  request.tty = opts.tty
+  set_target(request, opts)
   request.direction = opts.direction
   request.amount = opts.amount
   request.ack = opts.ack or nil
@@ -189,18 +186,15 @@ function M.resize(opts)
 end
 
 function M.zoom(opts)
-  opts = terminal_options(opts)
   local request = envelope("zoom")
-  request.tty = opts.tty
+  set_target(request, opts)
   request.ack = opts.ack or nil
   request._reply_mode = ack_mode(opts.ack)
   return request
 end
 
-function M.paste(opts)
-  opts = opts or {}
+function M.paste()
   local request = envelope("paste")
-  request.tty = opts.tty
   request._reply_mode = M.reply_mode.stream
   return request
 end

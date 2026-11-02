@@ -7,8 +7,8 @@ func normalizeTTY(_ tty: String) -> String {
 
 struct TerminalContext {
     let terminalID: String
-    let windowID: String?
-    let tabID: String?
+    let windowID: String
+    let tabID: String
 }
 
 extension Logger {

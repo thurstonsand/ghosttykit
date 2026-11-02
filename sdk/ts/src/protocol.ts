@@ -39,8 +39,15 @@ export type FocusTarget = "new" | "original";
 
 export type ResizeAmount = { pixels: number } | { percent: number };
 
+/**
+ * Names the terminal a terminal-scoped request acts on. `tty` is an explicit target; `callerTty`
+ * is the terminal the client detected for itself. The main daemon prefers `tty` and rejects a
+ * request with neither. A bridge acts only on the terminal that created it: it rejects `tty` and
+ * ignores `callerTty`, which names a terminal on the remote host.
+ */
 export interface TerminalTargetOptions {
-  tty: string;
+  tty?: string;
+  callerTty?: string;
 }
 
 export interface TerminalIdOptions extends TerminalTargetOptions {
@@ -72,10 +79,6 @@ export interface InputOptions extends AckOptions {
 
 export interface ResizeOptions extends DirectionOptions {
   amount: ResizeAmount;
-}
-
-export interface PasteOptions {
-  tty?: string;
 }
 
 export interface BridgeLeaseOptions {
@@ -123,6 +126,7 @@ export function terminalIdRequest(options: TerminalIdOptions): Request {
   return compact({
     ...envelope("terminal-id"),
     tty: options.tty,
+    callerTty: options.callerTty,
     refresh: optionalTrue(options.refresh),
   });
 }
@@ -131,11 +135,12 @@ export function tabTerminalCountRequest(options: TerminalTargetOptions): Request
   return compact({
     ...envelope("tab-terminal-count"),
     tty: options.tty,
+    callerTty: options.callerTty,
   });
 }
 
-export interface ClearCacheOptions {
-  tty?: string;
+export interface ClearCacheOptions extends TerminalTargetOptions {
+  all?: boolean;
   ack?: boolean;
 }
 
@@ -144,6 +149,8 @@ export function clearCacheRequest(options: ClearCacheOptions = {}): Request {
     compact({
       ...envelope("clear-cache"),
       tty: options.tty,
+      callerTty: options.callerTty,
+      all: optionalTrue(options.all),
       ack: optionalTrue(options.ack),
     }),
     ackReplyMode(options.ack),
@@ -155,6 +162,7 @@ export function keyTableActivateRequest(options: KeyTableActivateOptions): Reque
     compact({
       ...envelope("key-table-activate"),
       tty: options.tty,
+      callerTty: options.callerTty,
       table: options.table,
       ack: optionalTrue(options.ack),
     }),
@@ -167,6 +175,7 @@ export function keyTableDeactivateRequest(options: AckOptions): Request {
     compact({
       ...envelope("key-table-deactivate"),
       tty: options.tty,
+      callerTty: options.callerTty,
       ack: optionalTrue(options.ack),
     }),
     ackReplyMode(options.ack),
@@ -178,6 +187,7 @@ export function focusRequest(options: DirectionOptions): Request {
     compact({
       ...envelope("focus"),
       tty: options.tty,
+      callerTty: options.callerTty,
       direction: options.direction,
       ack: optionalTrue(options.ack),
     }),
@@ -190,6 +200,7 @@ export function splitRequest(options: SplitOptions): Request {
     compact({
       ...envelope("split"),
       tty: options.tty,
+      callerTty: options.callerTty,
       direction: options.direction,
       cwd: options.cwd,
       commandText: options.commandText,
@@ -205,6 +216,7 @@ export function inputRequest(options: InputOptions): Request {
     compact({
       ...envelope("input"),
       tty: options.tty,
+      callerTty: options.callerTty,
       text: options.text,
       submit: optionalTrue(options.submit),
       ack: optionalTrue(options.ack),
@@ -218,6 +230,7 @@ export function resizeRequest(options: ResizeOptions): Request {
     compact({
       ...envelope("resize"),
       tty: options.tty,
+      callerTty: options.callerTty,
       direction: options.direction,
       amount: options.amount,
       ack: optionalTrue(options.ack),
@@ -231,26 +244,22 @@ export function zoomRequest(options: AckOptions): Request {
     compact({
       ...envelope("zoom"),
       tty: options.tty,
+      callerTty: options.callerTty,
       ack: optionalTrue(options.ack),
     }),
     ackReplyMode(options.ack),
   );
 }
 
-export function pasteRequest(options: PasteOptions = {}): Request {
-  return withReplyMode(
-    compact({
-      ...envelope("paste"),
-      tty: options.tty,
-    }),
-    "stream",
-  );
+export function pasteRequest(): Request {
+  return withReplyMode(envelope("paste"), "stream");
 }
 
 export function bridgeCreateRequest(options: TerminalTargetOptions): Request {
   return compact({
     ...envelope("bridge-create"),
     tty: options.tty,
+    callerTty: options.callerTty,
   });
 }
 

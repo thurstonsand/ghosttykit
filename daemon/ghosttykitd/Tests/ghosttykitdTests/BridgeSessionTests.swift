@@ -11,7 +11,7 @@ final class BridgeSessionTests: XCTestCase {
         let manager = BridgeSessionManager(logger: testLogger(), rootDirectory: root) { _, lease, request in
             request.dispatch(using: self.bridgeContext(lease: lease))
         }
-        let reply = try manager.createBridge(terminal: testTerminal())
+        let reply = try manager.createBridge(tty: "/dev/ttys005")
         let socketPath = try reply.socketPath.requireValue()
         let leaseToken = try reply.leaseToken.requireValue()
 
@@ -29,7 +29,7 @@ final class BridgeSessionTests: XCTestCase {
         let manager = BridgeSessionManager(logger: testLogger(), rootDirectory: root) { _, lease, request in
             request.dispatch(using: self.bridgeContext(lease: lease))
         }
-        let reply = try manager.createBridge(terminal: testTerminal())
+        let reply = try manager.createBridge(tty: "/dev/ttys005")
         let socketPath = try reply.socketPath.requireValue()
         let leaseToken = try reply.leaseToken.requireValue()
 
@@ -54,7 +54,7 @@ final class BridgeSessionTests: XCTestCase {
         let manager = BridgeSessionManager(logger: testLogger(), rootDirectory: root) { _, _, _ in
             .reply(.frame(FrameReply.ok("pong")))
         }
-        let reply = try manager.createBridge(terminal: testTerminal())
+        let reply = try manager.createBridge(tty: "/dev/ttys005")
         let socketPath = try reply.socketPath.requireValue()
 
         let conn = try UnixJSONConnection(path: socketPath)
@@ -64,15 +64,15 @@ final class BridgeSessionTests: XCTestCase {
         try conn.close()
     }
 
-    func testRequestUsesBridgeBoundTerminal() throws {
+    func testRequestUsesBridgeBoundTTY() throws {
         let root = temporaryBridgeRoot()
-        let manager = BridgeSessionManager(logger: testLogger(), rootDirectory: root) { terminal, lease, request in
+        let manager = BridgeSessionManager(logger: testLogger(), rootDirectory: root) { tty, lease, request in
             if request is BridgeLeaseRequest {
                 return request.dispatch(using: self.bridgeContext(lease: lease))
             }
-            return .reply(.frame(FrameReply.ok(terminal.terminalID)))
+            return .reply(.frame(FrameReply.ok(tty)))
         }
-        let reply = try manager.createBridge(terminal: testTerminal())
+        let reply = try manager.createBridge(tty: "/dev/ttys005")
         let socketPath = try reply.socketPath.requireValue()
         let leaseToken = try reply.leaseToken.requireValue()
 
@@ -84,7 +84,7 @@ final class BridgeSessionTests: XCTestCase {
         let request = try UnixJSONConnection(path: socketPath)
         try request.send(["version": 1, "command": "doctor"])
         let replyFrame: FrameReply = try request.readReply()
-        XCTAssertEqual(replyFrame.value, "terminal")
+        XCTAssertEqual(replyFrame.value, "/dev/ttys005")
         try request.close()
         try lease.close()
     }
@@ -94,19 +94,13 @@ final class BridgeSessionTests: XCTestCase {
             .appendingPathComponent("gkb-\(UUID().uuidString.prefix(8))")
     }
 
-    private func testTerminal() -> TerminalContext {
-        TerminalContext(terminalID: "terminal", windowID: "window", tabID: "tab")
-    }
-
     private func bridgeContext(lease: BridgeLease) -> BridgeCommandContext {
         BridgeCommandContext(
             cache: TerminalIDCache(logger: testLogger()),
             ghostty: DryRunGhosttyController(),
             logger: testLogger(),
-            terminal: testTerminal(),
-            lease: lease,
-            spawnRendezvous: SpawnRendezvous(logger: testLogger()),
-            spawnWrapper: nil
+            tty: "/dev/ttys005",
+            lease: lease
         )
     }
 

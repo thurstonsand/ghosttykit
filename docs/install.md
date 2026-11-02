@@ -20,6 +20,8 @@ On macOS the formula installs:
 
 On Linux it installs `gty` alone. `ghosttykitd` is macOS-only, so a Linux `gty` is useful as the remote end of a bridge established by `gty ssh` from a macOS host.
 
+`ghosttykitd` requires Ghostty 1.4.0 or newer.
+
 After installing from the tap, start the user service while Ghostty is running so macOS can ask for Automation permission on first start:
 
 ```sh
@@ -28,7 +30,7 @@ brew services start thurstonsand/tap/ghosttykit
 gty doctor
 ```
 
-`gty doctor` proves the socket and service are reachable, then asks the daemon to confirm that it can send Apple Events to Ghostty. See [tcc-macos.md](tcc-macos.md) for macOS Automation behavior.
+`gty doctor` proves the socket and service are reachable, then asks the daemon to confirm that it can send Apple Events to Ghostty and that Ghostty is 1.4.0 or newer. See [tcc-macos.md](tcc-macos.md) for macOS Automation behavior.
 
 Remote hosts normally receive `gty` through `gty ssh` bootstrap. The wrapper prefers a `gty` on the remote `PATH` and falls back to its own managed install at `${XDG_DATA_HOME:-$HOME/.local/share}/ghosttykit/bin/gty`, using the first one whose `gty version` line matches the local one. If neither matches, it installs a fresh binary at the managed path over SSH. See [ssh.md](ssh.md#bootstrap) for where that binary comes from. If bootstrap fails, `gty ssh` continues as plain SSH unless `--require-bridge` is set.
 

@@ -31,7 +31,7 @@ final class TerminalIDCache {
         entries[tty] = CacheEntry(terminal: terminal, expiresAt: Date().addingTimeInterval(Self.cacheTTL))
         logger.ghosttykit(
             "cached tty=\(tty) terminal_id=\(terminal.terminalID) " +
-                "window_id=\(terminal.windowID ?? "") tab_id=\(terminal.tabID ?? "")"
+                "window_id=\(terminal.windowID) tab_id=\(terminal.tabID)"
         )
     }
 

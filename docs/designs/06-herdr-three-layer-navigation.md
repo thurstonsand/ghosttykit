@@ -47,19 +47,19 @@ There is no separate navigation script and no Herdr protocol implementation in L
 
 The remaining compromise is Herdr’s foreground-client race. A key event normally promotes its source client before the binding runs, and the title API targets that foreground client. Herdr runs `type = "shell"` commands detached, however, so another attached client can become foreground before `gty herdr navigate` emits the sentinel. Centralizing the work in one Go process minimizes that interval but cannot eliminate it without client identity from Herdr or an input-side terminal proxy.
 
-## Clarification: the existing GhosttyKit “OSC dance”
+## Clarification: the former GhosttyKit “OSC dance”
 
-Two existing GhosttyKit mechanisms are easy to conflate.
+Two former GhosttyKit mechanisms are easy to conflate. Both have since been retired: Ghostty 1.4.0 exposes each terminal’s `tty` over AppleScript, and the daemon now looks ttys up directly. The comparison below is kept because it explains why the Herdr sentinel uses a title.
 
-### New terminal startup uses a spawn token
+### New terminal startup used a spawn token
 
-Race-free initialization of daemon-created Ghostty terminals is described in [`04-spawn-token-terminal-binding.md`](https://github.com/thurstonsand/ghosttykit/blob/main/docs/designs/04-spawn-token-terminal-binding.md). `ghosttykitd` already knows the new terminal id from the split reply. It wraps the new terminal’s command so its first action is a one-shot `gty spawn-claim <token>`, binding the new PTY to that terminal before the real command starts.
+Race-free initialization of daemon-created Ghostty terminals was described in [`04-spawn-token-terminal-binding.md`](https://github.com/thurstonsand/ghosttykit/blob/main/docs/designs/04-spawn-token-terminal-binding.md). `ghosttykitd` already knew the new terminal id from the split reply. It wrapped the new terminal’s command so its first action was a one-shot `gty spawn-claim <token>`, binding the new PTY to that terminal before the real command started.
 
-That mechanism does not use OSC.
+That mechanism did not use OSC.
 
-### Organic terminal identification uses a temporary OSC 7 working directory
+### Organic terminal identification used a temporary OSC 7 working directory
 
-[`05-osc7-rendezvous-tty-resolution.md`](https://github.com/thurstonsand/ghosttykit/blob/main/docs/designs/05-osc7-rendezvous-tty-resolution.md) handles terminals the daemon did not create. The daemon writes a temporary OSC 7 working-directory nonce to the caller’s TTY, scans Ghostty’s scripting tree for the terminal reporting that nonce, then restores the real working directory.
+[`05-osc7-rendezvous-tty-resolution.md`](https://github.com/thurstonsand/ghosttykit/blob/main/docs/designs/05-osc7-rendezvous-tty-resolution.md) handled terminals the daemon did not create. The daemon wrote a temporary OSC 7 working-directory nonce to the caller’s TTY, scanned Ghostty’s scripting tree for the terminal reporting that nonce, then restored the real working directory.
 
 That is the mechanism remembered as “temporarily changing something without leaving it changed.” It uses the reported working directory, not the title. That design explicitly rejected OSC 0/2 titles because Ghostty coalesces title changes, title overrides can discard them, and title changes are visible.
 
@@ -69,7 +69,7 @@ The Herdr sentinel uses the same broad pattern: temporarily place a recognizable
 
 It is not the same protocol:
 
-| Existing OSC 7 rendezvous                                                     | Herdr navigation sentinel                                                                    |
+| Former OSC 7 rendezvous                                                       | Herdr navigation sentinel                                                                    |
 | ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
 | Identifies which Ghostty terminal owns a local PTY                            | Carries an outward navigation result to the correct attached client                          |
 | Ghostty must apply the property so `ghosttykitd` can observe it               | Ghostty must not see the sentinel                                                            |
