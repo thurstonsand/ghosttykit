@@ -127,6 +127,15 @@ run = "biome format ."
 description = "Lint Markdown"
 run = "markdownlint-cli2"
 
+[tasks."release:lint"]
+description = "Verify RELEASE.md headings and that its newest release matches the npm package versions"
+run = "scripts/check-release-notes.sh >/dev/null"
+
+[tasks.release]
+description = "Release a stable version: date the Unreleased notes, set the package versions, commit, tag, and push"
+usage = 'arg "<version>" help="The version to release, x.y.z"'
+run = 'scripts/release.sh "${usage_version}"'
+
 [tasks."actions:fix"]
 description = "Apply jactionlint's safe fixes to GitHub Actions workflows"
 run = "hk fix --all --step jactionlint"
@@ -172,7 +181,7 @@ depends = ["//...:fmt:check", "docs:fmt:check"]
 
 [tasks.lint]
 description = "Lint every component"
-depends = ["//...:lint", "docs:lint", "actions:lint", "renovate:lint"]
+depends = ["//...:lint", "docs:lint", "actions:lint", "release:lint", "renovate:lint"]
 
 [tasks.typecheck]
 description = "Type-check every component that has a type checker"
@@ -193,6 +202,7 @@ depends = [
   "docs:fmt",
   "docs:lint",
   "actions:lint",
+  "release:lint",
   "renovate:lint",
 ]
 

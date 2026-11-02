@@ -9,12 +9,11 @@ Use this skill when preparing or publishing a GhosttyKit release.
 
 ## Release model
 
-- Release from `main`.
-- Push `main` before creating a stable tag so nightly artifacts publish first.
+- Release from `main` with `mise run release X.Y.Z`. It refuses unless `main` is clean, level with `origin/main`, and green in CI, then dates the `## [Unreleased]` notes, writes the version into both npm packages, commits `chore(release): X.Y.Z`, creates the annotated `vX.Y.Z` tag from that section, and pushes `main` and the tag together.
 - Assume the release starts from a stable committed state. Do not repeat verification the user already performed.
-- Do not push the stable tag until the user explicitly approves stable publishing.
-- Use `RELEASE.md` for human release notes.
-- Use the exact same release-note text from `RELEASE.md` for the annotated git tag body.
+- Do not run the release task until the user explicitly approves stable publishing.
+- Use `RELEASE.md` for human release notes: `## [Unreleased]`, then `## [X.Y.Z] - YYYY-MM-DD` sections, newest first.
+- The package versions on `main` are the current release. Nightlies compute their own versions from it.
 - Stable releases are `vX.Y.Z` tags.
 - Stable package tags are immutable. Never force-push a stable release tag or stable mirror tag.
 - Binary nightly releases are unique prereleases named `nightly-<version>`. Mirror nightly refs move with `main` and may be force-updated by automation.
@@ -68,10 +67,10 @@ Ask the user to confirm the target version unless they already specified it.
 
 ## 2. Prepare release notes
 
-Update `RELEASE.md` with a new top entry:
+Review the entries under `## [Unreleased]` in `RELEASE.md` against the changes since the latest tag, and fill in what is missing:
 
 ```md
-## X.Y.Z
+## [Unreleased]
 
 Short release summary.
 
@@ -88,15 +87,13 @@ Short release summary.
 - User-facing fix.
 ```
 
-Omit empty sections. Do not list every internal refactor. If the user edits the notes, preserve their wording.
+Omit empty sections. Do not list every internal refactor. If the user edits the notes, preserve their wording. Leave the heading as `## [Unreleased]`; the release task dates it.
 
 If release mechanics changed, update `docs/release.md` too.
 
 ## 3. Prepare npm packages when included
 
-The npm workflow sets package versions during publication, so normal release prep should leave npm package versions at their checked-in development value unless the user explicitly wants to change that policy.
-
-If `sdk/ts` or `pi/pi-paste` has release-relevant changes, verify the package before committing release prep:
+Leave the npm package versions alone: the release task writes them. If `sdk/ts` or `pi/pi-paste` has release-relevant changes, verify the package before committing release prep:
 
 ```sh
 mise run //sdk/ts:check
@@ -111,7 +108,7 @@ Stage only release-relevant files and commit. Do not stage unrelated user or age
 
 ## 5. Push main and verify nightly artifacts
 
-Push `main` first:
+The release task refuses to run until CI on `main`'s head is green, so push the release prep first:
 
 ```sh
 git push origin main
@@ -171,18 +168,21 @@ npm view @thurstonsand/pi-paste version dist-tags --json
 
 Inspect the packed Pi paste package or npm metadata to confirm its `@thurstonsand/ghosttykit` dependency points at the exact SDK version from the same run.
 
-## 7. Create and push the stable tag
+## 7. Cut the stable release
 
-Create an annotated tag after the user approves stable publishing. Use the exact final `RELEASE.md` entry for that version as the tag notes.
+The npm publishes sign provenance through Sigstore, and a Rekor outage fails them after the tag is out. Before releasing, check that <https://status.sigstore.dev> reports every service online, and that Rekor answers:
 
 ```sh
-VERSION=X.Y.Z
-scripts/extract-release-notes.sh "v${VERSION}" > "/tmp/ghosttykit-v${VERSION}-notes.md"
-git tag -a "v${VERSION}" --cleanup=verbatim -F "/tmp/ghosttykit-v${VERSION}-notes.md"
-git push origin "v${VERSION}"
+curl -fsS https://rekor.sigstore.dev/api/v1/log | jq '{treeSize, rootHash}'
 ```
 
-Do not force-push a stable tag. If a tag already exists, stop and inspect; do not overwrite it.
+After the user approves stable publishing, cut the release:
+
+```sh
+mise run release X.Y.Z
+```
+
+The task commits, tags, and pushes `main` and `vX.Y.Z`. Do not force-push a stable tag. If a tag already exists, stop and inspect; do not overwrite it.
 
 ## 8. Watch stable monorepo publishing
 
@@ -193,7 +193,7 @@ gh run list --workflow Release --limit 10 --json databaseId,workflowName,headBra
 gh run watch <release-run-id> --exit-status
 ```
 
-`Release` should push stable mirror tags without force. If it fails because a stable mirror tag already exists, treat that as a real release immutability violation and stop.
+`Release` fails fast unless the tag, both npm package versions, and the newest `RELEASE.md` release agree. It should push stable mirror tags without force. If it fails because a stable mirror tag already exists, treat that as a real release immutability violation and stop.
 
 `Release` should create the GitHub release archives using the `RELEASE.md` entry as the release body, then update the stable Homebrew formula.
 

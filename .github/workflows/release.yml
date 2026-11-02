@@ -31,27 +31,30 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
 
       - name: Resolve release metadata
         id: release
         run: |
           set -euo pipefail
 
+          version="$(scripts/check-release-notes.sh)"
+
           if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
-            archive_version="${GITHUB_REF_NAME#v}"
+            if [[ "${GITHUB_REF_NAME}" != "v${version}" ]]; then
+              echo "::error::tag ${GITHUB_REF_NAME} does not match version ${version} in RELEASE.md and the npm packages"
+              exit 1
+            fi
+            archive_version="${version}"
             release_tag="${GITHUB_REF_NAME}"
-            npm_version="${GITHUB_REF_NAME#v}"
+            npm_version="${version}"
             npm_dist_tag="latest"
             mirror_tag="${GITHUB_REF_NAME}"
             mirror_stable="true"
           else
-            base_tag="$(git describe --tags --abbrev=0 --match 'v[0-9]*' 2>/dev/null || true)"
-            IFS=. read -r major minor patch <<<"${base_tag:-v0.0.0}"
+            IFS=. read -r major minor patch <<<"${version}"
             # Nightlies must outrank the last stable release and never regress, so
             # claim the smallest version greater than it rather than guessing higher.
-            base_version="${major#v}.${minor}.$((patch + 1))"
+            base_version="${major}.${minor}.$((patch + 1))"
 
             short_sha="${GITHUB_SHA::7}"
             archive_version="${base_version}-dev-${GITHUB_RUN_ID}-${short_sha}"
@@ -409,6 +412,9 @@ jobs:
             git commit -m "ghosttykit-nightly ${ASSET_VERSION}"
           fi
 
+          # A release pushes main and its tag together, so the nightly and stable runs can both
+          # reach this point; each writes its own formula, so rebasing onto the other is clean.
+          git pull --rebase --quiet
           git push
 
   publish-lua-mirrors:
@@ -505,7 +511,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Set package version
+      - name: Set nightly package version
+        if: github.ref_type == 'branch'
         run: npm version "${{ needs.resolve.outputs.npm_version }}" --no-git-tag-version
 
       - name: Pack dry run
@@ -536,7 +543,8 @@ jobs:
           node-version: 26
           registry-url: https://registry.npmjs.org
 
-      - name: Set package version
+      - name: Set nightly package version
+        if: github.ref_type == 'branch'
         run: npm version "${{ needs.resolve.outputs.npm_version }}" --no-git-tag-version
 
       - name: Use matching GhosttyKit SDK

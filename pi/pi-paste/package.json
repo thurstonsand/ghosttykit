@@ -1,6 +1,6 @@
 {
   "name": "@thurstonsand/pi-paste",
-  "version": "0.0.0",
+  "version": "0.8.0",
   "type": "module",
   "description": "Pi extension for pasting your local Mac clipboard into remote gty ssh sessions",
   "publishConfig": {
@@ -27,9 +27,12 @@
     "index.ts",
     "settings.ts",
     "typebox.ts",
-    "README.md"
+    "README.md",
+    "CHANGELOG.md"
   ],
   "scripts": {
+    "prepack": "cp ../../RELEASE.md CHANGELOG.md",
+    "postpack": "rm CHANGELOG.md",
     "fmt": "biome format --write .",
     "lint": "biome check .",
     "typecheck": "tsc --noEmit",

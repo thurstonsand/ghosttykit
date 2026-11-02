@@ -2,7 +2,13 @@
 
 # Release notes
 
-## 0.8.0
+## [Unreleased]
+
+### Added
+
+- Pi paste ships these release notes as its changelog, so Pi shows what changed on the first launch after each update. Pi only starts tracking once an installed version has a changelog, so the first notes appear on the update after this one.
+
+## [0.8.0] - 2026-11-02
 
 Ghostty 1.4 only, and Herdr keybindings that install themselves.
 
@@ -23,7 +29,7 @@ Ghostty 1.4 only, and Herdr keybindings that install themselves.
 
 - The spawn wrapper and `gty spawn-claim`. `gty split --wait` always prints the new terminal's tty.
 
-## 0.7.1
+## [0.7.1] - 2026-10-16
 
 Pi paste shows pasted text right away, on Pi 1.3.
 
@@ -35,7 +41,7 @@ Pi paste shows pasted text right away, on Pi 1.3.
 
 - Text pasted with Pi paste appears in the editor immediately, instead of staying hidden until the next keypress.
 
-## 0.7.0
+## [0.7.0] - 2026-10-06
 
 Apple Silicon only, and Pi paste on Pi 1.0.
 
@@ -48,7 +54,7 @@ Apple Silicon only, and Pi paste on Pi 1.0.
 
 - The stable Homebrew formula no longer declares a version that its archive URL already implies, so it passes Homebrew's strict audit.
 
-## 0.6.0
+## [0.6.0] - 2026-08-04
 
 One keymap across Ghostty splits, Herdr panes, and Neovim windows.
 
@@ -68,7 +74,7 @@ One keymap across Ghostty splits, Herdr panes, and Neovim windows.
 - A `gty ssh` session that dies while a remote full-screen application is running no longer leaves the local terminal holding that application's modes.
 - Nightly versions sort above the stable release they were built on, so channels are comparable again.
 
-## 0.5.0
+## [0.5.0] - 2026-08-02
 
 Remote bootstrap that works from a real install.
 
@@ -89,7 +95,7 @@ Remote bootstrap that works from a real install.
 - Hosts configured with `RequestTTY` in `ssh_config` no longer corrupt GhosttyKit's own SSH probes; version and `remote-init` replies parse again.
 - Remote commands run under `/bin/sh`, so accounts whose login shell is csh or tcsh can be bootstrapped.
 
-## 0.4.0
+## [0.4.0] - 2026-07-13
 
 Deterministic terminal targeting and hardened Ghostty control.
 
@@ -111,7 +117,7 @@ Deterministic terminal targeting and hardened Ghostty control.
 - Retry-safe actions now clear and recover stale terminal bindings without replaying partial input or split operations.
 - Fixed daemon-installed splits failing to find the matching `gty` executable.
 
-## 0.3.0
+## [0.3.0] - 2026-06-26
 
 SDK and Pi paste expansion.
 
@@ -129,7 +135,7 @@ SDK and Pi paste expansion.
 
 - Lua paste bodies now stream correctly through the transport instead of being buffered in memory first.
 
-## 0.2.1
+## [0.2.1] - 2026-06-20
 
 Release process hardening.
 
@@ -139,7 +145,7 @@ Release process hardening.
 - Documented the stable release flow as tag-driven across GitHub releases, Homebrew, Lua mirrors, and LuaRocks.
 - Added the `release-all` skill for coordinating GhosttyKit releases.
 
-## 0.2.0
+## [0.2.0] - 2026-06-20
 
 Initial GhosttyKit release.
 

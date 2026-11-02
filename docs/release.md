@@ -10,9 +10,15 @@ Pushes to `main` publish nightly artifacts. Pushes of `v*` tags publish stable a
 
 The `Release` workflow builds a Darwin archive for Apple Silicon, and Linux archives for `amd64` and `arm64`. Intel Macs are not supported; the Homebrew formula refuses to install on one. Darwin archives carry `gty` and the signed, notarized `GhosttyKitD.app`; Linux archives carry `gty` alone, since the daemon is macOS-only. Every archive stamps its own release tag into `gty` so a `gty ssh` bootstrap can download the matching remote asset.
 
-Pushes to `main` create a prerelease named `nightly-<next-patch>-dev-<github-run-id>-<short-sha>`, where `<next-patch>` is the latest stable tag with its patch component incremented. Nightly archive versions use `<next-patch>-dev-<github-run-id>-<short-sha>` so package managers can reliably detect newer builds, and so a nightly always sorts above the stable release it was built on top of. Each nightly gets its own release tag, so Homebrew formula URLs remain stable even after later nightlies publish.
+Pushes to `main` create a prerelease named `nightly-<next-patch>-dev-<github-run-id>-<short-sha>`, where `<next-patch>` is the newest release in `RELEASE.md` with its patch component incremented. Nightly archive versions use `<next-patch>-dev-<github-run-id>-<short-sha>` so package managers can reliably detect newer builds, and so a nightly always sorts above the stable release it was built on top of. Each nightly gets its own release tag, so Homebrew formula URLs remain stable even after later nightlies publish.
 
-Stable releases are tag-driven. Create and push an annotated `v*` git tag; the workflow then creates the GitHub release with the `RELEASE.md` entry as the release body.
+Stable releases are tag-driven, and `mise run release X.Y.Z` cuts one. It refuses unless `main` is checked out, clean, level with `origin/main`, and green in CI, and unless `## [Unreleased]` has entries and `X.Y.Z` is greater than the current release. It then moves the Unreleased entries under `## [X.Y.Z] - <today>`, sets both npm packages to `X.Y.Z`, commits `chore(release): X.Y.Z`, creates the annotated tag `vX.Y.Z` with that section as its body, and pushes `main` and the tag together. The workflow fails unless the tag, the npm package versions, and the newest `RELEASE.md` release agree, then creates the GitHub release with that `RELEASE.md` entry as the release body.
+
+The daemon's bundle version and the Homebrew formula version have no checked-in source: the workflow stamps the release version into them when it builds the archives and writes the formula.
+
+### Release notes
+
+`RELEASE.md` is the changelog for the whole monorepo, since every package versions in lockstep. Its sections are `## [Unreleased]` followed by `## [x.y.z] - YYYY-MM-DD`, newest first. `mise run release:lint`, part of `mise run check` and CI, fails if any other `##` heading appears, if releases do not strictly descend, or if the newest release is not the version in the npm packages' `package.json`.
 
 ### Homebrew tap
 
@@ -50,7 +56,9 @@ There is no separate Go registry publish step.
 
 The `Release` workflow publishes the TypeScript SDK from `sdk/ts` as `@thurstonsand/ghosttykit` and the Pi extension from `pi/pi-paste` as `@thurstonsand/pi-paste`. It uses npm Trusted Publishing through GitHub Actions OIDC, so the repository does not store an npm token.
 
-Stable `v*` tags publish matching package versions on the default `latest` dist-tag. Pushes to `main` publish unique prerelease versions like `X.Y.Z-nightly.<run-id>.<attempt>.<short-sha>` on the `nightly` dist-tag, where `X.Y.Z` is the latest stable tag with its patch component incremented, leaving `latest` untouched.
+The package versions on `main` are the current release. Stable `v*` tags publish them as checked in, on the default `latest` dist-tag. Pushes to `main` publish unique prerelease versions like `X.Y.Z-nightly.<run-id>.<attempt>.<short-sha>` on the `nightly` dist-tag, where `X.Y.Z` is the current release with its patch component incremented, leaving `latest` untouched.
+
+Pi paste packs `RELEASE.md` as its `CHANGELOG.md`, so Pi shows the release notes when it updates the extension.
 
 The workflow runs shared CI once, publishes the TypeScript SDK first, then rewrites Pi paste's `@thurstonsand/ghosttykit` dependency to the exact SDK version from the same run before packing and publishing Pi paste. This keeps stable and nightly Pi paste packages paired with the matching SDK package.
 

@@ -1,6 +1,6 @@
 {
   "name": "@thurstonsand/ghosttykit",
-  "version": "0.0.0",
+  "version": "0.8.0",
   "type": "module",
   "description": "TypeScript SDK for GhosttyKit daemon clients",
   "license": "MIT",
