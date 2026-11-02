@@ -2,7 +2,9 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
+	"strings"
 	"syscall"
 
 	"github.com/spf13/cobra"
@@ -18,7 +20,7 @@ func herdrCmd(opts *options) *cobra.Command {
 		Use:   "herdr",
 		Short: "Attach to Herdr and navigate its panes",
 	}
-	cmd.AddCommand(herdrAttachCmd(opts), herdrNavigateCmd())
+	cmd.AddCommand(herdrAttachCmd(opts), herdrSetupCmd(), herdrNavigateCmd())
 	return cmd
 }
 
@@ -83,9 +85,11 @@ func runHerdrAttach(opts *options, attach attachOptions, args []string, dashInde
 		return fmt.Errorf("herdr attach needs the GhosttyKit bridge: %w", err)
 	}
 	defer func() { _ = prepared.Close() }()
-	if err := remote.RequireRemoteCommand(sshOpts, host, attach.HerdrBin); err != nil {
-		return err
+	setup, err := remote.RunRemoteGTY(sshOpts, host, prepared, "herdr", "setup", "--herdr-bin", attach.HerdrBin)
+	if err != nil {
+		return fmt.Errorf("herdr attach could not set up Herdr on %s: %w", host, err)
 	}
+	_, _ = fmt.Fprint(os.Stderr, setup)
 
 	if err := gty.ActivateKeyTable(client.KeyTableOptions{
 		TerminalOptions: terminal,
@@ -118,6 +122,47 @@ func navigationFilter(gty client.Client, terminal client.TerminalOptions) *osc.N
 	return osc.NewNavigationFilter(os.Stdout, func(direction string) {
 		_ = gty.Focus(client.FocusOptions{TerminalOptions: terminal, Direction: direction})
 	})
+}
+
+func herdrSetupCmd() *cobra.Command {
+	var herdrBin string
+	cmd := &cobra.Command{
+		Use:   "setup",
+		Short: "Add the navigation keybindings to this host's Herdr config",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runHerdrSetup(cmd.OutOrStdout(), herdrBin)
+		},
+	}
+	cmd.Flags().StringVar(&herdrBin, "herdr-bin", "herdr", "herdr executable")
+	return cmd
+}
+
+// runHerdrSetup reloads running sessions on every run, since a config can gain the bindings while
+// a server runs, but prints only when it changed the config, so attach can relay its output on
+// every connection without repeating itself.
+func runHerdrSetup(out io.Writer, herdrBin string) error {
+	configPath, err := herdr.ConfigPath()
+	if err != nil {
+		return err
+	}
+	added, err := herdr.EnsureBindings(configPath, herdr.NavigationBindings(remote.ManagedGTY), herdrBin)
+	if err != nil {
+		return err
+	}
+	if len(added) > 0 {
+		_, _ = fmt.Fprintf(out, "gty: added Herdr keybindings %s to %s\n", strings.Join(added, ", "), configPath)
+	}
+	sessions, err := herdr.RunningSessions(herdrBin)
+	if err != nil {
+		return err
+	}
+	for _, session := range sessions {
+		if err := herdr.ReloadConfig(herdrBin, session); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func herdrNavigateCmd() *cobra.Command {

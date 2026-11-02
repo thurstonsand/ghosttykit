@@ -61,12 +61,14 @@ func PlainSSHArgs(sshOpts SSHOptions, host string, remoteCommand []string) []str
 	return args
 }
 
-// RequireRemoteCommand fails unless the remote host can run command.
-func RequireRemoteCommand(sshOpts SSHOptions, host string, command string) error {
-	if _, err := captureSSH(sshOpts, host, "command -v "+ShellQuote(command)); err != nil {
-		return fmt.Errorf("%s is not runnable on %s: %w", command, host, err)
+// RunRemoteGTY runs the prepared remote gty over a control connection and returns its stdout.
+func RunRemoteGTY(sshOpts SSHOptions, host string, prepared PreparedBridge, args ...string) (string, error) {
+	parts := make([]string, 0, 1+len(args))
+	parts = append(parts, ShellQuote(prepared.RemoteGTY))
+	for _, arg := range args {
+		parts = append(parts, ShellQuote(arg))
 	}
-	return nil
+	return captureSSH(sshOpts, host, strings.Join(parts, " "))
 }
 
 // controlSSHArgs configures GhosttyKit's own SSH commands. `-T` overrides a host configured with

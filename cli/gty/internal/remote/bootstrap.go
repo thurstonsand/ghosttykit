@@ -24,8 +24,12 @@ var SourceRoot = ""
 // ReleaseTag is the release tag stamped into release builds.
 var ReleaseTag = ""
 
+// ManagedGTY is the bootstrap install path as a POSIX shell word, for callers such as Herdr
+// keybindings that must name the remote gty ahead of time.
+const ManagedGTY = `"${XDG_DATA_HOME:-$HOME/.local/share}/ghosttykit/bin/gty"`
+
 // managedInstallShellVar assigns the bootstrap install path, and prefixes every script below.
-const managedInstallShellVar = `gty_managed="${XDG_DATA_HOME:-$HOME/.local/share}/ghosttykit/bin/gty"
+const managedInstallShellVar = `gty_managed=` + ManagedGTY + `
 `
 
 // gtyCandidatesScript prints every usable remote gty as a path and version line pair, preferring

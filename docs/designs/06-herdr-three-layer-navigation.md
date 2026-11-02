@@ -16,14 +16,15 @@ The intended repository location is `docs/designs/06-herdr-three-layer-navigatio
 
 ### Implementation amendments
 
-The body below records the design as decided. Implementation changed four things; the rest landed as written.
+The body below records the design as decided. Implementation changed five things; the rest landed as written.
 
 - **The Ghostty key table is named `bypass`, not `nvim`.** Two different inner layers activate it, so it is named for what it does to Ghostty's own bindings rather than for one tenant.
 - **`ghosttykit.nvim` speaks Herdr's socket directly, and `--from-nvim` does not exist.** Alternative 4 below rejects a Lua Herdr client to keep policy in one place. That reasoning held for the full ladder but not for its tail: the plugin already speaks the GhosttyKit daemon protocol natively, and a flag whose only meaning is "start at step 2" is a subprocess spawn on the hottest path to communicate a constant. The plugin now runs neighbor → focus, or the sentinel at an edge, over `HERDR_SOCKET_PATH`. `gty herdr navigate` keeps the full ladder for Herdr's own keybindings, which need a subprocess regardless. The sentinel spelling now lives in Go and Lua, each commented as the other's counterpart.
 - **`SessionOptions` carries a fourth field, `ForwardSignals`.** Signal handling has to own the `exec.Cmd`, and keeping it in the transport leaves `gty ssh` untouched while attach's cleanup still runs after OpenSSH exits.
 - **Attach does not preflight remote Herdr method availability.** That needs a running remote server and another round trip; it belongs to the deferred `gty herdr doctor`. Caller TTY, bridge, managed `gty`, and remote `herdr` presence are all checked.
+- **GhosttyKit installs the Herdr keybindings after all.** Phase 3 first shipped as documentation, which left the worst failure in the design (control bytes leaking into the pane) one forgotten paste away. `gty herdr setup` appends any missing bindings to the host's `config.toml` and reloads running sessions, refusing when `herdr config check` says a binding would be disabled, and attach runs it on the remote host before every session. A Herdr plugin was considered as the installation layer and rejected: plugin v1 cannot declare keybindings, so it would still need the same four config entries.
 
-Phase 3 ships as documentation rather than installed configuration. Phase 5 hardening remains open, including the two-client stress test for the accepted foreground-client race.
+Phase 5 hardening remains open, including the two-client stress test for the accepted foreground-client race.
 
 ## Decision summary
 
@@ -134,7 +135,7 @@ The earlier draft solved the last hop with a remote PTY wrapper and a separate `
 
 - Independent per-client focus inside Herdr. Herdr’s attached clients share the server’s focused pane.
 - Cooperative navigation for arbitrary TUIs. Neovim is the only inner application recognized in the initial implementation.
-- Automatic editing of `~/.config/herdr/config.toml`.
+- Automatic editing of `~/.config/herdr/config.toml`. (Reversed in implementation; see the amendments.)
 - Replacing `gty ssh` as the generic remote transport.
 - Building a general terminal proxy.
 - Hiding every title effect on clients that do not use the integrated attach command.

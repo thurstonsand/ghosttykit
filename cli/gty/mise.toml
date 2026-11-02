@@ -1,3 +1,7 @@
+[tools]
+# `gty herdr setup` defers keybinding collisions to `herdr config check`, so its tests run Herdr.
+herdr = "0.9.5"
+
 [tasks.fmt]
 description = "Format gty sources"
 run = "golangci-lint fmt"

@@ -21,6 +21,7 @@ Every terminal-scoped command targets the caller's own terminal, detected from t
 | `gty clear-cache [--all]`                                                    | Drop the caller's cached tty mapping, or all mappings.                                                                              |
 | `gty ssh [flags] host [-- remote command]`                                   | SSH with a GhosttyKit bridge; see `docs/ssh.md`.                                                                                    |
 | `gty herdr attach [flags] host [-- herdr arguments]`                         | Run remote Herdr with bare-key navigation into Ghostty; see `docs/ssh.md`.                                                          |
+| `gty herdr setup [--herdr-bin <path>]`                                       | Add the navigation keybindings to this host's Herdr config and reload running sessions; see `docs/ssh.md`.                          |
 | `gty herdr navigate <left\|down\|up\|right>`                                 | Navigate one layer from inside a Herdr pane. Called by Herdr keybindings, not by hand.                                              |
 
 ## Exit codes

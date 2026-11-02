@@ -114,10 +114,11 @@ gty herdr attach pod042 -- --session work
 
 Unlike `gty ssh`, attach fails closed. There is no plain-SSH fallback: bare navigation keys arriving in a remote shell as raw control bytes are worse than a refused attach. Run `ssh host` and `herdr` directly when you do not need integrated navigation.
 
-Attach differs from `gty ssh` in four ways:
+Attach differs from `gty ssh` in five ways:
 
 - it forces a remote pty even though it runs a remote command;
 - it requires `gty` at `${XDG_DATA_HOME:-$HOME/.local/share}/ghosttykit/bin/gty`, whatever else the host has on `PATH`, because Herdr's keybindings name that path ahead of time;
+- it installs those keybindings with `gty herdr setup` on the remote host;
 - it filters navigation sentinels out of the SSH output stream;
 - it holds the Ghostty key table for the whole session.
 
@@ -131,37 +132,31 @@ On a client that is not `gty herdr attach`, such as a phone over plain SSH, the 
 
 ### Herdr configuration
 
-GhosttyKit does not edit `~/.config/herdr/config.toml`. Add these bindings on the remote host before the first attach, then reload Herdr's config:
+Navigation needs four `[[keys.command]]` bindings in the remote host's Herdr config. Attach installs them: before every session it runs `gty herdr setup` on the remote host, which is also how attach checks that `herdr` runs there.
+
+```text
+gty herdr setup [--herdr-bin <path>]
+```
+
+`setup` reads the config at `HERDR_CONFIG_PATH`, else `$XDG_CONFIG_HOME/herdr/config.toml`, else `~/.config/herdr/config.toml`, and appends whichever of these bindings it lacks:
 
 ```toml
 [[keys.command]]
-key = "ctrl+h"
-type = "shell"
+key = 'ctrl+h'
+type = 'shell'
 command = 'exec "${XDG_DATA_HOME:-$HOME/.local/share}/ghosttykit/bin/gty" herdr navigate left'
-description = "navigate left"
-
-[[keys.command]]
-key = "ctrl+j"
-type = "shell"
-command = 'exec "${XDG_DATA_HOME:-$HOME/.local/share}/ghosttykit/bin/gty" herdr navigate down'
-description = "navigate down"
-
-[[keys.command]]
-key = "ctrl+k"
-type = "shell"
-command = 'exec "${XDG_DATA_HOME:-$HOME/.local/share}/ghosttykit/bin/gty" herdr navigate up'
-description = "navigate up"
-
-[[keys.command]]
-key = "ctrl+l"
-type = "shell"
-command = 'exec "${XDG_DATA_HOME:-$HOME/.local/share}/ghosttykit/bin/gty" herdr navigate right'
-description = "navigate right"
+description = 'navigate left'
 ```
 
-The absolute path is deliberate: Herdr runs `type = "shell"` commands detached, so they may not inherit an interactive shell's `PATH`, and the host may carry an unrelated `gty` elsewhere. Attach keeps that path at its own version on every connection.
+and the same for `ctrl+j` (`down`), `ctrl+k` (`up`), and `ctrl+l` (`right`). Then it reloads every running Herdr session, because custom command bindings belong to the server and a config can gain them while a server runs. It prints only when it changed the config, and attach relays that output.
 
-Missing bindings are the unpleasant failure: the key table passes control bytes inward and Herdr hands them to the focused pane instead of running `gty`. Install the config before the first attach.
+- Appending leaves existing comments and layout alone, and writes through a config that is a symlink into a dotfiles checkout.
+- Herdr decides what collides. Before writing, `setup` runs `herdr config check` on the result. If Herdr would disable any of the four bindings, for example because a `[keys]` action or another `[[keys.command]]` already uses the key under any spelling Herdr accepts, or would ignore the config altogether, `setup` writes nothing and fails with Herdr's diagnostic, so attach fails too. Herdr diagnostics about other keys do not stop it.
+- A config that `setup` cannot parse is refused the same way; add the bindings by hand.
+
+The bindings name the managed `gty` path deliberately: Herdr runs `type = "shell"` commands detached, so they may not inherit an interactive shell's `PATH`, and the host may carry an unrelated `gty` elsewhere. Attach keeps that path at its own version on every connection.
+
+Herdr's own remote attach, `herdr --remote`, does not send local custom command bindings to the server, so these bindings belong on the host that runs the Herdr server, which is where attach puts them.
 
 Also keep the Ghostty `bypass` key table from [`nvim/README.md`](../nvim/README.md#ghostty-key-table); attach reuses it rather than introducing another.
 
