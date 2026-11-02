@@ -30,6 +30,9 @@
     "README.md",
     "CHANGELOG.md"
   ],
+  "engines": {
+    "node": ">=22.19.0"
+  },
   "scripts": {
     "prepack": "cp ../../RELEASE.md CHANGELOG.md",
     "postpack": "rm CHANGELOG.md",

@@ -65,8 +65,14 @@
       "allowedVersions": "<5.2"
     },
     {
-      "description": "@types/node describes the runtime, so it tracks the Node these packages run on rather than the newest DefinitelyTyped release. Types from a later major describe APIs that are not there and hide ones that were removed, and tsc believes them either way. Raise the ceiling when the toolchain in mise.toml moves.",
+      "description": "@types/node tracks the engines floor, not the newest DefinitelyTyped release or the Node that dev and CI run: types from a later major describe APIs the oldest supported Node lacks, and tsc believes them. Move the ceiling when the floor moves.",
       "matchPackageNames": ["@types/node"],
+      "allowedVersions": "<25"
+    },
+    {
+      "description": "Renovate supports only Node 24 (its engines say ^24.11), so the toolset its own tasks run in stays there while the repo moves on",
+      "matchFileNames": ["mise.renovate.toml"],
+      "matchPackageNames": ["node"],
       "allowedVersions": "<25"
     },
     {

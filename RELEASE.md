@@ -8,6 +8,10 @@
 
 - Pi paste ships these release notes as its changelog, so Pi shows what changed on the first launch after each update. Pi only starts tracking once an installed version has a changelog, so the first notes appear on the update after this one.
 
+### Changed
+
+- Pi paste declares the Node it supports, `>=22.19.0`, the same floor as Pi.
+
 ## [0.8.0] - 2026-11-02
 
 Ghostty 1.4 only, and Herdr keybindings that install themselves.

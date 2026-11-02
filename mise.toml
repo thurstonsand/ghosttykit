@@ -144,32 +144,18 @@ run = "hk fix --all --step jactionlint"
 description = "Validate GitHub Actions workflows"
 run = "hk check --all --step jactionlint"
 
+# Renovate supports only Node 24 (its engines say ^24.11), while the repo develops on 26. Its tasks
+# run under MISE_ENV=renovate, whose mise.renovate.toml overlays Node 24 and adds Renovate, so mise
+# both installs and runs it on 24: re2, Renovate's native regex engine, is built for the Node that
+# installs it and refuses to load in another, leaving validation on JavaScript RegExp with only a
+# warning. `mise x` also puts that Node ahead of a Homebrew one already on PATH.
 [tasks.renovate]
 description = "Run Renovate"
-run = "PATH=\"{{ tools.node.path }}/bin:$PATH\" renovate"
-tools.node = "26"
-tools."npm:renovate" = { version = "44.198.2", allow_builds = [
-  "re2",
-], trust_policy_excludes = [
-  "@yarnpkg/libzip@3.2.2",
-] }
+run = "MISE_ENV=renovate mise x -- renovate"
 
-# Renovate ships a prebuilt RE2 built against one Node ABI, so it has to install and
-# run under the same Node. Scoping the tool to the tasks that use it keeps the two
-# declared together, so a Node bump here cannot silently drop Renovate to RegExp.
-# Declaring it is not enough, though: Renovate's bin shim ends in `exec node`, and mise
-# builds a task's PATH from the shell's pre-activation ordering, which on a Homebrew
-# machine starts at /opt/homebrew/bin -- ahead of the node named here. Naming the
-# interpreter outright is what keeps the compile and the load on the same ABI.
 [tasks."renovate:lint"]
 description = "Validate dependency update configuration"
-run = "PATH=\"{{ tools.node.path }}/bin:$PATH\" renovate-config-validator renovate.json"
-tools.node = "26"
-tools."npm:renovate" = { version = "44.198.2", allow_builds = [
-  "re2",
-], trust_policy_excludes = [
-  "@yarnpkg/libzip@3.2.2",
-] }
+run = "MISE_ENV=renovate mise x -- renovate-config-validator renovate.json"
 
 [tasks.fmt]
 description = "Format every component"
