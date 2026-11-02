@@ -2,6 +2,27 @@
 
 # Release notes
 
+## 0.8.0
+
+Ghostty 1.4 only, and Herdr keybindings that install themselves.
+
+### Added
+
+- `gty herdr setup` adds the four navigation keybindings to the host's Herdr config and reloads running Herdr sessions. It leaves existing comments and layout alone, and writes nothing if Herdr reports that one of the keys would collide. `gty herdr attach` runs it on the remote host before every session, so there is no longer a config to paste by hand.
+- `gty doctor` reports whether the daemon has Accessibility permission, which `gty resize --percent` needs.
+
+### Changed
+
+- `ghosttykitd` requires Ghostty 1.4.0 or newer. It finds each caller's terminal through Ghostty's `tty` property and checks that mapping on every request, so a moved tab or a reused pty no longer reaches the wrong terminal. `gty doctor` fails on an older Ghostty.
+- Remote `gty` commands inside a `gty ssh` session work without a remote pty, and reject `--tty` and `GTY_TTY` instead of ignoring them.
+- `gty resize --percent` fails with a clear error when the daemon lacks Accessibility permission.
+- Protocol requests name their terminal with `tty` or `callerTty`. The Go and TypeScript SDKs replace `ResolveTTY`/`resolveTTY` with `ResolveTarget`/`resolveTarget`.
+- Pi paste is built and verified against Pi 1.5. Its text and file paste behavior is unchanged.
+
+### Removed
+
+- The spawn wrapper and `gty spawn-claim`. `gty split --wait` always prints the new terminal's tty.
+
 ## 0.7.1
 
 Pi paste shows pasted text right away, on Pi 1.3.
