@@ -1,0 +1,15 @@
+ignores:
+  - rule: checkout-static-credentials
+    file: .github/workflows/release.yml
+    job: update-homebrew-tap
+    step: Checkout Homebrew tap
+    reason: >-
+      HOMEBREW_TAP_PRIVATE_KEY is a deploy key with write access to thurstonsand/homebrew-tap only, and
+      a deploy-key push is what starts the tap's Formulae audit; a GITHUB_TOKEN push would not.
+  - rule: adhoc-packages
+    file: .github/workflows/release.yml
+    job: publish-pi-paste
+    step: Use matching GhosttyKit SDK
+    reason: >-
+      Pins Pi paste to the SDK version this run just published, which no committed lockfile can name;
+      --package-lock-only rewrites the lockfile and the next step installs from it with npm ci.

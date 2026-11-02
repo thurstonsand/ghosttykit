@@ -3,6 +3,7 @@
   "extends": [
     "config:recommended",
     "customManagers:biomeVersions",
+    "helpers:pinGitHubActionDigests",
     ":configMigration",
     ":maintainLockFilesWeekly",
     "abandonments:recommended",
@@ -11,6 +12,19 @@
   "minimumReleaseAge": "3 days",
   "internalChecksFilter": "strict",
   "ignorePaths": ["sdk/lua/.github/workflows/**", "nvim/.github/workflows/**"],
+  "customManagers": [
+    {
+      "description": "hk.pkl imports hk's Pkl schema and builtins from a release, which should match the hk pinned in mise.toml.",
+      "customType": "regex",
+      "managerFilePatterns": ["/^hk\\.pkl$/"],
+      "matchStrings": ["download/v(?<currentValue>\\d+\\.\\d+\\.\\d+)/hk@\\d+\\.\\d+\\.\\d+#"],
+      "autoReplaceStringTemplate": "download/v{{{newValue}}}/hk@{{{newValue}}}#",
+      "depNameTemplate": "hk",
+      "packageNameTemplate": "jdx/hk",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v(?<version>.+)$"
+    }
+  ],
   "dependencyDashboard": true,
   "timezone": "America/New_York",
   "labels": ["dependencies"],
@@ -33,6 +47,11 @@
     },
     {
       "matchManagers": ["mise"],
+      "groupName": "mise tools"
+    },
+    {
+      "matchManagers": ["custom.regex"],
+      "matchDepNames": ["hk"],
       "groupName": "mise tools"
     },
     {

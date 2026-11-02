@@ -31,7 +31,7 @@ busted_luacats_rev = "5ed85d0e016a5eb5eca097aa52905eedf1b180f1"
 luassert_luacats_rev = "d3528bb679302cbfdedefabb37064515ab95f7b9"
 
 [tools]
-actionlint = "1.7.12"
+jactionlint = "2.4.0"
 go = "1.27.3"
 # Global rather than scoped to `bootstrap`, even though that is its only caller:
 # `hk install --mise` writes a pre-commit hook that invokes hk through a mise shim,
@@ -48,6 +48,7 @@ golangci-lint = "2.15.0"
 gofumpt = "0.12.0"
 biome = "2.6.4"
 markdownlint-cli2 = "0.24.0"
+shellcheck = "0.11.0"
 stylua = "2.6.0"
 swiftformat = "0.64.4"
 
@@ -126,9 +127,13 @@ run = "biome format ."
 description = "Lint Markdown"
 run = "markdownlint-cli2"
 
+[tasks."actions:fix"]
+description = "Apply jactionlint's safe fixes to GitHub Actions workflows"
+run = "hk fix --all --step jactionlint"
+
 [tasks."actions:lint"]
 description = "Validate GitHub Actions workflows"
-run = "actionlint"
+run = "hk check --all --step jactionlint"
 
 [tasks.renovate]
 description = "Run Renovate"
@@ -159,7 +164,7 @@ tools."npm:renovate" = { version = "44.198.2", allow_builds = [
 
 [tasks.fmt]
 description = "Format every component"
-depends = ["//...:fmt", "docs:fmt"]
+depends = ["//...:fmt", "docs:fmt", "actions:fix"]
 
 [tasks."fmt:check"]
 description = "Verify formatting without rewriting files"

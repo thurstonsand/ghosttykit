@@ -16,18 +16,19 @@ jobs:
           - name: darwin-arm64
             runner: macos-26
     runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up mise
-        uses: jdx/mise-action@v5
+        uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
         with:
           install: true
           cache: true
 
       - name: Cache Go dependencies
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/go/pkg/mod
@@ -49,18 +50,19 @@ jobs:
   swift:
     name: Swift
     runs-on: macos-26
+    timeout-minutes: 20
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up mise
-        uses: jdx/mise-action@v5
+        uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
         with:
           install: true
           cache: true
 
       - name: Cache Swift build products
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: daemon/ghosttykitd/.build
           key: swift-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('daemon/ghosttykitd/Package.swift', 'daemon/ghosttykitd/Package.resolved') }}
@@ -83,21 +85,22 @@ jobs:
   lua-nvim:
     name: Lua / Neovim
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install system dependencies
         run: sudo apt-get update && sudo apt-get install -y libreadline-dev
 
       - name: Set up mise
-        uses: jdx/mise-action@v5
+        uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
         with:
           install: true
           cache: true
 
       - name: Cache Lua dependencies
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             .luarocks
@@ -122,21 +125,22 @@ jobs:
   typescript-pi:
     name: TypeScript / Pi
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install system dependencies
         run: sudo apt-get update && sudo apt-get install -y libreadline-dev
 
       - name: Set up mise
-        uses: jdx/mise-action@v5
+        uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
         with:
           install: true
           cache: true
 
       - name: Cache npm packages
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.npm
           key: npm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('sdk/ts/package-lock.json', 'pi/pi-paste/package-lock.json') }}
@@ -161,15 +165,16 @@ jobs:
   docs-actions:
     name: Docs / Actions
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install system dependencies
         run: sudo apt-get update && sudo apt-get install -y libreadline-dev
 
       - name: Set up mise
-        uses: jdx/mise-action@v5
+        uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
         with:
           install: true
           cache: true

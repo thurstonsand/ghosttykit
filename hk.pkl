@@ -1,4 +1,5 @@
-amends "package://github.com/jdx/hk/releases/download/v1.54.1/hk@1.54.1#/Config.pkl"
+amends "package://github.com/jdx/hk/releases/download/v2.10.0/hk@2.10.0#/Config.pkl"
+import "package://github.com/jdx/hk/releases/download/v2.10.0/hk@2.10.0#/Builtins.pkl"
 
 hooks {
     ["pre-commit"] {
@@ -7,6 +8,16 @@ hooks {
                 check = "mise run check"
                 exclusive = true
             }
+        }
+    }
+    ["check"] {
+        steps {
+            ["jactionlint"] = Builtins.jactionlint
+        }
+    }
+    ["fix"] {
+        steps {
+            ["jactionlint"] = Builtins.jactionlint
         }
     }
 }
