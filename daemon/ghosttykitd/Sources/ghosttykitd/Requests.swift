@@ -539,15 +539,15 @@ func responseForError(_ error: Error) -> FrameReply {
 private func decodingErrorMessage(_ error: DecodingError) -> String {
     switch error {
     case let .keyNotFound(key, _):
-        return "missing required field: \(key.stringValue)"
+        "missing required field: \(key.stringValue)"
     case let .typeMismatch(type, _):
-        return "invalid field type: expected \(type)"
+        "invalid field type: expected \(type)"
     case let .valueNotFound(type, _):
-        return "missing required value: \(type)"
+        "missing required value: \(type)"
     case let .dataCorrupted(context):
-        return context.debugDescription
+        context.debugDescription
     @unknown default:
-        return "invalid request"
+        "invalid request"
     }
 }
 
