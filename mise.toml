@@ -127,6 +127,18 @@ run = "biome format ."
 description = "Lint Markdown"
 run = "markdownlint-cli2"
 
+# `npm ci` installs a lockfile as written and never re-resolves it, so it passes a lockfile that
+# `npm install`, which Renovate runs, can no longer produce. This re-resolves without installing
+# and fails if the result differs. Under mise's Node, since another npm can rewrite it on its own.
+[tasks."lockfile:lint"]
+description = "Check the npm lockfiles still resolve from their package.json"
+wait_for = ["deps:ts", "deps:pi"]
+run = [
+  "npm --prefix sdk/ts install --package-lock-only --ignore-scripts --no-audit --no-fund --loglevel=error",
+  "npm --prefix pi/pi-paste install --package-lock-only --ignore-scripts --no-audit --no-fund --loglevel=error",
+  "git diff --exit-code -- sdk/ts/package-lock.json pi/pi-paste/package-lock.json",
+]
+
 [tasks."release:lint"]
 description = "Verify RELEASE.md headings and that its newest release matches the npm package versions"
 run = "scripts/check-release-notes.sh >/dev/null"
@@ -167,7 +179,7 @@ depends = ["//...:fmt:check", "docs:fmt:check"]
 
 [tasks.lint]
 description = "Lint every component"
-depends = ["//...:lint", "docs:lint", "actions:lint", "release:lint", "renovate:lint"]
+depends = ["//...:lint", "docs:lint", "actions:lint", "lockfile:lint", "release:lint", "renovate:lint"]
 
 [tasks.typecheck]
 description = "Type-check every component that has a type checker"
@@ -188,6 +200,7 @@ depends = [
   "docs:fmt",
   "docs:lint",
   "actions:lint",
+  "lockfile:lint",
   "release:lint",
   "renovate:lint",
 ]

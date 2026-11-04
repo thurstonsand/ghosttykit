@@ -184,5 +184,6 @@ jobs:
           mise run docs:fmt:check
           mise run docs:lint
           mise run actions:lint
+          mise run lockfile:lint
           mise run release:lint
           mise run renovate:lint
