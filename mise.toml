@@ -31,12 +31,12 @@ busted_luacats_rev = "5ed85d0e016a5eb5eca097aa52905eedf1b180f1"
 luassert_luacats_rev = "d3528bb679302cbfdedefabb37064515ab95f7b9"
 
 [tools]
-jactionlint = "2.4.0"
+jactionlint = "2.5.0"
 go = "1.27.3"
 # Global rather than scoped to `bootstrap`, even though that is its only caller:
 # `hk install --mise` writes a pre-commit hook that invokes hk through a mise shim,
 # and a shim needs a version resolvable from anywhere in the repo.
-hk = "2.10.0"
+hk = "2.11.1"
 lua-language-server = "3.19.2"
 # Neovim embeds LuaJIT, so the SDK, the plugin, and their rocks trees are all Lua 5.1. LuaJIT itself
 # publishes no git tags, which leaves its mise plugin unable to list versions, so install the 5.1
@@ -46,11 +46,11 @@ node = "26"
 neovim = "0.12.6"
 golangci-lint = "2.15.0"
 gofumpt = "0.12.0"
-biome = "2.6.4"
+biome = "2.6.6"
 markdownlint-cli2 = "0.24.0"
 shellcheck = "0.11.0"
 stylua = "2.6.0"
-swiftformat = "0.64.4"
+swiftformat = "0.64.6"
 
 # The Linux release archive pairs a glibc 2.38 build, which Debian bookworm cannot load, with a
 # static one; swapping the names puts the static build on PATH as `swiftlint`. The aqua backend
