@@ -70,12 +70,6 @@
       "allowedVersions": "<25"
     },
     {
-      "description": "Renovate supports only Node 24 (its engines say ^24.11), so the toolset its own tasks run in stays there while the repo moves on",
-      "matchFileNames": ["mise.renovate.toml"],
-      "matchPackageNames": ["node"],
-      "allowedVersions": "<25"
-    },
-    {
       "description": "Pi's extension loader swaps in the typebox it bundles, so pi-paste pins that exact version by hand and realigns it when Pi moves.",
       "matchPackageNames": ["typebox"],
       "enabled": false
