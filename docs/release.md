@@ -14,6 +14,8 @@ Pushes to `main` create a prerelease named `nightly-<next-patch>-dev-<github-run
 
 Stable releases are tag-driven, and `mise run release X.Y.Z` cuts one. It refuses unless `main` is checked out, clean, level with `origin/main`, and green in CI, and unless `## [Unreleased]` has entries and `X.Y.Z` is greater than the current release. It then moves the Unreleased entries under `## [X.Y.Z] - <today>`, sets both npm packages to `X.Y.Z`, commits `chore(release): X.Y.Z`, creates the annotated tag `vX.Y.Z` with that section as its body, and pushes `main` and the tag together. The workflow fails unless the tag, the npm package versions, and the newest `RELEASE.md` release agree, then creates the GitHub release with that `RELEASE.md` entry as the release body.
 
+Versions follow semantic versioning: a release with any new feature (an `Added` entry), a raised floor (a higher minimum Pi, Node, OS, or other dependency version), or anything breaking is at least minor, and breaking is major from 1.0 on; patch is only for fixes and dependency updates.
+
 The daemon's bundle version and the Homebrew formula version have no checked-in source: the workflow stamps the release version into them when it builds the archives and writes the formula.
 
 ### Release notes

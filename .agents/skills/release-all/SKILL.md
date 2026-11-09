@@ -61,7 +61,7 @@ Summarize:
 - install, packaging, or release workflow changes
 - SDK/plugin/API changes
 - documentation updates
-- likely semver bump: patch, minor, or major
+- likely bump: patch, minor, or major, by the versioning rule in `docs/release.md`
 
 Ask the user to confirm the target version unless they already specified it.
 
