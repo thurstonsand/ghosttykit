@@ -407,10 +407,17 @@ jobs:
           git add Formula
 
           if [[ "${RELEASE_REF_TYPE}" == "tag" ]]; then
+            name="ghosttykit"
             git commit -m "ghosttykit ${RELEASE_REF_NAME#v}"
           else
+            name="ghosttykit-nightly"
             git commit -m "ghosttykit-nightly ${ASSET_VERSION}"
           fi
+
+          # brew audit reads formulae from a tap, so audit the commit about to be pushed through one.
+          brew tap thurstonsand/tap "$PWD"
+          brew trust thurstonsand/tap
+          brew audit --strict --formula "thurstonsand/tap/${name}"
 
           # A release pushes main and its tag together, so the nightly and stable runs can both
           # reach this point; each writes its own formula, so rebasing onto the other is clean.
