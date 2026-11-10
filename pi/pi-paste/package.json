@@ -1,6 +1,6 @@
 {
   "name": "@thurstonsand/pi-paste",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "type": "module",
   "description": "Pi extension for pasting your local Mac clipboard into remote gty ssh sessions",
   "publishConfig": {

@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-11-10
+
 Pi paste ships its changelog and declares its Node floor.
 
 ### Added
