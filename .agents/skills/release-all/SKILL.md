@@ -9,7 +9,7 @@ Use this skill when preparing or publishing a GhosttyKit release.
 
 ## Release model
 
-- Release from `main` with `mise run release X.Y.Z`. It refuses unless `main` is clean, level with `origin/main`, and green in CI, then dates the `## [Unreleased]` notes, writes the version into both npm packages, commits `chore(release): X.Y.Z`, creates the annotated `vX.Y.Z` tag from that section, and pushes `main` and the tag together.
+- Release from `main` with `mise run release X.Y.Z`. It refuses unless `main` is clean, level with `origin/main`, and green in CI, then dates the `## [Unreleased]` notes, writes the version into both npm packages, commits `chore(release): X.Y.Z` (its hook skips the Swift daemon's check off macOS), creates the annotated `vX.Y.Z` tag from that section, and pushes `main` and the tag together.
 - Assume the release starts from a stable committed state. Do not repeat verification the user already performed.
 - Do not run the release task until the user explicitly approves stable publishing.
 - Use `RELEASE.md` for human release notes: `## [Unreleased]`, then `## [X.Y.Z] - YYYY-MM-DD` sections, newest first.

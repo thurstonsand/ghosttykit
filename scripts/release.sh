@@ -53,6 +53,13 @@ npm --prefix pi/pi-paste install --package-lock-only --ignore-scripts --no-audit
 
 [[ "$(scripts/check-release-notes.sh)" == "${version}" ]] || fail "RELEASE.md and the package versions disagree"
 
+# The commit hook runs `mise run check`. Its one part that needs macOS is the Swift daemon's check
+# (swift and codesign), so off macOS the commit skips that task. The daemon passed CI on macOS for
+# this head commit, checked above, and the release commit changes no Swift.
+if [[ "$(uname -s)" != "Darwin" ]]; then
+  export MISE_TASK_SKIP=//daemon/ghosttykitd:check
+fi
+
 git add RELEASE.md sdk/ts/package.json sdk/ts/package-lock.json pi/pi-paste/package.json pi/pi-paste/package-lock.json
 git commit --quiet -m "chore(release): ${version}"
 
