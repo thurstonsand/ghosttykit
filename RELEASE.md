@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+Pi paste ships its changelog and declares its Node floor.
+
 ### Added
 
 - Pi paste ships these release notes as its changelog, so Pi shows what changed on the first launch after each update. Pi only starts tracking once an installed version has a changelog, so the first notes appear on the update after this one.
