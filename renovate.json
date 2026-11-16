@@ -36,7 +36,9 @@
       "versioningTemplate": "loose"
     }
   ],
-  "dependencyDashboard": true,
+  "dependencyDashboard": {
+    "enabled": true
+  },
   "timezone": "America/New_York",
   "labels": ["dependencies"],
   "packageRules": [
