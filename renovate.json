@@ -109,6 +109,17 @@
       "matchPackageNames": ["@earendil-works/**", "typebox"],
       "matchDepTypes": ["peerDependencies"],
       "enabled": false
+    },
+    {
+      "description": "mise installs Biome from GitHub through aqua, whose registry reads its @biomejs/biome@X.Y.Z tags with a version_filter Renovate cannot see (Renovate's mise manager docs), so the version is extracted here.",
+      "matchDatasources": ["github-tags"],
+      "matchPackageNames": ["biomejs/biome"],
+      "extractVersion": "^@biomejs/biome@(?<version>.+)$"
+    },
+    {
+      "description": "biome.json's $schema names the exact Biome release, kept current by customManagers:biomeVersions, so Biome is pinned exactly as its install guide does (npm i -E) and the package, the schema, and any mise pin move in one PR. Last, so it overrides the per-manager groups.",
+      "matchPackageNames": ["@biomejs/biome", "biomejs/biome"],
+      "groupName": "Biome"
     }
   ]
 }
