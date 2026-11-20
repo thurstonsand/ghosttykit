@@ -94,15 +94,21 @@
       "allowedVersions": "<25"
     },
     {
+      "description": "Pi paste declares a Node 22 floor.",
+      "matchFileNames": ["pi/pi-paste/package.json"],
+      "matchPackageNames": ["@types/node"],
+      "allowedVersions": "<23"
+    },
+    {
       "description": "Pi's extension loader swaps in the typebox it bundles, so pi-paste pins that exact version by hand and realigns it when Pi moves.",
       "matchPackageNames": ["typebox"],
       "enabled": false
     },
     {
-      "description": "pi-paste tracks Pi releases as they ship, so Pi skips the minimum release age that holds back everything else, and each update raises the package.json floor to the Pi it was built against.",
+      "description": "pi-paste tests against Pi releases as they ship without raising the supported floor for in-range releases.",
       "matchPackageNames": ["@earendil-works/**"],
       "minimumReleaseAge": null,
-      "rangeStrategy": "bump"
+      "rangeStrategy": "update-lockfile"
     },
     {
       "description": "Pi's docs/packages.md has a package declare the packages Pi provides as peerDependencies at \"*\", so it loads in whichever Pi hosts it. Renovate leaves those peers alone; the devDependencies carry the Pi the package is built against.",
