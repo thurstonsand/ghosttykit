@@ -37,12 +37,6 @@ checksum_source = "mise-versions"
 url = "https://github.com/herdrdev/herdr/releases/download/v0.9.5/herdr-macos-aarch64"
 url_api = "https://api.github.com/repos/herdrdev/herdr/releases/assets/640898230"
 
-[tools.herdr."platforms.macos-x64"]
-checksum = "sha256:5fb0a908ec7f6745e3e245738b06bfad56c46391c391ab3c0955fbead01f1369"
-checksum_source = "mise-versions"
-url = "https://github.com/herdrdev/herdr/releases/download/v0.9.5/herdr-macos-x86_64"
-url_api = "https://api.github.com/repos/herdrdev/herdr/releases/assets/640898229"
-
 [tools.herdr."platforms.windows-x64"]
 checksum = "sha256:d2c6c9c971c43a0bfdde8c692a9a1a7a45c3e4807cd01ae45662b4734fac1cbf"
 checksum_source = "mise-versions"

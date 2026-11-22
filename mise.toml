@@ -2,6 +2,9 @@ min_version = "2026.11.1"
 monorepo_root = true
 
 [settings]
+# hk publishes no Intel macOS build, so no lockfile can cover that platform; locks cover every
+# other platform mise locks by default.
+lockfile_platforms = ["linux-x64", "linux-x64-musl", "linux-arm64", "linux-arm64-musl", "macos-arm64", "windows-x64"]
 # Every tool, and every package mise locks under it, waits 3 days after release, like Renovate.
 minimum_release_age = "3d"
 
@@ -66,7 +69,6 @@ version = "0.65.1"
 [tools.swiftlint.platforms]
 linux-x64.rename_exe = { "swiftlint" = "swiftlint-glibc", "swiftlint-static" = "swiftlint" }
 linux-arm64.rename_exe = { "swiftlint" = "swiftlint-glibc", "swiftlint-static" = "swiftlint" }
-macos-x64.asset_pattern = "portable_swiftlint.zip"
 macos-arm64.asset_pattern = "portable_swiftlint.zip"
 
 [tool_alias]
