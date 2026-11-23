@@ -117,6 +117,8 @@ outputs = ["sdk/ts/node_modules/.package-lock.json"]
 
 [tasks."deps:pi"]
 description = "Install Pi paste dependencies"
+# npm runs the linked TypeScript SDK's prepare script when installing pi-paste.
+depends = ["deps:ts"]
 run = "npm --prefix pi/pi-paste ci --quiet --no-fund --no-audit"
 sources = ["pi/pi-paste/package.json", "pi/pi-paste/package-lock.json"]
 outputs = ["pi/pi-paste/node_modules/.package-lock.json"]
