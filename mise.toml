@@ -54,7 +54,7 @@ neovim = "0.12.6"
 golangci-lint = "2.15.0"
 gofumpt = "0.12.0"
 biome = "2.6.8"
-markdownlint-cli2 = "0.24.1"
+markdownlint-cli2 = "0.24.2"
 shellcheck = "0.11.0"
 stylua = "2.6.0"
 swiftformat = "0.64.7"
@@ -146,8 +146,9 @@ run = [
 ]
 
 [tasks."release:lint"]
-description = "Verify RELEASE.md headings and that its newest release matches the npm package versions"
-run = "scripts/check-release-notes.sh >/dev/null"
+description = "Verify RELEASE.md headings, npm package versions, and Pi changelog parsing"
+depends = ["deps:pi"]
+run = ["scripts/check-release-notes.sh >/dev/null", "node pi/pi-paste/check-changelog.mjs"]
 
 [tasks.release]
 description = "Release a stable version: date the Unreleased notes, set the package versions, commit, tag, and push"

@@ -20,7 +20,7 @@ The daemon's bundle version and the Homebrew formula version have no checked-in 
 
 ### Release notes
 
-`RELEASE.md` is the changelog for the whole monorepo, since every package versions in lockstep. Its sections are `## [Unreleased]` followed by `## [x.y.z] - YYYY-MM-DD`, newest first. `mise run release:lint`, part of `mise run check` and CI, fails if any other `##` heading appears, if releases do not strictly descend, or if the newest release is not the version in the npm packages' `package.json`.
+`RELEASE.md` is the changelog for the whole monorepo, since every package versions in lockstep. Its sections are `## [Unreleased]` followed by `## [x.y.z] - YYYY-MM-DD`, newest first. `mise run release:lint`, part of `mise run check` and CI, fails if any other `##` heading appears, if releases do not strictly descend, or if the newest release is not the version in the npm packages' `package.json`. It also runs Pi's changelog reader and checks that Pi recognizes every released version.
 
 ### Homebrew tap
 
