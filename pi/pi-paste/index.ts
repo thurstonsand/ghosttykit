@@ -10,7 +10,7 @@ export default function piPaste(pi: ExtensionAPI): void {
       const result = await receivePaste(settings.outputDir);
 
       ctx.ui.pasteToEditor(result.editorText);
-      // pasteToEditor never schedules a TUI render, so the pasted text stays hidden until the next keypress; clearing an unset status is the cheapest public call that does.
+      // Pi before 1.6.1 does not redraw after an async pasteToEditor call; clearing an unset status requests a redraw.
       ctx.ui.setStatus("pi-paste", undefined);
       if (result.notification) {
         ctx.ui.notify(result.notification, "info");
