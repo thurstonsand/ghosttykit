@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Pi paste now requires Pi 1.6.1 or newer. Alt+V and `/paste` still work as before; the extension relies on Pi to redraw pasted text.
+
 ## [0.8.1] - 2026-11-10
 
 Pi paste ships its changelog and declares its Node floor.

@@ -2,6 +2,8 @@
 
 Paste your Mac clipboard into a remote Pi session.
 
+Requires Pi 1.6.1 or newer.
+
 `@thurstonsand/pi-paste` adds an `alt+v` shortcut and a `/paste` command to Pi. When Pi is running over `gty ssh`, it reaches back through the GhosttyKit bridge with the GhosttyKit TypeScript SDK, reads the clipboard from your local Mac, and inserts it into the remote prompt editor.
 
 That means you can copy something on your Mac and paste it into a coding agent running on another machine. Text is inserted directly. Files, screenshots, PDFs, and Finder copies are written on the remote host and inserted as `@file` references so Pi can read them.
