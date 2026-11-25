@@ -25,6 +25,7 @@ jobs:
         uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
         with:
           minimum_release_age: 3d
+          auto_update: true
           install: true
           cache: true
 
@@ -60,6 +61,7 @@ jobs:
         uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
         with:
           minimum_release_age: 3d
+          auto_update: true
           install: true
           cache: true
 
@@ -99,6 +101,7 @@ jobs:
         uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
         with:
           minimum_release_age: 3d
+          auto_update: true
           install: true
           cache: true
 
@@ -140,6 +143,7 @@ jobs:
         uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
         with:
           minimum_release_age: 3d
+          auto_update: true
           install: true
           cache: true
 
@@ -150,6 +154,9 @@ jobs:
           key: npm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('sdk/ts/package-lock.json', 'pi/pi-paste/package-lock.json') }}
           restore-keys: |
             npm-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Install TypeScript and Pi dependencies
+        run: mise run deps:pi
 
       - parallel:
           - name: Check TypeScript SDK
@@ -181,6 +188,7 @@ jobs:
         uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
         with:
           minimum_release_age: 3d
+          auto_update: true
           install: true
           cache: true
 
