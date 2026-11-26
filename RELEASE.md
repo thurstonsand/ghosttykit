@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Pi paste's `/paste` says it needs Pi's terminal UI when Pi runs without one, such as `pi --mode rpc` under T3 Code, instead of fetching the clipboard and dropping it. Paste with that client instead.
+
 ## [0.8.2] - 2026-11-25
 
 ### Changed

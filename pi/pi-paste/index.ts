@@ -6,6 +6,10 @@ export default function piPaste(pi: ExtensionAPI): void {
   const settings = loadSettings();
 
   async function paste(ctx: ExtensionContext): Promise<void> {
+    if (ctx.mode !== "tui") {
+      ctx.ui.notify("/paste needs Pi's terminal UI. Paste with your client instead.", "warning");
+      return;
+    }
     try {
       const result = await receivePaste(settings.outputDir);
 
