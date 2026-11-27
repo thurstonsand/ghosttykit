@@ -47,7 +47,7 @@
     "typebox": "*"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.6.8",
+    "@biomejs/biome": "2.6.9",
     "@earendil-works/pi-coding-agent": "^1.6.1",
     "@earendil-works/pi-tui": "^1.6.1",
     "@types/node": "^22.20.5",
